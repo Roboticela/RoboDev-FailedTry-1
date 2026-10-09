@@ -2,6 +2,7 @@
 
 #include "XmlNode.hpp"
 #include "Robo/Button.hpp"
+#include "Robo/Flexbox.hpp"
 #include "Robo/FontEngine.hpp"
 #include "Robo/Heading.hpp"
 #include "Robo/IPlatform.hpp"
@@ -42,10 +43,14 @@ private:
     Paragraph BuildParagraph(const XmlNode& node);
     Button BuildButton(const XmlNode& node);
     Input BuildInput(const XmlNode& node);
+    Flexbox BuildFlexbox(const XmlNode& node);
+
     void FillTextContent(Text& text, const XmlNode& node, TextStyle style);
     void ApplyTextAttributes(const XmlNode& node, TextStyle& style) const;
     void ApplyButtonAttributes(const XmlNode& node, ButtonStyle& style) const;
     void ApplyInputAttributes(const XmlNode& node, InputStyle& style) const;
+    void ApplyFlexboxAttributes(const XmlNode& node, FlexboxStyle& style) const;
+    void ApplyFlexItemAttributes(const XmlNode& node, FlexItemProps& props) const;
     void ApplyRunAttributes(const XmlNode& node, TextRun& run) const;
     void CollectRuns(const XmlNode& node, const TextStyle& baseStyle, std::vector<TextRun>& runs);
     std::string CollectPlainText(const XmlNode& node) const;

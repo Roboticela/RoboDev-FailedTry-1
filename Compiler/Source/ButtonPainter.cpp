@@ -91,13 +91,40 @@ void FillRoundedRect(FrameBuffer& buffer,
 
 }  // namespace
 
+ButtonMeasureResult ButtonPainter::Measure(const FontEngine& fonts,
+                                           const Button& button,
+                                           float pixelScale) {
+    const float scale = std::max(0.5f, pixelScale);
+    const ButtonStyle& style = button.GetStyle();
+    const std::string label = CollapseToSingleLine(button.GetLabel());
+    const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
+    const float fontSize = static_cast<float>(style.fontSize) * scale;
+    const float letterSpacing = static_cast<float>(style.letterSpacing) * scale;
+
+    const float textWidth = fonts.MeasureWidth(label, fontSize, faceId, letterSpacing);
+    const float ascent = fonts.GetAscent(fontSize, faceId);
+    const float descent = fonts.GetDescent(fontSize, faceId);
+    const float textHeight = std::max(fontSize, ascent + descent);
+
+    const float paddingX = static_cast<float>(style.paddingX) * scale;
+    const float paddingY = static_cast<float>(style.paddingY) * scale;
+
+    ButtonMeasureResult result;
+    result.width = textWidth + paddingX * 2.0f;
+    result.height = textHeight + paddingY * 2.0f;
+    result.advanceY = result.height + 16.0f * scale;
+    return result;
+}
+
 ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
                                        const FontEngine& fonts,
                                        Button& button,
                                        float originX,
                                        float originY,
                                        float containerWidth,
-                                       float pixelScale) {
+                                       float pixelScale,
+                                       float forcedWidth,
+                                       float forcedHeight) {
     const float scale = std::max(0.5f, pixelScale);
     const ButtonStyle& style = button.GetStyle();
     const std::string label = CollapseToSingleLine(button.GetLabel());
@@ -115,14 +142,19 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
 
     const float paddingX = static_cast<float>(style.paddingX) * scale;
     const float paddingY = static_cast<float>(style.paddingY) * scale;
-    const float buttonWidth = textWidth + paddingX * 2.0f;
-    const float buttonHeight = textHeight + paddingY * 2.0f;
+    const float naturalWidth = textWidth + paddingX * 2.0f;
+    const float naturalHeight = textHeight + paddingY * 2.0f;
+
+    const float buttonWidth = forcedWidth > 0.0f ? forcedWidth : naturalWidth;
+    const float buttonHeight = forcedHeight > 0.0f ? forcedHeight : naturalHeight;
 
     float buttonX = originX;
-    if (style.align == TextAlign::Center) {
-        buttonX = originX + std::max(0.0f, (containerWidth - buttonWidth) * 0.5f);
-    } else if (style.align == TextAlign::Right) {
-        buttonX = originX + std::max(0.0f, containerWidth - buttonWidth);
+    if (forcedWidth <= 0.0f) {
+        if (style.align == TextAlign::Center) {
+            buttonX = originX + std::max(0.0f, (containerWidth - buttonWidth) * 0.5f);
+        } else if (style.align == TextAlign::Right) {
+            buttonX = originX + std::max(0.0f, containerWidth - buttonWidth);
+        }
     }
 
     const float buttonY = originY;
@@ -139,8 +171,15 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
                         opacity);
     }
 
-    const float textX = buttonX + paddingX;
-    const float baseline = buttonY + paddingY + ascent + pressOffset;
+    float textX = buttonX + paddingX;
+    if (buttonWidth > naturalWidth) {
+        textX = buttonX + (buttonWidth - textWidth) * 0.5f;
+    }
+    float baseline = buttonY + paddingY + ascent + pressOffset;
+    if (buttonHeight > naturalHeight) {
+        baseline = buttonY + (buttonHeight - textHeight) * 0.5f + ascent + pressOffset;
+    }
+
     fonts.DrawString(buffer,
                      textX,
                      baseline,

@@ -72,6 +72,32 @@ body {
   letter-spacing: 0.04em;
 }
 
+.ExampleSelectorWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ExampleSelect {
+  background: #0B0F14;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.ExampleSelect:hover,
+.ExampleSelect:focus {
+  border-color: var(--accent);
+}
+
 .Status {
   font-size: 13px;
   color: var(--muted);

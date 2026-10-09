@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Button.hpp"
+#include "Flexbox.hpp"
 #include "FontEngine.hpp"
 #include "FrameBuffer.hpp"
 #include "IPlatform.hpp"
@@ -15,7 +16,8 @@ namespace Robo {
 enum class SceneItemKind {
     Text,
     Button,
-    Input
+    Input,
+    Flexbox
 };
 
 enum class HitKind {
@@ -29,6 +31,7 @@ struct SceneItem {
     Text text;
     Button button;
     Input input;
+    Flexbox flexbox;
 };
 
 class RoboScene {
@@ -37,6 +40,7 @@ public:
     void AddText(Text text);
     void AddButton(Button button);
     void AddInput(Input input);
+    void AddFlexbox(Flexbox flexbox);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     bool PointerMove(float x, float y);
@@ -55,17 +59,23 @@ public:
     bool HasFocusedInput() const;
 
 private:
-    int HitTestButton(float x, float y) const;
-    int HitTestInput(float x, float y) const;
-    bool SetHoverIndex(int index);
-    bool SetPressedIndex(int index);
-    bool SetFocusedInput(int index);
+    Button* FindButtonAt(float x, float y);
+    Input* FindInputAt(float x, float y);
+    const Button* FindButtonAt(float x, float y) const;
+    const Input* FindInputAt(float x, float y) const;
+
+    bool SetHoveredButton(Button* button);
+    bool SetHoveredInput(Input* input);
+    bool SetPressedButton(Button* button);
+    bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
 
     std::vector<SceneItem> items_;
-    int hoveredIndex_ = -1;
-    int pressedIndex_ = -1;
-    int focusedInputIndex_ = -1;
+    Button* hoveredButton_ = nullptr;
+    Input* hoveredInput_ = nullptr;
+    Button* pressedButton_ = nullptr;
+    Input* focusedInput_ = nullptr;
+
     Color background_ = Color::FromHex("#F7F3EB");
     float padding_ = 28.0f;
     IPlatform* platform_ = nullptr;

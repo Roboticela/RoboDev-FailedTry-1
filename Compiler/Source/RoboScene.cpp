@@ -1,5 +1,6 @@
 #include "Robo/RoboScene.hpp"
 #include "Robo/ButtonPainter.hpp"
+#include "Robo/FlexboxPainter.hpp"
 #include "Robo/InputPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
@@ -58,13 +59,113 @@ void ScaleBounds(InputBounds& bounds, float inv) {
     bounds.height *= inv;
 }
 
+void ScaleBounds(FlexboxBounds& bounds, float inv) {
+    bounds.x *= inv;
+    bounds.y *= inv;
+    bounds.width *= inv;
+    bounds.height *= inv;
+}
+
+void ScaleFlexboxBounds(Flexbox& flexbox, float inv) {
+    FlexboxBounds fb = flexbox.GetBounds();
+    ScaleBounds(fb, inv);
+    flexbox.SetBounds(fb);
+
+    for (FlexboxItem& item : flexbox.GetItems()) {
+        if (item.kind == FlexItemKind::Button) {
+            ButtonBounds bb = item.button.GetBounds();
+            ScaleBounds(bb, inv);
+            item.button.SetBounds(bb);
+        } else if (item.kind == FlexItemKind::Input) {
+            InputBounds ib = item.input.GetBounds();
+            ScaleBounds(ib, inv);
+            item.input.SetBounds(ib);
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            ScaleFlexboxBounds(*item.flexbox, inv);
+        }
+    }
+}
+
+Button* FindButtonInFlexbox(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::Button) {
+            if (item.button.GetBounds().Contains(x, y)) {
+                return &item.button;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            Button* found = FindButtonInFlexbox(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+Input* FindInputInFlexbox(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::Input) {
+            if (item.input.GetBounds().Contains(x, y)) {
+                return &item.input;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            Input* found = FindInputInFlexbox(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+const Button* FindButtonInFlexboxConst(const Flexbox& flexbox, float x, float y) {
+    const std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        const FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::Button) {
+            if (item.button.GetBounds().Contains(x, y)) {
+                return &item.button;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            const Button* found = FindButtonInFlexboxConst(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+const Input* FindInputInFlexboxConst(const Flexbox& flexbox, float x, float y) {
+    const std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        const FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::Input) {
+            if (item.input.GetBounds().Contains(x, y)) {
+                return &item.input;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            const Input* found = FindInputInFlexboxConst(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 }  // namespace
 
 void RoboScene::Clear() {
     items_.clear();
-    hoveredIndex_ = -1;
-    pressedIndex_ = -1;
-    focusedInputIndex_ = -1;
+    hoveredButton_ = nullptr;
+    hoveredInput_ = nullptr;
+    pressedButton_ = nullptr;
+    focusedInput_ = nullptr;
 }
 
 void RoboScene::AddText(Text text) {
@@ -85,6 +186,13 @@ void RoboScene::AddInput(Input input) {
     SceneItem item;
     item.kind = SceneItemKind::Input;
     item.input = std::move(input);
+    items_.push_back(std::move(item));
+}
+
+void RoboScene::AddFlexbox(Flexbox flexbox) {
+    SceneItem item;
+    item.kind = SceneItemKind::Flexbox;
+    item.flexbox = std::move(flexbox);
     items_.push_back(std::move(item));
 }
 
@@ -120,6 +228,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     const float pad = padding * paintScale;
     const float contentWidth = static_cast<float>(width * superSample) - pad * 2.0f;
     float cursorY = pad;
+
     for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
         SceneItem& item = items_[static_cast<std::size_t>(i)];
         if (item.kind == SceneItemKind::Text) {
@@ -134,11 +243,11 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 item.button.SetBounds(bounds);
             }
         } else if (item.kind == SceneItemKind::Input) {
-            if (i == focusedInputIndex_) {
+            if (&item.input == focusedInput_) {
                 item.input.SetInteraction(InputInteraction::Focused);
-            } else if (i == hoveredIndex_ && item.input.GetInteraction() != InputInteraction::Focused) {
+            } else if (&item.input == hoveredInput_ && item.input.GetInteraction() != InputInteraction::Focused) {
                 item.input.SetInteraction(InputInteraction::Hovered);
-            } else if (i != focusedInputIndex_) {
+            } else if (&item.input != focusedInput_) {
                 item.input.SetInteraction(InputInteraction::Normal);
             }
 
@@ -149,6 +258,13 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 InputBounds bounds = item.input.GetBounds();
                 ScaleBounds(bounds, 1.0f / static_cast<float>(superSample));
                 item.input.SetBounds(bounds);
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            const FlexboxPaintResult painted =
+                FlexboxPainter::Paint(hiRes, fonts, item.flexbox, pad, cursorY, contentWidth, paintScale);
+            cursorY += painted.advanceY;
+            if (superSample > 1) {
+                ScaleFlexboxBounds(item.flexbox, 1.0f / static_cast<float>(superSample));
             }
         }
     }
@@ -162,35 +278,79 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     }
 }
 
-int RoboScene::HitTestButton(float x, float y) const {
+Button* RoboScene::FindButtonAt(float x, float y) {
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
-        if (items_[static_cast<std::size_t>(i)].kind != SceneItemKind::Button) {
-            continue;
-        }
-        if (items_[static_cast<std::size_t>(i)].button.GetBounds().Contains(x, y)) {
-            return i;
+        SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Button) {
+            if (item.button.GetBounds().Contains(x, y)) {
+                return &item.button;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            Button* found = FindButtonInFlexbox(item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
         }
     }
-    return -1;
+    return nullptr;
 }
 
-int RoboScene::HitTestInput(float x, float y) const {
+Input* RoboScene::FindInputAt(float x, float y) {
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
-        if (items_[static_cast<std::size_t>(i)].kind != SceneItemKind::Input) {
-            continue;
-        }
-        if (items_[static_cast<std::size_t>(i)].input.GetBounds().Contains(x, y)) {
-            return i;
+        SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Input) {
+            if (item.input.GetBounds().Contains(x, y)) {
+                return &item.input;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            Input* found = FindInputInFlexbox(item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
         }
     }
-    return -1;
+    return nullptr;
+}
+
+const Button* RoboScene::FindButtonAt(float x, float y) const {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        const SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Button) {
+            if (item.button.GetBounds().Contains(x, y)) {
+                return &item.button;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            const Button* found = FindButtonInFlexboxConst(item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+const Input* RoboScene::FindInputAt(float x, float y) const {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        const SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Input) {
+            if (item.input.GetBounds().Contains(x, y)) {
+                return &item.input;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            const Input* found = FindInputInFlexboxConst(item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
 }
 
 HitKind RoboScene::HitTestKind(float x, float y) const {
-    if (HitTestButton(x, y) >= 0) {
+    if (FindButtonAt(x, y)) {
         return HitKind::Button;
     }
-    if (HitTestInput(x, y) >= 0) {
+    if (FindInputAt(x, y)) {
         return HitKind::Input;
     }
     return HitKind::None;
@@ -200,95 +360,84 @@ bool RoboScene::HitTest(float x, float y) const {
     return HitTestKind(x, y) != HitKind::None;
 }
 
-bool RoboScene::SetHoverIndex(int index) {
-    if (hoveredIndex_ == index) {
+bool RoboScene::SetHoveredButton(Button* button) {
+    if (hoveredButton_ == button) {
         return false;
     }
-
-    if (hoveredIndex_ >= 0 && static_cast<std::size_t>(hoveredIndex_) < items_.size()) {
-        SceneItem& previous = items_[static_cast<std::size_t>(hoveredIndex_)];
-        if (previous.kind == SceneItemKind::Button && pressedIndex_ != hoveredIndex_) {
-            previous.button.SetInteraction(ButtonInteraction::Normal);
-        } else if (previous.kind == SceneItemKind::Input && focusedInputIndex_ != hoveredIndex_) {
-            previous.input.SetInteraction(InputInteraction::Normal);
-        }
+    if (hoveredButton_ && hoveredButton_ != pressedButton_) {
+        hoveredButton_->SetInteraction(ButtonInteraction::Normal);
     }
-
-    hoveredIndex_ = index;
-    if (hoveredIndex_ >= 0 && pressedIndex_ != hoveredIndex_) {
-        SceneItem& item = items_[static_cast<std::size_t>(hoveredIndex_)];
-        if (item.kind == SceneItemKind::Button) {
-            item.button.SetInteraction(ButtonInteraction::Hovered);
-        } else if (item.kind == SceneItemKind::Input && focusedInputIndex_ != hoveredIndex_) {
-            item.input.SetInteraction(InputInteraction::Hovered);
-        }
+    hoveredButton_ = button;
+    if (hoveredButton_ && hoveredButton_ != pressedButton_) {
+        hoveredButton_->SetInteraction(ButtonInteraction::Hovered);
     }
     return true;
 }
 
-bool RoboScene::SetPressedIndex(int index) {
-    bool changed = false;
-    if (pressedIndex_ >= 0 && static_cast<std::size_t>(pressedIndex_) < items_.size() &&
-        items_[static_cast<std::size_t>(pressedIndex_)].kind == SceneItemKind::Button) {
-        const ButtonInteraction next =
-            (pressedIndex_ == hoveredIndex_) ? ButtonInteraction::Hovered : ButtonInteraction::Normal;
-        items_[static_cast<std::size_t>(pressedIndex_)].button.SetInteraction(next);
-        changed = true;
-    }
-
-    pressedIndex_ = index;
-    if (pressedIndex_ >= 0 && items_[static_cast<std::size_t>(pressedIndex_)].kind == SceneItemKind::Button) {
-        items_[static_cast<std::size_t>(pressedIndex_)].button.SetInteraction(ButtonInteraction::Pressed);
-        changed = true;
-    }
-    return changed;
-}
-
-bool RoboScene::SetFocusedInput(int index) {
-    if (focusedInputIndex_ == index) {
-        if (index >= 0) {
-            items_[static_cast<std::size_t>(index)].input.SetInteraction(InputInteraction::Focused);
-        }
+bool RoboScene::SetHoveredInput(Input* input) {
+    if (hoveredInput_ == input) {
         return false;
     }
+    if (hoveredInput_ && hoveredInput_ != focusedInput_) {
+        hoveredInput_->SetInteraction(InputInteraction::Normal);
+    }
+    hoveredInput_ = input;
+    if (hoveredInput_ && hoveredInput_ != focusedInput_) {
+        hoveredInput_->SetInteraction(InputInteraction::Hovered);
+    }
+    return true;
+}
 
-    bool changed = false;
-    if (focusedInputIndex_ >= 0 && static_cast<std::size_t>(focusedInputIndex_) < items_.size() &&
-        items_[static_cast<std::size_t>(focusedInputIndex_)].kind == SceneItemKind::Input) {
+bool RoboScene::SetPressedButton(Button* button) {
+    if (pressedButton_ == button) {
+        return false;
+    }
+    if (pressedButton_) {
+        const ButtonInteraction next =
+            (pressedButton_ == hoveredButton_) ? ButtonInteraction::Hovered : ButtonInteraction::Normal;
+        pressedButton_->SetInteraction(next);
+    }
+    pressedButton_ = button;
+    if (pressedButton_) {
+        pressedButton_->SetInteraction(ButtonInteraction::Pressed);
+    }
+    return true;
+}
+
+bool RoboScene::SetFocusedInput(Input* input) {
+    if (focusedInput_ == input) {
+        return false;
+    }
+    if (focusedInput_) {
         const InputInteraction next =
-            (focusedInputIndex_ == hoveredIndex_) ? InputInteraction::Hovered : InputInteraction::Normal;
-        items_[static_cast<std::size_t>(focusedInputIndex_)].input.SetInteraction(next);
-        changed = true;
+            (focusedInput_ == hoveredInput_) ? InputInteraction::Hovered : InputInteraction::Normal;
+        focusedInput_->SetInteraction(next);
     }
-
-    focusedInputIndex_ = index;
-    if (focusedInputIndex_ >= 0) {
-        Input& input = items_[static_cast<std::size_t>(focusedInputIndex_)].input;
-        input.SetInteraction(InputInteraction::Focused);
-        input.SetCaretIndex(input.GetValue().size());
-        changed = true;
+    focusedInput_ = input;
+    if (focusedInput_) {
+        focusedInput_->SetInteraction(InputInteraction::Focused);
+        focusedInput_->SetCaretIndex(focusedInput_->GetValue().size());
     }
-    return changed;
+    return true;
 }
 
 bool RoboScene::PointerMove(float x, float y) {
-    if (pressedIndex_ >= 0 && items_[static_cast<std::size_t>(pressedIndex_)].kind == SceneItemKind::Button) {
-        const bool inside = HitTestButton(x, y) == pressedIndex_;
+    if (pressedButton_) {
+        const bool inside = FindButtonAt(x, y) == pressedButton_;
         const ButtonInteraction next = inside ? ButtonInteraction::Pressed : ButtonInteraction::Hovered;
-        Button& button = items_[static_cast<std::size_t>(pressedIndex_)].button;
-        if (button.GetInteraction() != next) {
-            button.SetInteraction(next);
+        if (pressedButton_->GetInteraction() != next) {
+            pressedButton_->SetInteraction(next);
             RerenderIfPossible();
             return true;
         }
         return false;
     }
 
-    int hover = HitTestButton(x, y);
-    if (hover < 0) {
-        hover = HitTestInput(x, y);
-    }
-    const bool changed = SetHoverIndex(hover);
+    Button* button = FindButtonAt(x, y);
+    Input* input = button ? nullptr : FindInputAt(x, y);
+
+    bool changed = SetHoveredButton(button);
+    changed = SetHoveredInput(input) || changed;
     if (changed) {
         RerenderIfPossible();
     }
@@ -296,21 +445,25 @@ bool RoboScene::PointerMove(float x, float y) {
 }
 
 bool RoboScene::PointerDown(float x, float y) {
-    const int buttonIndex = HitTestButton(x, y);
-    const int inputIndex = HitTestInput(x, y);
+    Button* button = FindButtonAt(x, y);
+    Input* input = button ? nullptr : FindInputAt(x, y);
 
     bool changed = false;
-    if (buttonIndex >= 0) {
-        changed = SetFocusedInput(-1) || changed;
-        changed = SetPressedIndex(buttonIndex) || changed;
-        hoveredIndex_ = buttonIndex;
-    } else if (inputIndex >= 0) {
-        changed = SetPressedIndex(-1) || changed;
-        changed = SetFocusedInput(inputIndex) || changed;
-        hoveredIndex_ = inputIndex;
+    if (button) {
+        changed = SetFocusedInput(nullptr) || changed;
+        changed = SetPressedButton(button) || changed;
+        changed = SetHoveredButton(button) || changed;
+        changed = SetHoveredInput(nullptr) || changed;
+    } else if (input) {
+        changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedInput(input) || changed;
+        changed = SetHoveredInput(input) || changed;
+        changed = SetHoveredButton(nullptr) || changed;
     } else {
-        changed = SetPressedIndex(-1) || changed;
-        changed = SetFocusedInput(-1) || changed;
+        changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedInput(nullptr) || changed;
+        changed = SetHoveredButton(nullptr) || changed;
+        changed = SetHoveredInput(nullptr) || changed;
     }
 
     if (changed) {
@@ -320,14 +473,12 @@ bool RoboScene::PointerDown(float x, float y) {
 }
 
 bool RoboScene::PointerUp(float x, float y) {
-    bool changed = SetPressedIndex(-1);
-    int hover = HitTestButton(x, y);
-    if (hover < 0) {
-        hover = HitTestInput(x, y);
-    }
-    if (SetHoverIndex(hover)) {
-        changed = true;
-    }
+    bool changed = SetPressedButton(nullptr);
+    Button* button = FindButtonAt(x, y);
+    Input* input = button ? nullptr : FindInputAt(x, y);
+
+    changed = SetHoveredButton(button) || changed;
+    changed = SetHoveredInput(input) || changed;
     if (changed) {
         RerenderIfPossible();
     }
@@ -336,11 +487,14 @@ bool RoboScene::PointerUp(float x, float y) {
 
 bool RoboScene::PointerLeave() {
     bool changed = false;
-    if (pressedIndex_ >= 0) {
-        changed = SetPressedIndex(-1) || changed;
+    if (pressedButton_) {
+        changed = SetPressedButton(nullptr) || changed;
     }
-    if (hoveredIndex_ >= 0) {
-        changed = SetHoverIndex(-1) || changed;
+    if (hoveredButton_) {
+        changed = SetHoveredButton(nullptr) || changed;
+    }
+    if (hoveredInput_) {
+        changed = SetHoveredInput(nullptr) || changed;
     }
     if (changed) {
         RerenderIfPossible();
@@ -349,15 +503,14 @@ bool RoboScene::PointerLeave() {
 }
 
 bool RoboScene::HasFocusedInput() const {
-    return focusedInputIndex_ >= 0;
+    return focusedInput_ != nullptr;
 }
 
 bool RoboScene::KeyInsert(const std::string& utf8) {
-    if (focusedInputIndex_ < 0) {
+    if (!focusedInput_) {
         return false;
     }
-    Input& input = items_[static_cast<std::size_t>(focusedInputIndex_)].input;
-    if (!input.InsertText(utf8)) {
+    if (!focusedInput_->InsertText(utf8)) {
         return false;
     }
     RerenderIfPossible();
@@ -365,11 +518,10 @@ bool RoboScene::KeyInsert(const std::string& utf8) {
 }
 
 bool RoboScene::KeyBackspace() {
-    if (focusedInputIndex_ < 0) {
+    if (!focusedInput_) {
         return false;
     }
-    Input& input = items_[static_cast<std::size_t>(focusedInputIndex_)].input;
-    if (!input.DeleteBackward()) {
+    if (!focusedInput_->DeleteBackward()) {
         return false;
     }
     RerenderIfPossible();
@@ -377,11 +529,10 @@ bool RoboScene::KeyBackspace() {
 }
 
 bool RoboScene::KeyDelete() {
-    if (focusedInputIndex_ < 0) {
+    if (!focusedInput_) {
         return false;
     }
-    Input& input = items_[static_cast<std::size_t>(focusedInputIndex_)].input;
-    if (!input.DeleteForward()) {
+    if (!focusedInput_->DeleteForward()) {
         return false;
     }
     RerenderIfPossible();
@@ -389,11 +540,10 @@ bool RoboScene::KeyDelete() {
 }
 
 bool RoboScene::KeyLeft() {
-    if (focusedInputIndex_ < 0) {
+    if (!focusedInput_) {
         return false;
     }
-    Input& input = items_[static_cast<std::size_t>(focusedInputIndex_)].input;
-    if (!input.MoveCaretLeft()) {
+    if (!focusedInput_->MoveCaretLeft()) {
         return false;
     }
     RerenderIfPossible();
@@ -401,11 +551,10 @@ bool RoboScene::KeyLeft() {
 }
 
 bool RoboScene::KeyRight() {
-    if (focusedInputIndex_ < 0) {
+    if (!focusedInput_) {
         return false;
     }
-    Input& input = items_[static_cast<std::size_t>(focusedInputIndex_)].input;
-    if (!input.MoveCaretRight()) {
+    if (!focusedInput_->MoveCaretRight()) {
         return false;
     }
     RerenderIfPossible();
@@ -413,10 +562,10 @@ bool RoboScene::KeyRight() {
 }
 
 bool RoboScene::KeyEscape() {
-    if (focusedInputIndex_ < 0) {
+    if (!focusedInput_) {
         return false;
     }
-    const bool changed = SetFocusedInput(-1);
+    const bool changed = SetFocusedInput(nullptr);
     if (changed) {
         RerenderIfPossible();
     }

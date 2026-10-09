@@ -260,12 +260,57 @@ function WireCanvasInteraction() {
   });
 }
 
-async function LoadDefaultXml() {
-  const response = await fetch("../Examples/Home.xml");
+const exampleSelector = document.getElementById("exampleSelector");
+
+async function LoadXmlFile(filename) {
+  const response = await fetch(`../Examples/${filename}`);
   if (!response.ok) {
-    throw new Error("Failed to load Examples/Home.xml");
+    throw new Error(`Failed to load Examples/${filename}`);
   }
   return await response.text();
+}
+
+async function LoadInitialXml() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const requested = urlParams.get("example");
+  let filename = "Flebbox.xml";
+  if (requested) {
+    filename = requested.endsWith(".xml") ? requested : `${requested}.xml`;
+  }
+  if (exampleSelector) {
+    // If option exists, select it
+    const option = Array.from(exampleSelector.options).find((opt) => opt.value.toLowerCase() === filename.toLowerCase());
+    if (option) {
+      exampleSelector.value = option.value;
+      filename = option.value;
+    }
+  }
+  try {
+    return await LoadXmlFile(filename);
+  } catch (_) {
+    return await LoadXmlFile("Flebbox.xml");
+  }
+}
+
+function WireExampleSelector() {
+  if (!exampleSelector) {
+    return;
+  }
+  exampleSelector.addEventListener("change", async () => {
+    const filename = exampleSelector.value;
+    try {
+      SetStatus(`Loading ${filename}…`);
+      const xmlContent = await LoadXmlFile(filename);
+      if (editorView) {
+        editorView.dispatch({
+          changes: { from: 0, to: editorView.state.doc.length, insert: xmlContent },
+        });
+      }
+      RenderPreview(xmlContent);
+    } catch (error) {
+      ShowError(String(error));
+    }
+  });
 }
 
 function CreateEditor(initialXml) {
@@ -348,6 +393,7 @@ function WireSplitter() {
 
 async function Boot() {
   WireSplitter();
+  WireExampleSelector();
   SetStatus("Loading WASM…");
 
   if (typeof CreateRoboModule !== "function") {
@@ -360,7 +406,7 @@ async function Boot() {
     locateFile: (path) => `../Build/Web/${path}`,
   });
 
-  const initialXml = await LoadDefaultXml();
+  const initialXml = await LoadInitialXml();
   CreateEditor(initialXml);
   WireCanvasInteraction();
   RenderPreview(initialXml);

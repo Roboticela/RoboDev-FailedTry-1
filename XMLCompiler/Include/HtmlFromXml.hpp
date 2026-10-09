@@ -17,6 +17,7 @@ private:
     std::string BuildSpanHtml(const XmlNode& node) const;
     std::string BuildButtonHtml(const XmlNode& node) const;
     std::string BuildInputHtml(const XmlNode& node) const;
+    std::string BuildFlexboxHtml(const XmlNode& node) const;
     std::string StyleFromAttributes(const XmlNode& node, bool isBlock) const;
     int ParseHeadingLevel(const XmlNode& node) const;
 };

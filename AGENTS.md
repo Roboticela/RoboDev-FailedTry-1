@@ -10,7 +10,6 @@ Container
 ✅ - Button (Apple-style; label sizes the control; single-line text, no wrap)
 ✅ - Input (Apple-style; filled / bordered / plain; focus ring; placeholder; caret typing)
 Scrollbar
-Scrollbar
 Dropdown
 Icons
 Menu
@@ -20,6 +19,16 @@ Ellipse/Circle
 Rectangle
 Polygon
 Star
+✅ - Flexbox
+Grid
+Position
+Checkbox
+Radio
+Toggle
+Slider
+List
+Table
+
 
 Use the current which already exists as folders to make everything and put everything correctly in these structure. I want to build first for the web so build it for the web platform first but the implementation must be independant of everything so we will just need to put implementation in RoboPlatforms and must not need any other changes to the code. Use the WebAssembly for web and on request of the page the HTMl will be provided too which will be made of the XML so we can get the best SEO.
 

@@ -154,13 +154,44 @@ void DrawPlainUnderline(FrameBuffer& buffer,
 
 }  // namespace
 
+InputMeasureResult InputPainter::Measure(const FontEngine& fonts,
+                                        const Input& input,
+                                        float containerWidth,
+                                        float pixelScale) {
+    const float scale = std::max(0.5f, pixelScale);
+    const InputStyle& style = input.GetStyle();
+    const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
+    const float fontSize = static_cast<float>(style.fontSize) * scale;
+
+    const float ascent = fonts.GetAscent(fontSize, faceId);
+    const float descent = fonts.GetDescent(fontSize, faceId);
+    const float textHeight = std::max(fontSize, ascent + descent);
+    const float paddingY = static_cast<float>(style.paddingY) * scale;
+
+    const float logicalContainer = containerWidth / scale;
+    float fieldWidth = TextPainter::ResolveWidthValue(style.width, logicalContainer) * scale;
+    fieldWidth = std::max(fieldWidth, static_cast<float>(style.minWidth) * scale);
+    if (containerWidth > 0.0f) {
+        fieldWidth = std::min(fieldWidth, containerWidth);
+    }
+    const float fieldHeight = textHeight + paddingY * 2.0f;
+
+    InputMeasureResult result;
+    result.width = fieldWidth;
+    result.height = fieldHeight;
+    result.advanceY = fieldHeight + 16.0f * scale;
+    return result;
+}
+
 InputPaintResult InputPainter::Paint(FrameBuffer& buffer,
                                      const FontEngine& fonts,
                                      Input& input,
                                      float originX,
                                      float originY,
                                      float containerWidth,
-                                     float pixelScale) {
+                                     float pixelScale,
+                                     float forcedWidth,
+                                     float forcedHeight) {
     const float scale = std::max(0.5f, pixelScale);
     const InputStyle& style = input.GetStyle();
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
@@ -178,16 +209,21 @@ InputPaintResult InputPainter::Paint(FrameBuffer& buffer,
     const float paddingY = static_cast<float>(style.paddingY) * scale;
 
     const float logicalContainer = containerWidth / scale;
-    float fieldWidth = TextPainter::ResolveWidthValue(style.width, logicalContainer) * scale;
-    fieldWidth = std::max(fieldWidth, static_cast<float>(style.minWidth) * scale);
-    fieldWidth = std::min(fieldWidth, containerWidth);
-    const float fieldHeight = textHeight + paddingY * 2.0f;
+    float naturalWidth = TextPainter::ResolveWidthValue(style.width, logicalContainer) * scale;
+    naturalWidth = std::max(naturalWidth, static_cast<float>(style.minWidth) * scale);
+    naturalWidth = std::min(naturalWidth, containerWidth);
+    const float naturalHeight = textHeight + paddingY * 2.0f;
+
+    const float fieldWidth = forcedWidth > 0.0f ? forcedWidth : naturalWidth;
+    const float fieldHeight = forcedHeight > 0.0f ? forcedHeight : naturalHeight;
 
     float fieldX = originX;
-    if (style.align == TextAlign::Center) {
-        fieldX = originX + std::max(0.0f, (containerWidth - fieldWidth) * 0.5f);
-    } else if (style.align == TextAlign::Right) {
-        fieldX = originX + std::max(0.0f, containerWidth - fieldWidth);
+    if (forcedWidth <= 0.0f) {
+        if (style.align == TextAlign::Center) {
+            fieldX = originX + std::max(0.0f, (containerWidth - fieldWidth) * 0.5f);
+        } else if (style.align == TextAlign::Right) {
+            fieldX = originX + std::max(0.0f, containerWidth - fieldWidth);
+        }
     }
     const float fieldY = originY;
 

@@ -369,7 +369,155 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
         return BuildInputHtml(node);
     }
 
+    if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {
+        return BuildFlexboxHtml(node);
+    }
+
     return "";
+}
+
+std::string HtmlFromXml::BuildFlexboxHtml(const XmlNode& node) const {
+    std::ostringstream style;
+    style << "display:flex;box-sizing:border-box;";
+
+    std::string value;
+    if (GetAttribute(node, "direction", value) || GetAttribute(node, "flexDirection", value)) {
+        if (value == "column" || value == "col") {
+            style << "flex-direction:column;";
+        } else if (value == "column-reverse" || value == "col-reverse") {
+            style << "flex-direction:column-reverse;";
+        } else if (value == "row-reverse") {
+            style << "flex-direction:row-reverse;";
+        } else {
+            style << "flex-direction:row;";
+        }
+    } else {
+        style << "flex-direction:row;";
+    }
+
+    if (GetAttribute(node, "justify", value) || GetAttribute(node, "justifyContent", value)) {
+        if (value == "center") {
+            style << "justify-content:center;";
+        } else if (value == "flex-end" || value == "end") {
+            style << "justify-content:flex-end;";
+        } else if (value == "space-between" || value == "between") {
+            style << "justify-content:space-between;";
+        } else if (value == "space-around" || value == "around") {
+            style << "justify-content:space-around;";
+        } else if (value == "space-evenly" || value == "evenly") {
+            style << "justify-content:space-evenly;";
+        } else {
+            style << "justify-content:flex-start;";
+        }
+    }
+    if (GetAttribute(node, "align", value) || GetAttribute(node, "alignItems", value)) {
+        if (value == "flex-start" || value == "start") {
+            style << "align-items:flex-start;";
+        } else if (value == "center") {
+            style << "align-items:center;";
+        } else if (value == "flex-end" || value == "end") {
+            style << "align-items:flex-end;";
+        } else {
+            style << "align-items:stretch;";
+        }
+    }
+    if (GetAttribute(node, "wrap", value) || GetAttribute(node, "flexWrap", value)) {
+        if (value == "wrap") {
+            style << "flex-wrap:wrap;";
+        } else if (value == "wrap-reverse") {
+            style << "flex-wrap:wrap-reverse;";
+        } else {
+            style << "flex-wrap:nowrap;";
+        }
+    }
+    if (GetAttribute(node, "gap", value)) {
+        style << "gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "gapX", value) || GetAttribute(node, "columnGap", value)) {
+        style << "column-gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "gapY", value) || GetAttribute(node, "rowGap", value)) {
+        style << "row-gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "width", value)) {
+        style << "width:" << value << (value.find('%') == std::string::npos && value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "height", value)) {
+        style << "height:" << value << (value.find('%') == std::string::npos && value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style << "min-width:" << value << "px;";
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        style << "max-width:" << value << "px;";
+    }
+    if (GetAttribute(node, "padding", value)) {
+        style << "padding:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        style << "padding-left:" << value << "px;padding-right:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        style << "padding-top:" << value << "px;padding-bottom:" << value << "px;";
+    }
+    if (GetAttribute(node, "margin", value)) {
+        style << "margin:" << value << "px;";
+    } else {
+        style << "margin:0 0 16px 0;";
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style << "background:" << Color::FromHex(value).ToCss() << ";";
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style << "border:1px solid " << Color::FromHex(value).ToCss() << ";";
+    }
+    if (GetAttribute(node, "borderWidth", value)) {
+        style << "border-width:" << value << "px;";
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "borderRadius", value)) {
+        style << "border-radius:" << value << "px;";
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style << "opacity:" << value << ";";
+    }
+
+    std::ostringstream html;
+    html << "<div style=\"" << style.str() << "\">";
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            html << EscapeHtml(child.text);
+            continue;
+        }
+        std::string flex;
+        std::string alignSelf;
+        std::string childWidth;
+        std::string childHeight;
+        const bool hasFlex = GetAttribute(child, "flex", flex) || GetAttribute(child, "flexGrow", flex);
+        const bool hasAlign = GetAttribute(child, "alignSelf", alignSelf);
+        const bool hasW = GetAttribute(child, "width", childWidth);
+        const bool hasH = GetAttribute(child, "height", childHeight);
+        if (hasFlex || hasAlign || hasW || hasH) {
+            std::ostringstream wrapStyle;
+            wrapStyle << "box-sizing:border-box;";
+            if (hasFlex) {
+                wrapStyle << "flex:" << flex << ";";
+            }
+            if (hasAlign) {
+                wrapStyle << "align-self:" << alignSelf << ";";
+            }
+            if (hasW) {
+                wrapStyle << "width:" << childWidth << ";";
+            }
+            if (hasH) {
+                wrapStyle << "height:" << childHeight << ";";
+            }
+            html << "<div style=\"" << wrapStyle.str() << "\">" << ConvertNode(child) << "</div>";
+        } else {
+            html << ConvertNode(child);
+        }
+    }
+    html << "</div>";
+    return html.str();
 }
 
 std::string HtmlFromXml::Convert(const std::string& xml) const {

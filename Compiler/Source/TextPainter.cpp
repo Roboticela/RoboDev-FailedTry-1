@@ -156,6 +156,133 @@ float TextPainter::ResolveWidthValue(const std::string& value, float referenceWi
     return static_cast<float>(std::atof(value.c_str()));
 }
 
+TextMeasureResult TextPainter::Measure(const FontEngine& fonts,
+                                       const Text& text,
+                                       float containerWidth,
+                                       float pixelScale) {
+    const float scale = std::max(0.5f, pixelScale);
+    const TextStyle& style = text.GetStyle();
+    const float logicalWidth = containerWidth / scale;
+    float blockWidth = ResolveWidthValue(style.width, logicalWidth) * scale;
+    if (!style.maxWidth.empty()) {
+        blockWidth = std::min(blockWidth, ResolveWidthValue(style.maxWidth, logicalWidth) * scale);
+    }
+    blockWidth = std::max(1.0f, blockWidth);
+
+    std::vector<ResolvedRun> runs;
+    for (const TextRun& run : text.GetRuns()) {
+        if (run.content.empty()) {
+            continue;
+        }
+        ResolvedRun resolved = ResolveRun(run, style, fonts, scale);
+        resolved.content = NormalizeXmlText(run.content);
+        if (!resolved.content.empty()) {
+            runs.push_back(resolved);
+        }
+    }
+
+    TextMeasureResult result;
+    if (runs.empty()) {
+        result.height = static_cast<float>(style.fontSize) * static_cast<float>(style.lineHeight) * scale;
+        result.width = 0.0f;
+        result.advanceY = result.height + 12.0f * scale;
+        return result;
+    }
+
+    std::vector<LayoutLine> lines;
+    LayoutLine currentLine;
+
+    auto BreakLongToken = [&](const std::string& token, const ResolvedRun& runStyle) {
+        std::string built;
+        for (unsigned char byte : token) {
+            std::string candidate = built;
+            candidate.push_back(static_cast<char>(byte));
+            const float width = fonts.MeasureWidth(candidate, runStyle.fontSize, runStyle.faceId, runStyle.letterSpacing);
+            if (!built.empty() && style.wrap && currentLine.width + width > blockWidth && !currentLine.spans.empty()) {
+                GlyphSpan span;
+                span.text = built;
+                span.style = runStyle;
+                span.width = fonts.MeasureWidth(built, runStyle.fontSize, runStyle.faceId, runStyle.letterSpacing);
+                span.isSpace = false;
+                PushSpan(currentLine, span);
+                lines.push_back(currentLine);
+                currentLine = LayoutLine();
+                built.assign(1, static_cast<char>(byte));
+            } else {
+                built = candidate;
+            }
+        }
+        if (!built.empty()) {
+            GlyphSpan span;
+            span.text = built;
+            span.style = runStyle;
+            span.width = fonts.MeasureWidth(built, runStyle.fontSize, runStyle.faceId, runStyle.letterSpacing);
+            span.isSpace = false;
+            if (style.wrap && !currentLine.spans.empty() && currentLine.width + span.width > blockWidth) {
+                lines.push_back(currentLine);
+                currentLine = LayoutLine();
+            }
+            PushSpan(currentLine, span);
+        }
+    };
+
+    for (std::size_t runIndex = 0; runIndex < runs.size(); ++runIndex) {
+        const ResolvedRun& run = runs[runIndex];
+        const std::vector<std::string> tokens = SplitTokens(run.content);
+        for (const std::string& token : tokens) {
+            GlyphSpan span;
+            span.text = token;
+            span.style = run;
+            span.isSpace = (token == " ");
+            span.width = fonts.MeasureWidth(token, run.fontSize, run.faceId, run.letterSpacing);
+
+            if (!style.wrap) {
+                PushSpan(currentLine, span);
+                continue;
+            }
+
+            if (!span.isSpace && !currentLine.spans.empty() && currentLine.width + span.width > blockWidth) {
+                lines.push_back(currentLine);
+                currentLine = LayoutLine();
+            }
+
+            if (!span.isSpace && span.width > blockWidth) {
+                BreakLongToken(token, run);
+            } else if (!(span.isSpace && currentLine.spans.empty())) {
+                PushSpan(currentLine, span);
+            }
+        }
+    }
+    lines.push_back(currentLine);
+
+    float maxAscent = 0.0f;
+    float maxDescent = 0.0f;
+    for (const ResolvedRun& run : runs) {
+        maxAscent = std::max(maxAscent, fonts.GetAscent(run.fontSize, run.faceId));
+        maxDescent = std::max(maxDescent, fonts.GetDescent(run.fontSize, run.faceId));
+    }
+    if (maxAscent <= 0.0f) {
+        maxAscent = static_cast<float>(style.fontSize) * 0.8f;
+    }
+    const float baseLineHeight = std::max(maxAscent + maxDescent, static_cast<float>(style.fontSize)) *
+                                 static_cast<float>(style.lineHeight);
+
+    float maxLineWidth = 0.0f;
+    std::size_t nonEmptyLines = 0;
+    for (auto& line : lines) {
+        TrimLineEdges(line);
+        if (!line.spans.empty()) {
+            ++nonEmptyLines;
+            maxLineWidth = std::max(maxLineWidth, line.width);
+        }
+    }
+
+    result.width = maxLineWidth;
+    result.height = std::max(baseLineHeight, static_cast<float>(nonEmptyLines) * baseLineHeight);
+    result.advanceY = result.height + 12.0f * scale;
+    return result;
+}
+
 float TextPainter::Paint(FrameBuffer& buffer,
                          const FontEngine& fonts,
                          const Text& text,

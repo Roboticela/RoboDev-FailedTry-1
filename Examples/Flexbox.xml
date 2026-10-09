@@ -1,0 +1,109 @@
+<Robo>
+  <Heading level="1" align="center">Robo Flexbox Engine</Heading>
+  <Paragraph align="center">
+    Native C++ Flexbox layout with live WebAssembly rasterization, flex-grow sizing, justify-content, align-items, wrap, and nested flex cards.
+  </Paragraph>
+
+  <H2>1. Direction: Row &amp; Row-Reverse</H2>
+  <Paragraph>Horizontal layout along the main axis with consistent gaps.</Paragraph>
+  <Flexbox direction="row" gap="12" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Button variant="filled">Dashboard</Button>
+    <Button variant="tinted">Analytics</Button>
+    <Button variant="gray">Projects</Button>
+    <Button variant="plain">Settings</Button>
+  </Flexbox>
+
+  <Flexbox direction="row-reverse" gap="12" padding="16" background="#F2F2F7" cornerRadius="14">
+    <Button variant="filled">Reverse 1</Button>
+    <Button variant="tinted">Reverse 2</Button>
+    <Button variant="gray">Reverse 3</Button>
+  </Flexbox>
+
+  <H2>2. Justify Content (Main-Axis Alignment)</H2>
+  <Paragraph>Space-between header bar with brand title on left and action controls on right:</Paragraph>
+  <Flexbox direction="row" justify="space-between" align="center" padding="16" background="#1C1C1E" cornerRadius="14">
+    <H3 color="#FFFFFF">Robo Studio Pro</H3>
+    <Button variant="filled" background="#30D158" color="#000000">Active Node</Button>
+    <Button variant="tinted" background="#2C2C2E" color="#FFFFFF">Deploy</Button>
+  </Flexbox>
+
+  <Paragraph>Centered button group (justify="center"):</Paragraph>
+  <Flexbox direction="row" justify="center" gap="12" padding="14" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Button variant="filled">Day</Button>
+    <Button variant="tinted">Week</Button>
+    <Button variant="gray">Month</Button>
+    <Button variant="plain">Year</Button>
+  </Flexbox>
+
+  <Paragraph>End-aligned toolbar (justify="flex-end"):</Paragraph>
+  <Flexbox direction="row" justify="flex-end" gap="12" padding="14" background="#F2F2F7" cornerRadius="14">
+    <Button variant="plain">Cancel</Button>
+    <Button variant="gray">Discard</Button>
+    <Button variant="filled">Save Changes</Button>
+  </Flexbox>
+
+  <Paragraph>Evenly spaced metric cards (justify="space-evenly"):</Paragraph>
+  <Flexbox direction="row" justify="space-evenly" gap="16" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Button variant="tinted" background="#E5F1FF" color="#007AFF">CPU: 24%</Button>
+    <Button variant="tinted" background="#E8F8EE" color="#0B6E4F">RAM: 4.2 GB</Button>
+    <Button variant="tinted" background="#FDF2E9" color="#D97706">Net: 1.2 Gbps</Button>
+    <Button variant="tinted" background="#F3E8FF" color="#7C3AED">Tasks: 18</Button>
+  </Flexbox>
+
+  <H2>3. Flex-Grow &amp; Responsive Search Bar</H2>
+  <Paragraph>The Input has flex="1" so it dynamically grows to occupy all remaining width alongside the button:</Paragraph>
+  <Flexbox direction="row" align="center" gap="12" padding="14" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Input flex="1" variant="bordered" placeholder="Search components, tokens, or layouts…" />
+    <Button variant="filled">Search</Button>
+  </Flexbox>
+
+  <H2>4. Align-Items (Cross-Axis Centering)</H2>
+  <Paragraph>Heading, Input field, and Button vertically centered on the cross axis (align="center"):</Paragraph>
+  <Flexbox direction="row" align="center" gap="16" padding="16" background="#F2F2F7" cornerRadius="14">
+    <H4>Quick Filter:</H4>
+    <Input flex="1" variant="filled" placeholder="Enter keywords…" />
+    <Button variant="filled">Apply</Button>
+    <Button variant="gray">Reset</Button>
+  </Flexbox>
+
+  <H2>5. Flex Wrap (Chip &amp; Tag Cloud)</H2>
+  <Paragraph>When items exceed container width, wrap="wrap" automatically flows them into clean subsequent rows with gap="10":</Paragraph>
+  <Flexbox direction="row" wrap="wrap" gap="10" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Button variant="tinted">WebAssembly</Button>
+    <Button variant="tinted">C++ 17</Button>
+    <Button variant="tinted">Flexbox</Button>
+    <Button variant="tinted">Rasterizer</Button>
+    <Button variant="tinted">Apple Design</Button>
+    <Button variant="tinted">Typography</Button>
+    <Button variant="tinted">TextWrap</Button>
+    <Button variant="tinted">Input Focus</Button>
+    <Button variant="tinted">Hit Testing</Button>
+    <Button variant="tinted">HiDPI 2x</Button>
+    <Button variant="tinted">Zero Dependencies</Button>
+    <Button variant="tinted">SEO HTML</Button>
+  </Flexbox>
+
+  <H2>6. Nested Flexboxes: Complete Card UI</H2>
+  <Paragraph>Vertical column container with nested flexbox rows, rich typography, interactive inputs, and action buttons:</Paragraph>
+  <Flexbox direction="column" gap="16" padding="22" background="#FFFFFF" cornerRadius="18" borderColor="#E2E8F0" borderWidth="1">
+    <Flexbox direction="row" justify="space-between" align="center">
+      <H3>Account Subscription</H3>
+      <Button variant="filled" background="#30D158" color="#000000">Active Plan</Button>
+    </Flexbox>
+
+    <Paragraph>
+      Manage your team seats and billing frequency. You can test clicking and typing directly into this input inside the flex card:
+    </Paragraph>
+
+    <Flexbox direction="row" align="center" gap="12">
+      <Input flex="1" variant="bordered" placeholder="developer@company.com">alex.rivera@robodev.io</Input>
+      <Button variant="filled">Update</Button>
+      <Button variant="gray">Cancel</Button>
+    </Flexbox>
+
+    <Flexbox direction="row" justify="space-between" align="center" padding="12" background="#F8FAFC" cornerRadius="10">
+      <Paragraph>Current usage: <Span fontWeight="semibold" color="#007AFF">12 of 20 seats utilized</Span></Paragraph>
+      <Button variant="plain">Upgrade to Enterprise</Button>
+    </Flexbox>
+  </Flexbox>
+</Robo>

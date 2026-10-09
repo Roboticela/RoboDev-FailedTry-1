@@ -1,4 +1,4 @@
-﻿const http = require('http');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const root = process.cwd();
@@ -9,6 +9,7 @@ const types = {
   '.css': 'text/css; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
   '.wasm': 'application/wasm',
+  '.data': 'application/octet-stream',
   '.ttf': 'font/ttf',
   '.pack': 'application/octet-stream'
 };

@@ -384,6 +384,223 @@ Input XmlRuntime::BuildInput(const XmlNode& node) {
     return input;
 }
 
+void XmlRuntime::ApplyFlexboxAttributes(const XmlNode& node, FlexboxStyle& style) const {
+    std::string value;
+    if (GetAttribute(node, "direction", value) || GetAttribute(node, "flexDirection", value)) {
+        style.direction = ParseFlexDirection(value);
+    }
+    if (GetAttribute(node, "justify", value) || GetAttribute(node, "justifyContent", value)) {
+        style.justify = ParseFlexJustify(value);
+    }
+    if (GetAttribute(node, "align", value) || GetAttribute(node, "alignItems", value)) {
+        style.align = ParseFlexAlign(value);
+    }
+    if (GetAttribute(node, "wrap", value) || GetAttribute(node, "flexWrap", value)) {
+        style.wrap = ParseFlexWrap(value);
+    }
+    if (GetAttribute(node, "gap", value)) {
+        style.gap = static_cast<float>(ParseDouble(value, style.gap));
+    }
+    if (GetAttribute(node, "gapX", value) || GetAttribute(node, "columnGap", value)) {
+        style.columnGap = static_cast<float>(ParseDouble(value, style.columnGap));
+    }
+    if (GetAttribute(node, "gapY", value) || GetAttribute(node, "rowGap", value)) {
+        style.rowGap = static_cast<float>(ParseDouble(value, style.rowGap));
+    }
+    if (GetAttribute(node, "width", value)) {
+        style.width = value;
+    }
+    if (GetAttribute(node, "height", value)) {
+        style.height = value;
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style.minWidth = static_cast<float>(ParseDouble(value, style.minWidth));
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        style.maxWidth = static_cast<float>(ParseDouble(value, style.maxWidth));
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        style.minHeight = static_cast<float>(ParseDouble(value, style.minHeight));
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        style.maxHeight = static_cast<float>(ParseDouble(value, style.maxHeight));
+    }
+    if (GetAttribute(node, "padding", value)) {
+        const float p = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingTop = p;
+        style.paddingBottom = p;
+        style.paddingLeft = p;
+        style.paddingRight = p;
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        const float px = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingLeft = px;
+        style.paddingRight = px;
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        const float py = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingTop = py;
+        style.paddingBottom = py;
+    }
+    if (GetAttribute(node, "paddingTop", value)) {
+        style.paddingTop = static_cast<float>(ParseDouble(value, style.paddingTop));
+    }
+    if (GetAttribute(node, "paddingBottom", value)) {
+        style.paddingBottom = static_cast<float>(ParseDouble(value, style.paddingBottom));
+    }
+    if (GetAttribute(node, "paddingLeft", value)) {
+        style.paddingLeft = static_cast<float>(ParseDouble(value, style.paddingLeft));
+    }
+    if (GetAttribute(node, "paddingRight", value)) {
+        style.paddingRight = static_cast<float>(ParseDouble(value, style.paddingRight));
+    }
+    if (GetAttribute(node, "margin", value)) {
+        const float m = static_cast<float>(ParseDouble(value, 0.0));
+        style.marginTop = m;
+        style.marginBottom = m;
+        style.marginLeft = m;
+        style.marginRight = m;
+    }
+    if (GetAttribute(node, "marginX", value)) {
+        const float mx = static_cast<float>(ParseDouble(value, 0.0));
+        style.marginLeft = mx;
+        style.marginRight = mx;
+    }
+    if (GetAttribute(node, "marginY", value)) {
+        const float my = static_cast<float>(ParseDouble(value, 0.0));
+        style.marginTop = my;
+        style.marginBottom = my;
+    }
+    if (GetAttribute(node, "marginTop", value)) {
+        style.marginTop = static_cast<float>(ParseDouble(value, style.marginTop));
+    }
+    if (GetAttribute(node, "marginBottom", value)) {
+        style.marginBottom = static_cast<float>(ParseDouble(value, style.marginBottom));
+    }
+    if (GetAttribute(node, "marginLeft", value)) {
+        style.marginLeft = static_cast<float>(ParseDouble(value, style.marginLeft));
+    }
+    if (GetAttribute(node, "marginRight", value)) {
+        style.marginRight = static_cast<float>(ParseDouble(value, style.marginRight));
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style.backgroundColor = Color::FromHex(value);
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style.borderColor = Color::FromHex(value);
+    }
+    if (GetAttribute(node, "borderWidth", value)) {
+        style.borderWidth = static_cast<float>(ParseDouble(value, style.borderWidth));
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "borderRadius", value)) {
+        style.cornerRadius = static_cast<float>(ParseDouble(value, style.cornerRadius));
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style.opacity = static_cast<float>(ParseDouble(value, style.opacity));
+    }
+}
+
+void XmlRuntime::ApplyFlexItemAttributes(const XmlNode& node, FlexItemProps& props) const {
+    std::string value;
+    if (GetAttribute(node, "flex", value)) {
+        props.flexGrow = static_cast<float>(ParseDouble(value, props.flexGrow));
+    }
+    if (GetAttribute(node, "flexGrow", value)) {
+        props.flexGrow = static_cast<float>(ParseDouble(value, props.flexGrow));
+    }
+    if (GetAttribute(node, "flexShrink", value)) {
+        props.flexShrink = static_cast<float>(ParseDouble(value, props.flexShrink));
+    }
+    if (GetAttribute(node, "flexBasis", value)) {
+        if (!value.empty() && value.back() == '%') {
+            props.flexBasisString = value;
+        } else {
+            props.flexBasis = static_cast<float>(ParseDouble(value, -1.0));
+        }
+    }
+    if (GetAttribute(node, "alignSelf", value)) {
+        props.alignSelf = ParseFlexAlign(value);
+    }
+    if (GetAttribute(node, "width", value)) {
+        props.width = value;
+    }
+    if (GetAttribute(node, "height", value)) {
+        props.height = value;
+    }
+    if (GetAttribute(node, "margin", value)) {
+        const float m = static_cast<float>(ParseDouble(value, 0.0));
+        props.marginTop = m;
+        props.marginBottom = m;
+        props.marginLeft = m;
+        props.marginRight = m;
+    }
+    if (GetAttribute(node, "marginTop", value)) {
+        props.marginTop = static_cast<float>(ParseDouble(value, props.marginTop));
+    }
+    if (GetAttribute(node, "marginBottom", value)) {
+        props.marginBottom = static_cast<float>(ParseDouble(value, props.marginBottom));
+    }
+    if (GetAttribute(node, "marginLeft", value)) {
+        props.marginLeft = static_cast<float>(ParseDouble(value, props.marginLeft));
+    }
+    if (GetAttribute(node, "marginRight", value)) {
+        props.marginRight = static_cast<float>(ParseDouble(value, props.marginRight));
+    }
+}
+
+Flexbox XmlRuntime::BuildFlexbox(const XmlNode& node) {
+    Flexbox flexbox;
+    FlexboxStyle style;
+    ApplyFlexboxAttributes(node, style);
+    flexbox.SetStyle(style);
+
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            std::string content = child.text;
+            bool hasContent = false;
+            for (char c : content) {
+                if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                    hasContent = true;
+                    break;
+                }
+            }
+            if (hasContent) {
+                Text text;
+                TextStyle ts;
+                ts.color = Color::FromHex("#1C1C1E");
+                text.SetStyle(ts);
+                text.AddPlain(content);
+                flexbox.AddText(std::move(text));
+            }
+            continue;
+        }
+
+        FlexItemProps props;
+        ApplyFlexItemAttributes(child, props);
+
+        if (child.name == "Text") {
+            flexbox.AddText(BuildText(child), props);
+        } else if (child.name == "Heading" || child.name == "heading" ||
+                   (child.name.size() == 2 && (child.name[0] == 'H' || child.name[0] == 'h') && child.name[1] >= '1' &&
+                    child.name[1] <= '6') ||
+                   (child.name.size() == 8 &&
+                    (child.name.compare(0, 7, "Heading") == 0 || child.name.compare(0, 7, "heading") == 0) &&
+                    child.name[7] >= '1' && child.name[7] <= '6')) {
+            flexbox.AddText(BuildHeading(child, ParseHeadingLevel(child)), props);
+        } else if (child.name == "Paragraph" || child.name == "paragraph" || child.name == "P" || child.name == "p") {
+            flexbox.AddText(BuildParagraph(child), props);
+        } else if (child.name == "Button") {
+            flexbox.AddButton(BuildButton(child), props);
+        } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
+            flexbox.AddInput(BuildInput(child), props);
+        } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
+            flexbox.AddFlexbox(BuildFlexbox(child), props);
+        }
+    }
+
+    return flexbox;
+}
+
 void XmlRuntime::MountNode(const XmlNode& node) {
     if (node.isText) {
         return;
@@ -425,8 +642,13 @@ void XmlRuntime::MountNode(const XmlNode& node) {
         return;
     }
 
+    if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {
+        scene_.AddFlexbox(BuildFlexbox(node));
+        return;
+    }
+
     lastError_ = "Unsupported element: <" + node.name +
-                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>.";
+                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>, <Flexbox>.";
 }
 
 bool XmlRuntime::RenderXml(const std::string& xml) {

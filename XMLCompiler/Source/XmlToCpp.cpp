@@ -335,6 +335,75 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {
+        code << Indent(indent) << "{\n";
+        code << Indent(indent + 1) << "Robo::Flexbox flexbox;\n";
+        code << Indent(indent + 1) << "Robo::FlexboxStyle style;\n";
+
+        for (const auto& attribute : node.attributes) {
+            if (attribute.first == "direction" || attribute.first == "flexDirection") {
+                code << Indent(indent + 1) << "style.direction = Robo::ParseFlexDirection(\""
+                     << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "justify" || attribute.first == "justifyContent") {
+                code << Indent(indent + 1) << "style.justify = Robo::ParseFlexJustify(\""
+                     << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "align" || attribute.first == "alignItems") {
+                code << Indent(indent + 1) << "style.align = Robo::ParseFlexAlign(\""
+                     << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "wrap" || attribute.first == "flexWrap") {
+                code << Indent(indent + 1) << "style.wrap = Robo::ParseFlexWrap(\""
+                     << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "gap") {
+                code << Indent(indent + 1) << "style.gap = " << attribute.second << ";\n";
+            } else if (attribute.first == "gapX" || attribute.first == "columnGap") {
+                code << Indent(indent + 1) << "style.columnGap = " << attribute.second << ";\n";
+            } else if (attribute.first == "gapY" || attribute.first == "rowGap") {
+                code << Indent(indent + 1) << "style.rowGap = " << attribute.second << ";\n";
+            } else if (attribute.first == "width") {
+                code << Indent(indent + 1) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            } else if (attribute.first == "height") {
+                code << Indent(indent + 1) << "style.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            } else if (attribute.first == "minWidth") {
+                code << Indent(indent + 1) << "style.minWidth = " << attribute.second << ";\n";
+            } else if (attribute.first == "maxWidth") {
+                code << Indent(indent + 1) << "style.maxWidth = " << attribute.second << ";\n";
+            } else if (attribute.first == "padding") {
+                code << Indent(indent + 1) << "style.paddingTop = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.paddingBottom = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.paddingLeft = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.paddingRight = " << attribute.second << ";\n";
+            } else if (attribute.first == "paddingX") {
+                code << Indent(indent + 1) << "style.paddingLeft = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.paddingRight = " << attribute.second << ";\n";
+            } else if (attribute.first == "paddingY") {
+                code << Indent(indent + 1) << "style.paddingTop = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.paddingBottom = " << attribute.second << ";\n";
+            } else if (attribute.first == "margin") {
+                code << Indent(indent + 1) << "style.marginTop = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.marginBottom = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.marginLeft = " << attribute.second << ";\n";
+                code << Indent(indent + 1) << "style.marginRight = " << attribute.second << ";\n";
+            } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
+                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\""
+                     << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "borderColor") {
+                code << Indent(indent + 1) << "style.borderColor = Robo::Color::FromHex(\""
+                     << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "borderWidth") {
+                code << Indent(indent + 1) << "style.borderWidth = " << attribute.second << ";\n";
+            } else if (attribute.first == "cornerRadius" || attribute.first == "borderRadius") {
+                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+            } else if (attribute.first == "opacity") {
+                code << Indent(indent + 1) << "style.opacity = " << attribute.second << ";\n";
+            }
+        }
+
+        code << Indent(indent + 1) << "flexbox.SetStyle(style);\n";
+        code << Indent(indent + 1) << "scene.AddFlexbox(std::move(flexbox));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
     return code.str();
 }
 
@@ -347,6 +416,7 @@ std::string XmlToCpp::Convert(const std::string& xml) const {
     code << "#include \"Robo/Paragraph.hpp\"\n";
     code << "#include \"Robo/Button.hpp\"\n";
     code << "#include \"Robo/Input.hpp\"\n";
+    code << "#include \"Robo/Flexbox.hpp\"\n";
     code << "#include \"Robo/RoboScene.hpp\"\n";
     code << "#include \"Robo/Color.hpp\"\n";
     code << "#include \"Robo/FontStyle.hpp\"\n";
