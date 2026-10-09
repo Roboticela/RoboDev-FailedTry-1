@@ -5,6 +5,7 @@
 #include "Robo/FontEngine.hpp"
 #include "Robo/Heading.hpp"
 #include "Robo/IPlatform.hpp"
+#include "Robo/Input.hpp"
 #include "Robo/Paragraph.hpp"
 #include "Robo/RoboScene.hpp"
 #include "Robo/Text.hpp"
@@ -24,6 +25,14 @@ public:
     bool PointerUp(float x, float y);
     bool PointerLeave();
     bool HitTest(float x, float y) const;
+    HitKind HitTestKind(float x, float y) const;
+    bool KeyInsert(const std::string& utf8);
+    bool KeyBackspace();
+    bool KeyDelete();
+    bool KeyLeft();
+    bool KeyRight();
+    bool KeyEscape();
+    bool HasFocusedInput() const;
     const std::string& GetLastError() const;
 
 private:
@@ -32,9 +41,11 @@ private:
     Heading BuildHeading(const XmlNode& node, int level);
     Paragraph BuildParagraph(const XmlNode& node);
     Button BuildButton(const XmlNode& node);
+    Input BuildInput(const XmlNode& node);
     void FillTextContent(Text& text, const XmlNode& node, TextStyle style);
     void ApplyTextAttributes(const XmlNode& node, TextStyle& style) const;
     void ApplyButtonAttributes(const XmlNode& node, ButtonStyle& style) const;
+    void ApplyInputAttributes(const XmlNode& node, InputStyle& style) const;
     void ApplyRunAttributes(const XmlNode& node, TextRun& run) const;
     void CollectRuns(const XmlNode& node, const TextStyle& baseStyle, std::vector<TextRun>& runs);
     std::string CollectPlainText(const XmlNode& node) const;

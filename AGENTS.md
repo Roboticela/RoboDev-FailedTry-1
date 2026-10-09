@@ -8,7 +8,8 @@ Container
 ✅ - Heading (1 to 6; derives from Text with semantic size/weight defaults)
 ✅ - Paragraph (derives from Text with body copy defaults)
 ✅ - Button (Apple-style; label sizes the control; single-line text, no wrap)
-Input
+✅ - Input (Apple-style; filled / bordered / plain; focus ring; placeholder; caret typing)
+Scrollbar
 Scrollbar
 Dropdown
 Icons

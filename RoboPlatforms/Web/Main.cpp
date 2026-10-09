@@ -64,6 +64,53 @@ bool HitTest(float x, float y) {
     return gRuntime->HitTest(x, y);
 }
 
+std::string HitTestKind(float x, float y) {
+    EnsureRuntime();
+    switch (gRuntime->HitTestKind(x, y)) {
+        case Robo::HitKind::Button:
+            return "button";
+        case Robo::HitKind::Input:
+            return "input";
+        default:
+            return "none";
+    }
+}
+
+bool KeyInsert(const std::string& utf8) {
+    EnsureRuntime();
+    return gRuntime->KeyInsert(utf8);
+}
+
+bool KeyBackspace() {
+    EnsureRuntime();
+    return gRuntime->KeyBackspace();
+}
+
+bool KeyDelete() {
+    EnsureRuntime();
+    return gRuntime->KeyDelete();
+}
+
+bool KeyLeft() {
+    EnsureRuntime();
+    return gRuntime->KeyLeft();
+}
+
+bool KeyRight() {
+    EnsureRuntime();
+    return gRuntime->KeyRight();
+}
+
+bool KeyEscape() {
+    EnsureRuntime();
+    return gRuntime->KeyEscape();
+}
+
+bool HasFocusedInput() {
+    EnsureRuntime();
+    return gRuntime->HasFocusedInput();
+}
+
 std::string XmlToHtml(const std::string& xml) {
     try {
         Robo::HtmlFromXml converter;
@@ -91,6 +138,14 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("PointerUp", &PointerUp);
     emscripten::function("PointerLeave", &PointerLeave);
     emscripten::function("HitTest", &HitTest);
+    emscripten::function("HitTestKind", &HitTestKind);
+    emscripten::function("KeyInsert", &KeyInsert);
+    emscripten::function("KeyBackspace", &KeyBackspace);
+    emscripten::function("KeyDelete", &KeyDelete);
+    emscripten::function("KeyLeft", &KeyLeft);
+    emscripten::function("KeyRight", &KeyRight);
+    emscripten::function("KeyEscape", &KeyEscape);
+    emscripten::function("HasFocusedInput", &HasFocusedInput);
     emscripten::function("XmlToHtml", &XmlToHtml);
     emscripten::function("XmlToCpp", &XmlToCppCode);
 }

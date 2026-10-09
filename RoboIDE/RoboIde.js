@@ -154,8 +154,19 @@ function CanvasPoint(event) {
   };
 }
 
+function CursorForHit(kind) {
+  if (kind === "button") {
+    return "pointer";
+  }
+  if (kind === "input") {
+    return "text";
+  }
+  return "default";
+}
+
 function WireCanvasInteraction() {
   previewCanvas.style.cursor = "default";
+  previewCanvas.tabIndex = 0;
 
   previewCanvas.addEventListener("pointermove", (event) => {
     if (!roboModule) {
@@ -163,13 +174,14 @@ function WireCanvasInteraction() {
     }
     const point = CanvasPoint(event);
     roboModule.PointerMove(point.x, point.y);
-    previewCanvas.style.cursor = roboModule.HitTest(point.x, point.y) ? "pointer" : "default";
+    previewCanvas.style.cursor = CursorForHit(roboModule.HitTestKind(point.x, point.y));
   });
 
   previewCanvas.addEventListener("pointerdown", (event) => {
     if (!roboModule) {
       return;
     }
+    previewCanvas.focus();
     previewCanvas.setPointerCapture(event.pointerId);
     const point = CanvasPoint(event);
     roboModule.PointerDown(point.x, point.y);
@@ -181,7 +193,7 @@ function WireCanvasInteraction() {
     }
     const point = CanvasPoint(event);
     roboModule.PointerUp(point.x, point.y);
-    previewCanvas.style.cursor = roboModule.HitTest(point.x, point.y) ? "pointer" : "default";
+    previewCanvas.style.cursor = CursorForHit(roboModule.HitTestKind(point.x, point.y));
     try {
       previewCanvas.releasePointerCapture(event.pointerId);
     } catch (_) {
@@ -203,6 +215,48 @@ function WireCanvasInteraction() {
     }
     roboModule.PointerLeave();
     previewCanvas.style.cursor = "default";
+  });
+
+  previewCanvas.addEventListener("keydown", (event) => {
+    if (!roboModule || !roboModule.HasFocusedInput()) {
+      return;
+    }
+
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      roboModule.KeyBackspace();
+      return;
+    }
+    if (event.key === "Delete") {
+      event.preventDefault();
+      roboModule.KeyDelete();
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      roboModule.KeyLeft();
+      return;
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      roboModule.KeyRight();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      roboModule.KeyEscape();
+      return;
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (event.key.length === 1) {
+      event.preventDefault();
+      roboModule.KeyInsert(event.key);
+    }
   });
 }
 

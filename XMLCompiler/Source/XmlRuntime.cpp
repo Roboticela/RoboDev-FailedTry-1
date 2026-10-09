@@ -5,6 +5,7 @@
 #include "Robo/Color.hpp"
 #include "Robo/FontStyle.hpp"
 #include "Robo/Heading.hpp"
+#include "Robo/Input.hpp"
 #include "Robo/Paragraph.hpp"
 #include "Robo/TextAlign.hpp"
 
@@ -298,6 +299,91 @@ Button XmlRuntime::BuildButton(const XmlNode& node) {
     return button;
 }
 
+void XmlRuntime::ApplyInputAttributes(const XmlNode& node, InputStyle& style) const {
+    std::string value;
+    if (GetAttribute(node, "variant", value) || GetAttribute(node, "style", value)) {
+        style.variant = ParseInputVariant(value);
+    }
+    if (GetAttribute(node, "fontSize", value)) {
+        style.fontSize = ParseDouble(value, style.fontSize);
+    }
+    if (GetAttribute(node, "fontWeight", value)) {
+        style.fontWeight = ParseFontWeight(value);
+    }
+    if (GetAttribute(node, "fontStyle", value)) {
+        style.fontStyle = ParseFontStyle(value);
+    }
+    if (GetAttribute(node, "color", value)) {
+        style.textColor = Color::FromHex(value);
+        style.hasCustomTextColor = true;
+    }
+    if (GetAttribute(node, "placeholderColor", value)) {
+        style.placeholderColor = Color::FromHex(value);
+        style.hasCustomPlaceholderColor = true;
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style.backgroundColor = Color::FromHex(value);
+        style.hasCustomBackground = true;
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style.borderColor = Color::FromHex(value);
+        style.hasCustomBorder = true;
+    }
+    if (GetAttribute(node, "focusColor", value) || GetAttribute(node, "focusBorderColor", value)) {
+        style.focusBorderColor = Color::FromHex(value);
+        style.caretColor = style.focusBorderColor;
+    }
+    if (GetAttribute(node, "cornerRadius", value)) {
+        style.cornerRadius = ParseDouble(value, style.cornerRadius);
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        style.paddingX = ParseDouble(value, style.paddingX);
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        style.paddingY = ParseDouble(value, style.paddingY);
+    }
+    if (GetAttribute(node, "letterSpacing", value)) {
+        style.letterSpacing = ParseDouble(value, style.letterSpacing);
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style.opacity = ParseDouble(value, style.opacity);
+    }
+    if (GetAttribute(node, "align", value)) {
+        style.align = ParseTextAlign(value);
+    }
+    if (GetAttribute(node, "width", value)) {
+        style.width = value;
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style.minWidth = ParseDouble(value, style.minWidth);
+    }
+    if (GetAttribute(node, "maxLength", value)) {
+        style.maxLength = static_cast<int>(ParseDouble(value, style.maxLength));
+    }
+}
+
+Input XmlRuntime::BuildInput(const XmlNode& node) {
+    Input input;
+    InputStyle style;
+    ApplyInputAttributes(node, style);
+    input.SetStyle(style);
+    input.ApplyVariantDefaults();
+
+    std::string placeholder;
+    if (GetAttribute(node, "placeholder", placeholder) || GetAttribute(node, "hint", placeholder)) {
+        input.SetPlaceholder(placeholder);
+    }
+
+    std::string value;
+    if (GetAttribute(node, "value", value) || GetAttribute(node, "text", value)) {
+        input.SetValue(value);
+    } else {
+        input.SetValue(CollectPlainText(node));
+    }
+    input.SetCaretIndex(input.GetValue().size());
+    return input;
+}
+
 void XmlRuntime::MountNode(const XmlNode& node) {
     if (node.isText) {
         return;
@@ -334,8 +420,13 @@ void XmlRuntime::MountNode(const XmlNode& node) {
         return;
     }
 
+    if (node.name == "Input" || node.name == "TextField" || node.name == "TextInput") {
+        scene_.AddInput(BuildInput(node));
+        return;
+    }
+
     lastError_ = "Unsupported element: <" + node.name +
-                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>.";
+                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>.";
 }
 
 bool XmlRuntime::RenderXml(const std::string& xml) {
@@ -375,6 +466,38 @@ bool XmlRuntime::PointerUp(float x, float y) {
 
 bool XmlRuntime::PointerLeave() {
     return scene_.PointerLeave();
+}
+
+HitKind XmlRuntime::HitTestKind(float x, float y) const {
+    return scene_.HitTestKind(x, y);
+}
+
+bool XmlRuntime::KeyInsert(const std::string& utf8) {
+    return scene_.KeyInsert(utf8);
+}
+
+bool XmlRuntime::KeyBackspace() {
+    return scene_.KeyBackspace();
+}
+
+bool XmlRuntime::KeyDelete() {
+    return scene_.KeyDelete();
+}
+
+bool XmlRuntime::KeyLeft() {
+    return scene_.KeyLeft();
+}
+
+bool XmlRuntime::KeyRight() {
+    return scene_.KeyRight();
+}
+
+bool XmlRuntime::KeyEscape() {
+    return scene_.KeyEscape();
+}
+
+bool XmlRuntime::HasFocusedInput() const {
+    return scene_.HasFocusedInput();
 }
 
 bool XmlRuntime::HitTest(float x, float y) const {

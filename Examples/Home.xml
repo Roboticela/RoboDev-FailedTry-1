@@ -24,6 +24,15 @@
   <Button variant="gray" align="left">Secondary Action</Button>
   <Button variant="filled" align="left">A longer Apple-style label that grows the button</Button>
 
+  <H2>Inputs</H2>
+  <Paragraph>
+    Apple-style fields: click to focus, type, move the caret with arrows, Esc to blur.
+  </Paragraph>
+  <Input variant="filled" placeholder="Full name" width="100%" />
+  <Input variant="bordered" placeholder="Email address" width="100%" />
+  <Input variant="plain" placeholder="Search" width="100%" />
+  <Input variant="filled" placeholder="Prefilled" width="100%">Alex Rivera</Input>
+
   <H4 align="right">Align right heading</H4>
   <Paragraph align="justify" letterSpacing="0.2">
     Justify this paragraph so you can tweak alignment, wrapping, letter spacing,

@@ -241,6 +241,87 @@ std::string HtmlFromXml::BuildButtonHtml(const XmlNode& node) const {
     return html.str();
 }
 
+std::string HtmlFromXml::BuildInputHtml(const XmlNode& node) const {
+    std::string placeholder;
+    GetAttribute(node, "placeholder", placeholder);
+    if (placeholder.empty()) {
+        GetAttribute(node, "hint", placeholder);
+    }
+
+    std::string value;
+    if (!GetAttribute(node, "value", value)) {
+        GetAttribute(node, "text", value);
+    }
+    if (value.empty()) {
+        for (const XmlNode& child : node.children) {
+            if (child.isText) {
+                value += child.text;
+            }
+        }
+    }
+
+    std::string variant = "filled";
+    if (!GetAttribute(node, "variant", variant)) {
+        GetAttribute(node, "style", variant);
+    }
+
+    std::string background = "#F2F2F7";
+    std::string border = "none";
+    std::string radius = "10";
+    if (variant == "bordered" || variant == "border") {
+        background = "#FFFFFF";
+        border = "1px solid #C6C6C8";
+        radius = "8";
+    } else if (variant == "plain") {
+        background = "transparent";
+        border = "none";
+        radius = "0";
+    }
+
+    std::string custom;
+    if (GetAttribute(node, "background", custom) || GetAttribute(node, "backgroundColor", custom)) {
+        background = custom;
+    }
+    if (GetAttribute(node, "cornerRadius", custom)) {
+        radius = custom;
+    }
+
+    std::string align = "left";
+    GetAttribute(node, "align", align);
+    std::string fontSize = "17";
+    GetAttribute(node, "fontSize", fontSize);
+    std::string width = "100%";
+    GetAttribute(node, "width", width);
+
+    std::ostringstream html;
+    html << "<input type=\"text\" placeholder=\"" << EscapeHtml(placeholder) << "\" value=\""
+         << EscapeHtml(value) << "\" style=\""
+         << "box-sizing:border-box;"
+         << "width:" << width << ";"
+         << "font-family:'Inter',sans-serif;"
+         << "font-size:" << fontSize << "px;"
+         << "font-weight:400;"
+         << "line-height:1.2;"
+         << "color:#1C1C1E;"
+         << "background:" << background << ";";
+    if (variant == "plain") {
+        html << "border:none;border-bottom:1px solid #C6C6C8;border-radius:0;";
+    } else {
+        html << "border:" << border << ";"
+             << "border-radius:" << radius << "px;";
+    }
+    html << "padding:10px 12px;"
+         << "outline-color:#007AFF;"
+         << "margin:0 0 16px 0;";
+    if (align == "center") {
+        html << "display:block;margin-left:auto;margin-right:auto;";
+    } else if (align == "right") {
+        html << "display:block;margin-left:auto;";
+    }
+    html << "\" />";
+    return html.str();
+}
+
 std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
     if (node.isText) {
         return EscapeHtml(node.text);
@@ -282,6 +363,10 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
 
     if (node.name == "Button") {
         return BuildButtonHtml(node);
+    }
+
+    if (node.name == "Input" || node.name == "TextField" || node.name == "TextInput") {
+        return BuildInputHtml(node);
     }
 
     return "";

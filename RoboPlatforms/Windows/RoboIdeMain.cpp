@@ -198,13 +198,21 @@ LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             float y = 0.0f;
             MapPreviewPoint(hwnd, lParam, x, y);
             gApp->runtime->PointerMove(x, y);
-            SetCursor(LoadCursor(nullptr, gApp->runtime->HitTest(x, y) ? IDC_HAND : IDC_ARROW));
+            const Robo::HitKind hit = gApp->runtime->HitTestKind(x, y);
+            if (hit == Robo::HitKind::Button) {
+                SetCursor(LoadCursor(nullptr, IDC_HAND));
+            } else if (hit == Robo::HitKind::Input) {
+                SetCursor(LoadCursor(nullptr, IDC_IBEAM));
+            } else {
+                SetCursor(LoadCursor(nullptr, IDC_ARROW));
+            }
             return 0;
         }
         case WM_LBUTTONDOWN: {
             if (!gApp || !gApp->runtime) {
                 return 0;
             }
+            SetFocus(hwnd);
             SetCapture(hwnd);
             float x = 0.0f;
             float y = 0.0f;
@@ -221,7 +229,14 @@ LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             MapPreviewPoint(hwnd, lParam, x, y);
             gApp->runtime->PointerUp(x, y);
             ReleaseCapture();
-            SetCursor(LoadCursor(nullptr, gApp->runtime->HitTest(x, y) ? IDC_HAND : IDC_ARROW));
+            const Robo::HitKind hit = gApp->runtime->HitTestKind(x, y);
+            if (hit == Robo::HitKind::Button) {
+                SetCursor(LoadCursor(nullptr, IDC_HAND));
+            } else if (hit == Robo::HitKind::Input) {
+                SetCursor(LoadCursor(nullptr, IDC_IBEAM));
+            } else {
+                SetCursor(LoadCursor(nullptr, IDC_ARROW));
+            }
             return 0;
         }
         case WM_MOUSELEAVE:
@@ -229,9 +244,52 @@ LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                 gApp->runtime->PointerLeave();
             }
             return 0;
+        case WM_CHAR: {
+            if (!gApp || !gApp->runtime || !gApp->runtime->HasFocusedInput()) {
+                return 0;
+            }
+            const wchar_t ch = static_cast<wchar_t>(wParam);
+            if (ch < 32) {
+                return 0;
+            }
+            char utf8[8]{};
+            const int bytes = WideCharToMultiByte(CP_UTF8, 0, &ch, 1, utf8, static_cast<int>(sizeof(utf8) - 1), nullptr, nullptr);
+            if (bytes > 0) {
+                gApp->runtime->KeyInsert(std::string(utf8, static_cast<std::size_t>(bytes)));
+            }
+            return 0;
+        }
+        case WM_KEYDOWN: {
+            if (!gApp || !gApp->runtime || !gApp->runtime->HasFocusedInput()) {
+                break;
+            }
+            switch (wParam) {
+                case VK_BACK:
+                    gApp->runtime->KeyBackspace();
+                    return 0;
+                case VK_DELETE:
+                    gApp->runtime->KeyDelete();
+                    return 0;
+                case VK_LEFT:
+                    gApp->runtime->KeyLeft();
+                    return 0;
+                case VK_RIGHT:
+                    gApp->runtime->KeyRight();
+                    return 0;
+                case VK_ESCAPE:
+                    gApp->runtime->KeyEscape();
+                    return 0;
+                default:
+                    break;
+            }
+            break;
+        }
+        case WM_GETDLGCODE:
+            return DLGC_WANTCHARS | DLGC_WANTARROWS;
         default:
-            return DefWindowProcW(hwnd, message, wParam, lParam);
+            break;
     }
+    return DefWindowProcW(hwnd, message, wParam, lParam);
 }
 
 LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
