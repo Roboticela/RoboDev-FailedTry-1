@@ -1,0 +1,21 @@
+#pragma once
+
+#include "XmlNode.hpp"
+
+#include <string>
+
+namespace Robo {
+
+class HtmlFromXml {
+public:
+    std::string Convert(const std::string& xml) const;
+    std::string ConvertNode(const XmlNode& node) const;
+
+private:
+    std::string EscapeHtml(const std::string& value) const;
+    std::string BuildTextHtml(const XmlNode& node) const;
+    std::string BuildSpanHtml(const XmlNode& node) const;
+    std::string StyleFromAttributes(const XmlNode& node, bool isBlock) const;
+};
+
+}  // namespace Robo

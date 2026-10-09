@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoboIDE</title>
+  <link rel="stylesheet" href="./RoboIde.css">
+</head>
+<body>
+  <header class="AppHeader">
+    <div class="Brand">RoboIDE</div>
+    <div class="Status" id="statusLabel">Loading runtime…</div>
+  </header>
+
+  <main class="Workspace">
+    <section class="Pane EditorPane" id="editorPane">
+      <div class="PaneTitle">XML</div>
+      <div id="editorHost" class="EditorHost"></div>
+    </section>
+
+    <div class="Splitter" id="splitter" title="Drag to resize"></div>
+
+    <section class="Pane PreviewPane" id="previewPane">
+      <div class="PaneTitle">Preview</div>
+      <div class="PreviewSurface">
+        <div id="robo-preview-root" class="PreviewRoot"></div>
+        <pre id="errorBanner" class="ErrorBanner" hidden></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="../Build/Web/Robo.js"></script>
+  <script type="module" src="./RoboIde.js"></script>
+</body>
+</html>

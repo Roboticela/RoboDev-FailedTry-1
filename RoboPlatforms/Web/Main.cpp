@@ -1,0 +1,59 @@
+#include "WebPlatform.hpp"
+#include "HtmlFromXml.hpp"
+#include "XmlRuntime.hpp"
+#include "XmlToCpp.hpp"
+
+#include <emscripten/bind.h>
+
+#include <exception>
+#include <memory>
+#include <string>
+
+namespace {
+
+std::unique_ptr<Robo::WebPlatform> gPlatform;
+std::unique_ptr<Robo::XmlRuntime> gRuntime;
+
+void EnsureRuntime() {
+    if (!gPlatform) {
+        gPlatform = std::make_unique<Robo::WebPlatform>();
+    }
+    if (!gRuntime) {
+        gRuntime = std::make_unique<Robo::XmlRuntime>(*gPlatform);
+    }
+}
+
+std::string RenderXml(const std::string& xml, const std::string& rootId) {
+    EnsureRuntime();
+    const bool ok = gRuntime->RenderXml(xml, rootId.empty() ? "robo-preview-root" : rootId);
+    if (!ok) {
+        return gRuntime->GetLastError();
+    }
+    return "";
+}
+
+std::string XmlToHtml(const std::string& xml) {
+    try {
+        Robo::HtmlFromXml converter;
+        return converter.Convert(xml);
+    } catch (const std::exception& exception) {
+        return std::string("<!-- error: ") + exception.what() + " -->";
+    }
+}
+
+std::string XmlToCppCode(const std::string& xml) {
+    try {
+        Robo::XmlToCpp converter;
+        return converter.Convert(xml);
+    } catch (const std::exception& exception) {
+        return std::string("// error: ") + exception.what();
+    }
+}
+
+}  // namespace
+
+EMSCRIPTEN_BINDINGS(RoboModule) {
+    emscripten::function("RenderXml", &RenderXml);
+    emscripten::function("XmlToHtml", &XmlToHtml);
+    emscripten::function("XmlToCpp", &XmlToCppCode);
+}
