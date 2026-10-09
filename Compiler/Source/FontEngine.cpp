@@ -33,11 +33,15 @@ int DecodeUtf8(const char*& cursor, const char* end) {
         const unsigned char b3 = static_cast<unsigned char>(*cursor++);
         return ((lead & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
     }
-    return 0xFFFD;
+    return -1;
 }
 
 int FaceIndex(FontFaceId faceId) {
     return static_cast<int>(faceId);
+}
+
+bool IsSkippableCodepoint(int codepoint) {
+    return codepoint < 32 || codepoint == 0x7F || codepoint == 0xFFFD;
 }
 
 }  // namespace
@@ -107,7 +111,17 @@ float FontEngine::MeasureWidth(const std::string& utf8, float fontSize, FontFace
         if (codepoint < 0) {
             break;
         }
+        if (IsSkippableCodepoint(codepoint)) {
+            previousGlyph = -1;
+            continue;
+        }
+
         const int glyph = stbtt_FindGlyphIndex(&face.info, codepoint);
+        if (glyph == 0) {
+            previousGlyph = -1;
+            continue;
+        }
+
         int advance = 0;
         int leftSideBearing = 0;
         stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &leftSideBearing);
@@ -180,27 +194,41 @@ void FontEngine::DrawString(FrameBuffer& buffer,
     const char* end = utf8.data() + utf8.size();
     float penX = x;
     int previousGlyph = -1;
+    bool drewGlyph = false;
 
     while (cursor < end) {
         const int codepoint = DecodeUtf8(cursor, end);
         if (codepoint < 0) {
             break;
         }
+        if (IsSkippableCodepoint(codepoint)) {
+            previousGlyph = -1;
+            continue;
+        }
+
         const int glyph = stbtt_FindGlyphIndex(&face.info, codepoint);
+        if (glyph == 0) {
+            previousGlyph = -1;
+            continue;
+        }
+
+        if (drewGlyph) {
+            penX += letterSpacing;
+        }
         if (previousGlyph >= 0) {
             penX += scale * stbtt_GetGlyphKernAdvance(&face.info, previousGlyph, glyph);
         }
 
-        int ascentBitmap = 0;
-        int leftBearing = 0;
+        int xoff = 0;
+        int yoff = 0;
         int glyphWidth = 0;
         int glyphHeight = 0;
         unsigned char* bitmap =
-            stbtt_GetGlyphBitmap(&face.info, scale, scale, glyph, &glyphWidth, &glyphHeight, &leftBearing, &ascentBitmap);
+            stbtt_GetGlyphBitmap(&face.info, scale, scale, glyph, &glyphWidth, &glyphHeight, &xoff, &yoff);
 
-        if (bitmap) {
-            const int destX = static_cast<int>(std::floor(penX + leftBearing));
-            const int destY = static_cast<int>(std::floor(baselineY + ascentBitmap));
+        if (bitmap && glyphWidth > 0 && glyphHeight > 0) {
+            const int destX = static_cast<int>(std::floor(penX + static_cast<float>(xoff)));
+            const int destY = static_cast<int>(std::floor(baselineY + static_cast<float>(yoff)));
             for (int row = 0; row < glyphHeight; ++row) {
                 for (int col = 0; col < glyphWidth; ++col) {
                     const unsigned char coverage = bitmap[row * glyphWidth + col];
@@ -212,12 +240,15 @@ void FontEngine::DrawString(FrameBuffer& buffer,
                 }
             }
             stbtt_FreeBitmap(bitmap, nullptr);
+        } else if (bitmap) {
+            stbtt_FreeBitmap(bitmap, nullptr);
         }
 
         int advance = 0;
         int lsb = 0;
         stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &lsb);
-        penX += scale * advance + letterSpacing;
+        penX += scale * static_cast<float>(advance);
+        drewGlyph = true;
         previousGlyph = glyph;
     }
 }

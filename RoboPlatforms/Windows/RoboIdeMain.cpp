@@ -209,6 +209,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             const std::string homeXml = LoadFileUtf8(gApp->assetRoot + L"\\Examples\\Home.xml");
             Robo::XmlEditor::SetTextUtf8(gApp->editor, homeXml.empty() ? "<Robo>\n  <Text>Hello</Text>\n</Robo>" : homeXml);
             LayoutChildren(hwnd);
+            SetFocus(gApp->editor);
             QueueRender(hwnd);
             return 0;
         }
@@ -274,10 +275,12 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             FillRect(hdc, &headerRect, headerBrush);
             DeleteObject(headerBrush);
 
-            HBRUSH bodyBrush = CreateSolidBrush(RGB(14, 17, 22));
-            RECT bodyRect{0, 48, rect.right, rect.bottom};
-            FillRect(hdc, &bodyRect, bodyBrush);
-            DeleteObject(bodyBrush);
+            HBRUSH titleBrush = CreateSolidBrush(RGB(14, 17, 22));
+            RECT leftTitle{0, 48, gApp->splitX, 48 + 36};
+            RECT rightTitle{gApp->splitX + SPLITTER_WIDTH, 48, rect.right, 48 + 36};
+            FillRect(hdc, &leftTitle, titleBrush);
+            FillRect(hdc, &rightTitle, titleBrush);
+            DeleteObject(titleBrush);
 
             HBRUSH splitterBrush = CreateSolidBrush(RGB(36, 48, 65));
             RECT splitterRect{gApp->splitX, 48, gApp->splitX + SPLITTER_WIDTH, rect.bottom};
@@ -329,7 +332,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand) {
     HWND hwnd = CreateWindowExW(0,
                                 MAIN_CLASS,
                                 L"RoboIDE",
-                                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                                WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN,
                                 CW_USEDEFAULT,
                                 CW_USEDEFAULT,
                                 1400,

@@ -16,7 +16,7 @@
 
   <Text align="right" wrap="true" fontSize="16" color="#486581"
         fontWeight="medium" lineHeight="1.5" width="100%">
-    Align right · wrap on · live preview from XML
+    Align right - wrap on - live preview from XML
   </Text>
 
   <Text align="justify" wrap="true" fontSize="15" color="#334E68"

@@ -88,10 +88,19 @@ function ShowError(message) {
 }
 
 function PreviewSize() {
-  const bounds = previewSurface.getBoundingClientRect();
-  const width = Math.max(1, Math.floor(bounds.width));
-  const height = Math.max(1, Math.floor(bounds.height));
-  return { width, height };
+  const styles = window.getComputedStyle(previewSurface);
+  const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
+  const padY = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
+  const cssWidth = Math.max(1, Math.floor(previewSurface.clientWidth - padX));
+  const cssHeight = Math.max(1, Math.floor(previewSurface.clientHeight - padY));
+  const pixelRatio = window.devicePixelRatio || 1;
+  return {
+    width: Math.max(1, Math.floor(cssWidth * pixelRatio)),
+    height: Math.max(1, Math.floor(cssHeight * pixelRatio)),
+    cssWidth,
+    cssHeight,
+    pixelRatio,
+  };
 }
 
 function RenderPreview(xmlSource) {
@@ -159,6 +168,10 @@ function CreateEditor(initialXml) {
   });
 }
 
+function CurrentXml() {
+  return editorView ? editorView.state.doc.toString() : "";
+}
+
 function WireSplitter() {
   let dragging = false;
 
@@ -187,16 +200,19 @@ function WireSplitter() {
       editorPane.style.width = `${leftWidth}px`;
       editorPane.style.height = "";
     }
-    if (editorView) {
-      ScheduleRender(editorView.state.doc.toString());
-    }
+    ScheduleRender(CurrentXml());
   });
 
-  window.addEventListener("resize", () => {
-    if (editorView) {
-      ScheduleRender(editorView.state.doc.toString());
-    }
-  });
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(() => {
+      ScheduleRender(CurrentXml());
+    });
+    observer.observe(previewSurface);
+  } else {
+    window.addEventListener("resize", () => {
+      ScheduleRender(CurrentXml());
+    });
+  }
 }
 
 async function Boot() {

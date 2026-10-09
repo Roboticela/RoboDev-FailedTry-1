@@ -18,6 +18,10 @@ EM_JS(void, JsPresentRgba, (int width, int height, const uint8_t* pixels), {
         canvas.width = width;
         canvas.height = height;
     }
+    // Keep CSS size in exact lockstep with the framebuffer aspect ratio.
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = (width / dpr) + "px";
+    canvas.style.height = (height / dpr) + "px";
     const context = canvas.getContext("2d");
     const imageData = context.createImageData(width, height);
     imageData.data.set(HEAPU8.subarray(pixels, pixels + width * height * 4));

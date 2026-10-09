@@ -1,6 +1,7 @@
 #pragma once
 
 #include "XmlNode.hpp"
+#include "Robo/Button.hpp"
 #include "Robo/FontEngine.hpp"
 #include "Robo/IPlatform.hpp"
 #include "Robo/RoboScene.hpp"
@@ -21,9 +22,12 @@ public:
 private:
     void MountNode(const XmlNode& node);
     Text BuildText(const XmlNode& node);
+    Button BuildButton(const XmlNode& node);
     void ApplyTextAttributes(const XmlNode& node, TextStyle& style) const;
+    void ApplyButtonAttributes(const XmlNode& node, ButtonStyle& style) const;
     void ApplyRunAttributes(const XmlNode& node, TextRun& run) const;
     void CollectRuns(const XmlNode& node, const TextStyle& baseStyle, std::vector<TextRun>& runs);
+    std::string CollectPlainText(const XmlNode& node) const;
 
     IPlatform& platform_;
     FontEngine& fonts_;

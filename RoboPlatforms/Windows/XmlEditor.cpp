@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace Robo {
@@ -264,6 +265,8 @@ void DeleteSelectionOrChar(EditorState& state, bool forward) {
 LRESULT CALLBACK EditorProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     EditorState* state = StateOf(hwnd);
     switch (message) {
+        case WM_GETDLGCODE:
+            return DLGC_WANTARROWS | DLGC_WANTCHARS | DLGC_WANTTAB | DLGC_WANTALLKEYS;
         case WM_CREATE: {
             auto* created = new EditorState();
             created->font = CreateFontW(18,
@@ -417,10 +420,10 @@ bool XmlEditor::RegisterClassOnce(HINSTANCE instance) {
 
 HWND XmlEditor::Create(HWND parent, HINSTANCE instance, int x, int y, int width, int height) {
     RegisterClassOnce(instance);
-    return CreateWindowExW(0,
+    return CreateWindowExW(WS_EX_CLIENTEDGE,
                            EDITOR_CLASS,
                            L"",
-                           WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPSIBLINGS,
+                           WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPSIBLINGS | WS_TABSTOP,
                            x,
                            y,
                            width,
@@ -444,8 +447,10 @@ void XmlEditor::SetTextUtf8(HWND hwnd, const std::string& text) {
     if (!state) {
         return;
     }
-    state->content = Widen(text);
-    state->caret = state->content.size();
+    std::string normalized = text;
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), '\r'), normalized.end());
+    state->content = Widen(normalized);
+    state->caret = 0;
     state->scrollY = 0;
     InvalidateRect(hwnd, nullptr, FALSE);
 }
