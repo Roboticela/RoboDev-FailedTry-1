@@ -45,7 +45,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
 
     if (node.name == "Robo") {
         code << Indent(indent) << "// Generated from Robo XML\n";
-        code << Indent(indent) << "void BuildPage(Robo::IPlatform& platform, const std::string& rootId) {\n";
+        code << Indent(indent) << "void BuildPage(Robo::RoboScene& scene) {\n";
         for (const XmlNode& child : node.children) {
             code << ConvertNode(child, indent + 1);
         }
@@ -140,7 +140,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
             }
         }
 
-        code << Indent(indent + 1) << "text.Mount(platform, rootId);\n";
+        code << Indent(indent + 1) << "scene.AddText(std::move(text));\n";
         code << Indent(indent) << "}\n";
         return code.str();
     }
@@ -153,7 +153,7 @@ std::string XmlToCpp::Convert(const std::string& xml) const {
     const XmlNode root = parser.Parse(xml);
     std::ostringstream code;
     code << "#include \"Robo/Text.hpp\"\n";
-    code << "#include \"Robo/IPlatform.hpp\"\n";
+    code << "#include \"Robo/RoboScene.hpp\"\n";
     code << "#include \"Robo/Color.hpp\"\n";
     code << "#include \"Robo/FontStyle.hpp\"\n";
     code << "#include \"Robo/TextAlign.hpp\"\n\n";

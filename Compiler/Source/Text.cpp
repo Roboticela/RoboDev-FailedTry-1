@@ -1,5 +1,4 @@
 #include "Robo/Text.hpp"
-#include "Robo/IPlatform.hpp"
 
 namespace Robo {
 
@@ -29,27 +28,6 @@ void Text::AddPlain(const std::string& content) {
 
 const std::vector<TextRun>& Text::GetRuns() const {
     return runs_;
-}
-
-void Text::Mount(IPlatform& platform, const std::string& parentId) {
-    elementId_ = platform.MountTextElement(parentId, *this);
-}
-
-void Text::Update(IPlatform& platform) {
-    if (!elementId_.empty()) {
-        platform.UpdateTextElement(elementId_, *this);
-    }
-}
-
-void Text::Unmount(IPlatform& platform) {
-    if (!elementId_.empty()) {
-        platform.RemoveElement(elementId_);
-        elementId_.clear();
-    }
-}
-
-const std::string& Text::GetElementId() const {
-    return elementId_;
 }
 
 }  // namespace Robo

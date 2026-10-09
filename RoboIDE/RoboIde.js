@@ -5,7 +5,6 @@ import { xml } from "https://esm.sh/@codemirror/lang-xml@6.1.0";
 import { syntaxHighlighting, HighlightStyle, foldGutter, bracketMatching } from "https://esm.sh/@codemirror/language@6.11.0";
 import { tags } from "https://esm.sh/@lezer/highlight@1.2.1";
 
-const PREVIEW_ROOT_ID = "robo-preview-root";
 const DEBOUNCE_MS = 180;
 
 const statusLabel = document.getElementById("statusLabel");
@@ -13,6 +12,8 @@ const errorBanner = document.getElementById("errorBanner");
 const editorHost = document.getElementById("editorHost");
 const editorPane = document.getElementById("editorPane");
 const splitter = document.getElementById("splitter");
+const previewCanvas = document.getElementById("robo-preview-canvas");
+const previewSurface = document.querySelector(".PreviewSurface");
 
 const xmlHighlight = HighlightStyle.define([
   { tag: tags.tagName, color: "#7AA2F7", fontWeight: "600" },
@@ -86,19 +87,27 @@ function ShowError(message) {
   errorBanner.textContent = message;
 }
 
+function PreviewSize() {
+  const bounds = previewSurface.getBoundingClientRect();
+  const width = Math.max(1, Math.floor(bounds.width));
+  const height = Math.max(1, Math.floor(bounds.height));
+  return { width, height };
+}
+
 function RenderPreview(xmlSource) {
   if (!roboModule) {
     return;
   }
   try {
-    const error = roboModule.RenderXml(xmlSource, PREVIEW_ROOT_ID);
+    const size = PreviewSize();
+    const error = roboModule.RenderXml(xmlSource, size.width, size.height);
     if (error) {
       ShowError(error);
       SetStatus("XML error");
       return;
     }
     ShowError("");
-    SetStatus("Live");
+    SetStatus("Live · native C++ raster");
   } catch (exception) {
     ShowError(String(exception));
     SetStatus("Runtime error");
@@ -178,6 +187,15 @@ function WireSplitter() {
       editorPane.style.width = `${leftWidth}px`;
       editorPane.style.height = "";
     }
+    if (editorView) {
+      ScheduleRender(editorView.state.doc.toString());
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (editorView) {
+      ScheduleRender(editorView.state.doc.toString());
+    }
   });
 }
 
@@ -198,7 +216,7 @@ async function Boot() {
   const initialXml = await LoadDefaultXml();
   CreateEditor(initialXml);
   RenderPreview(initialXml);
-  SetStatus("Live");
+  SetStatus("Live · native C++ raster");
 }
 
 Boot().catch((error) => {

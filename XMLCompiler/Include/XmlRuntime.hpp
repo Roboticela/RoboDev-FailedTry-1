@@ -1,33 +1,35 @@
 #pragma once
 
 #include "XmlNode.hpp"
+#include "Robo/FontEngine.hpp"
 #include "Robo/IPlatform.hpp"
+#include "Robo/RoboScene.hpp"
 #include "Robo/Text.hpp"
 
-#include <memory>
 #include <string>
-#include <vector>
 
 namespace Robo {
 
 class XmlRuntime {
 public:
-    explicit XmlRuntime(IPlatform& platform);
+    XmlRuntime(IPlatform& platform, FontEngine& fonts);
 
-    bool RenderXml(const std::string& xml, const std::string& rootId);
+    bool EnsureFonts();
+    bool RenderXml(const std::string& xml);
     const std::string& GetLastError() const;
 
 private:
-    void ClearMounted();
-    void MountNode(const XmlNode& node, const std::string& parentId);
+    void MountNode(const XmlNode& node);
     Text BuildText(const XmlNode& node);
     void ApplyTextAttributes(const XmlNode& node, TextStyle& style) const;
     void ApplyRunAttributes(const XmlNode& node, TextRun& run) const;
     void CollectRuns(const XmlNode& node, const TextStyle& baseStyle, std::vector<TextRun>& runs);
 
     IPlatform& platform_;
-    std::vector<std::unique_ptr<Text>> mountedTexts_;
+    FontEngine& fonts_;
+    RoboScene scene_;
     std::string lastError_;
+    bool fontsLoaded_ = false;
 };
 
 }  // namespace Robo

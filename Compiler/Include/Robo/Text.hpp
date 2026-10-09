@@ -10,8 +10,6 @@
 
 namespace Robo {
 
-class IPlatform;
-
 struct TextStyle {
     double fontSize = 16.0;
     Color color = Color::FromHex("#1A1A1A");
@@ -39,16 +37,9 @@ public:
     void AddPlain(const std::string& content);
     const std::vector<TextRun>& GetRuns() const;
 
-    void Mount(IPlatform& platform, const std::string& parentId);
-    void Update(IPlatform& platform);
-    void Unmount(IPlatform& platform);
-
-    const std::string& GetElementId() const;
-
 private:
     TextStyle style_;
     std::vector<TextRun> runs_;
-    std::string elementId_;
 };
 
 }  // namespace Robo

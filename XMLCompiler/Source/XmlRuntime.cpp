@@ -44,17 +44,27 @@ bool ParseBool(const std::string& value, bool fallback) {
 
 }  // namespace
 
-XmlRuntime::XmlRuntime(IPlatform& platform) : platform_(platform) {}
+XmlRuntime::XmlRuntime(IPlatform& platform, FontEngine& fonts) : platform_(platform), fonts_(fonts) {}
 
 const std::string& XmlRuntime::GetLastError() const {
     return lastError_;
 }
 
-void XmlRuntime::ClearMounted() {
-    for (auto it = mountedTexts_.rbegin(); it != mountedTexts_.rend(); ++it) {
-        (*it)->Unmount(platform_);
+bool XmlRuntime::EnsureFonts() {
+    if (fontsLoaded_ && fonts_.IsReady()) {
+        return true;
     }
-    mountedTexts_.clear();
+
+    const bool regular = fonts_.LoadFace(FontFaceId::Regular, platform_.LoadAsset("Assets/Fonts/Inter-Regular.ttf"));
+    fonts_.LoadFace(FontFaceId::Medium, platform_.LoadAsset("Assets/Fonts/Inter-Medium.ttf"));
+    fonts_.LoadFace(FontFaceId::SemiBold, platform_.LoadAsset("Assets/Fonts/Inter-SemiBold.ttf"));
+    fonts_.LoadFace(FontFaceId::Italic, platform_.LoadAsset("Assets/Fonts/Inter-Italic.ttf"));
+
+    fontsLoaded_ = regular;
+    if (!fontsLoaded_) {
+        lastError_ = "Failed to load Inter-Regular.ttf from Assets/Fonts";
+    }
+    return fontsLoaded_;
 }
 
 void XmlRuntime::ApplyTextAttributes(const XmlNode& node, TextStyle& style) const {
@@ -185,38 +195,43 @@ Text XmlRuntime::BuildText(const XmlNode& node) {
     return text;
 }
 
-void XmlRuntime::MountNode(const XmlNode& node, const std::string& parentId) {
+void XmlRuntime::MountNode(const XmlNode& node) {
     if (node.isText) {
         return;
     }
 
     if (node.name == "Robo") {
         for (const XmlNode& child : node.children) {
-            MountNode(child, parentId);
+            MountNode(child);
         }
         return;
     }
 
     if (node.name == "Text") {
-        auto text = std::make_unique<Text>(BuildText(node));
-        text->Mount(platform_, parentId);
-        mountedTexts_.push_back(std::move(text));
+        scene_.AddText(BuildText(node));
         return;
     }
 
     lastError_ = "Unsupported element: <" + node.name + ">. Only <Robo> and <Text> are available until Screen is implemented.";
 }
 
-bool XmlRuntime::RenderXml(const std::string& xml, const std::string& rootId) {
+bool XmlRuntime::RenderXml(const std::string& xml) {
     lastError_.clear();
-    ClearMounted();
-    platform_.ClearRoot(rootId);
+    scene_.Clear();
+
+    if (!EnsureFonts()) {
+        return false;
+    }
 
     try {
         XmlParser parser;
         const XmlNode root = parser.Parse(xml);
-        MountNode(root, rootId);
-        return lastError_.empty();
+        MountNode(root);
+        if (!lastError_.empty()) {
+            return false;
+        }
+        scene_.Render(platform_, fonts_, Color::FromHex("#F7F3EB"), 28.0f);
+        return true;
     } catch (const std::exception& exception) {
         lastError_ = exception.what();
         return false;

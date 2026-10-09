@@ -2,6 +2,7 @@
 #include "HtmlFromXml.hpp"
 #include "XmlRuntime.hpp"
 #include "XmlToCpp.hpp"
+#include "Robo/FontEngine.hpp"
 
 #include <emscripten/bind.h>
 
@@ -12,20 +13,25 @@
 namespace {
 
 std::unique_ptr<Robo::WebPlatform> gPlatform;
+std::unique_ptr<Robo::FontEngine> gFonts;
 std::unique_ptr<Robo::XmlRuntime> gRuntime;
 
 void EnsureRuntime() {
     if (!gPlatform) {
         gPlatform = std::make_unique<Robo::WebPlatform>();
     }
+    if (!gFonts) {
+        gFonts = std::make_unique<Robo::FontEngine>();
+    }
     if (!gRuntime) {
-        gRuntime = std::make_unique<Robo::XmlRuntime>(*gPlatform);
+        gRuntime = std::make_unique<Robo::XmlRuntime>(*gPlatform, *gFonts);
     }
 }
 
-std::string RenderXml(const std::string& xml, const std::string& rootId) {
+std::string RenderXml(const std::string& xml, int width, int height) {
     EnsureRuntime();
-    const bool ok = gRuntime->RenderXml(xml, rootId.empty() ? "robo-preview-root" : rootId);
+    gPlatform->SetSurfaceSize(width, height);
+    const bool ok = gRuntime->RenderXml(xml);
     if (!ok) {
         return gRuntime->GetLastError();
     }

@@ -1,11 +1,27 @@
+param(
+    [ValidateSet("Web", "Windows")]
+    [string]$Platform = "Windows"
+)
+
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BuildJs = Join-Path $Root "Build\Web\Robo.js"
+$WebJs = Join-Path $Root "Build\Web\Robo.js"
+$WindowsExe = Join-Path $Root "Build\Windows\RoboIDE.exe"
 $Port = 4173
 $Url = "http://127.0.0.1:$Port/RoboIDE/"
 
-if (-not (Test-Path $BuildJs)) {
+if ($Platform -eq "Windows") {
+    if (-not (Test-Path $WindowsExe)) {
+        Write-Host "Windows build not found. Running Build.ps1..." -ForegroundColor Yellow
+        & (Join-Path $Root "Build.ps1")
+    }
+    Write-Host "Launching native Windows RoboIDE..."
+    Start-Process -FilePath $WindowsExe -WorkingDirectory $Root
+    return
+}
+
+if (-not (Test-Path $WebJs)) {
     Write-Host "WASM build not found. Running Build.ps1..." -ForegroundColor Yellow
     & (Join-Path $Root "Build.ps1")
 }
@@ -34,6 +50,7 @@ const types = {
   '.css': 'text/css; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
   '.wasm': 'application/wasm',
+  '.data': 'application/octet-stream',
   '.ttf': 'font/ttf',
   '.pack': 'application/octet-stream'
 };
@@ -64,7 +81,6 @@ server.listen(port, '127.0.0.1', () => console.log('RoboIDE at http://127.0.0.1:
         New-Item -ItemType Directory -Path (Join-Path $Root "Build") | Out-Null
     }
     Set-Content -Path $serverPath -Value $serverScript -Encoding UTF8
-
     Start-Process -FilePath "node" -ArgumentList @($serverPath) -WorkingDirectory $Root -WindowStyle Hidden | Out-Null
     Start-Sleep -Seconds 1
 }

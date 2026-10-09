@@ -1,8 +1,10 @@
 #pragma once
 
-#include "Text.hpp"
+#include "FrameBuffer.hpp"
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace Robo {
 
@@ -10,11 +12,11 @@ class IPlatform {
 public:
     virtual ~IPlatform() = default;
 
-    virtual void ClearRoot(const std::string& rootId) = 0;
-    virtual std::string MountTextElement(const std::string& parentId, const Text& text) = 0;
-    virtual void UpdateTextElement(const std::string& elementId, const Text& text) = 0;
-    virtual void RemoveElement(const std::string& elementId) = 0;
-    virtual std::string MeasureText(const std::string& content, double fontSize, const std::string& fontWeight) = 0;
+    virtual int GetSurfaceWidth() const = 0;
+    virtual int GetSurfaceHeight() const = 0;
+    virtual void SetSurfaceSize(int width, int height) = 0;
+    virtual void Present(const FrameBuffer& buffer) = 0;
+    virtual std::vector<std::uint8_t> LoadAsset(const std::string& relativePath) const = 0;
 };
 
 }  // namespace Robo
