@@ -135,6 +135,19 @@ void QueueRender(HWND hwnd) {
     SetTimer(hwnd, RENDER_TIMER, 160, nullptr);
 }
 
+void MapPreviewPoint(HWND hwnd, LPARAM lParam, float& x, float& y) {
+    RECT client{};
+    GetClientRect(hwnd, &client);
+    const int clientWidth = std::max(1, static_cast<int>(client.right));
+    const int clientHeight = std::max(1, static_cast<int>(client.bottom));
+    const int bufferWidth = gApp && gApp->platform ? std::max(1, gApp->platform->GetSurfaceWidth()) : clientWidth;
+    const int bufferHeight = gApp && gApp->platform ? std::max(1, gApp->platform->GetSurfaceHeight()) : clientHeight;
+    const int mouseX = static_cast<short>(LOWORD(lParam));
+    const int mouseY = static_cast<short>(HIWORD(lParam));
+    x = static_cast<float>(mouseX) * static_cast<float>(bufferWidth) / static_cast<float>(clientWidth);
+    y = static_cast<float>(mouseY) * static_cast<float>(bufferHeight) / static_cast<float>(clientHeight);
+}
+
 LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
         case WM_PAINT: {
@@ -152,6 +165,51 @@ LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             if (gApp && gApp->platform) {
                 gApp->platform->SetSurfaceSize(LOWORD(lParam), HIWORD(lParam));
                 QueueRender(GetParent(hwnd));
+            }
+            return 0;
+        case WM_MOUSEMOVE: {
+            if (!gApp || !gApp->runtime) {
+                return 0;
+            }
+            TRACKMOUSEEVENT track{};
+            track.cbSize = sizeof(track);
+            track.dwFlags = TME_LEAVE;
+            track.hwndTrack = hwnd;
+            TrackMouseEvent(&track);
+
+            float x = 0.0f;
+            float y = 0.0f;
+            MapPreviewPoint(hwnd, lParam, x, y);
+            gApp->runtime->PointerMove(x, y);
+            SetCursor(LoadCursor(nullptr, gApp->runtime->HitTest(x, y) ? IDC_HAND : IDC_ARROW));
+            return 0;
+        }
+        case WM_LBUTTONDOWN: {
+            if (!gApp || !gApp->runtime) {
+                return 0;
+            }
+            SetCapture(hwnd);
+            float x = 0.0f;
+            float y = 0.0f;
+            MapPreviewPoint(hwnd, lParam, x, y);
+            gApp->runtime->PointerDown(x, y);
+            return 0;
+        }
+        case WM_LBUTTONUP: {
+            if (!gApp || !gApp->runtime) {
+                return 0;
+            }
+            float x = 0.0f;
+            float y = 0.0f;
+            MapPreviewPoint(hwnd, lParam, x, y);
+            gApp->runtime->PointerUp(x, y);
+            ReleaseCapture();
+            SetCursor(LoadCursor(nullptr, gApp->runtime->HitTest(x, y) ? IDC_HAND : IDC_ARROW));
+            return 0;
+        }
+        case WM_MOUSELEAVE:
+            if (gApp && gApp->runtime) {
+                gApp->runtime->PointerLeave();
             }
             return 0;
         default:

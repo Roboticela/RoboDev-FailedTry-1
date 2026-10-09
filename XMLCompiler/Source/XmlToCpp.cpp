@@ -1,6 +1,7 @@
 #include "XmlToCpp.hpp"
 #include "XmlParser.hpp"
 
+#include <cstdlib>
 #include <sstream>
 
 namespace Robo {
@@ -145,6 +146,140 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    const bool isHeading =
+        node.name == "Heading" || node.name == "heading" ||
+        (node.name.size() == 2 && (node.name[0] == 'H' || node.name[0] == 'h') && node.name[1] >= '1' &&
+         node.name[1] <= '6') ||
+        (node.name.size() == 8 && (node.name.compare(0, 7, "Heading") == 0 || node.name.compare(0, 7, "heading") == 0) &&
+         node.name[7] >= '1' && node.name[7] <= '6');
+    const bool isParagraph =
+        node.name == "Paragraph" || node.name == "paragraph" || node.name == "P" || node.name == "p";
+
+    if (isHeading || isParagraph) {
+        int level = 1;
+        if (isHeading) {
+            for (const auto& attribute : node.attributes) {
+                if (attribute.first == "level") {
+                    level = std::atoi(attribute.second.c_str());
+                }
+            }
+            if (node.name.size() == 2 && node.name[1] >= '1' && node.name[1] <= '6') {
+                level = node.name[1] - '0';
+            }
+            if (node.name.size() == 8 && node.name[7] >= '1' && node.name[7] <= '6') {
+                level = node.name[7] - '0';
+            }
+        }
+
+        code << Indent(indent) << "{\n";
+        if (isHeading) {
+            code << Indent(indent + 1) << "Robo::Heading text(" << level << ");\n";
+        } else {
+            code << Indent(indent + 1) << "Robo::Paragraph text;\n";
+        }
+        code << Indent(indent + 1) << "Robo::TextStyle style = text.GetStyle();\n";
+
+        for (const auto& attribute : node.attributes) {
+            if (attribute.first == "fontSize") {
+                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+            } else if (attribute.first == "color") {
+                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+            } else if (attribute.first == "align") {
+                code << Indent(indent + 1) << "style.align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+            } else if (attribute.first == "wrap") {
+                const bool wrap = !(attribute.second == "false" || attribute.second == "0" || attribute.second == "no");
+                code << Indent(indent + 1) << "style.wrap = " << (wrap ? "true" : "false") << ";\n";
+            } else if (attribute.first == "fontWeight") {
+                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+            } else if (attribute.first == "lineHeight") {
+                code << Indent(indent + 1) << "style.lineHeight = " << attribute.second << ";\n";
+            } else if (attribute.first == "width") {
+                code << Indent(indent + 1) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            } else if (attribute.first == "maxWidth") {
+                code << Indent(indent + 1) << "style.maxWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
+        }
+        code << Indent(indent + 1) << "text.SetStyle(style);\n";
+
+        for (const XmlNode& child : node.children) {
+            if (child.isText) {
+                code << Indent(indent + 1) << "text.AddPlain(\"" << EscapeCpp(child.text) << "\");\n";
+            } else if (child.name == "Span" || child.name == "span") {
+                code << Indent(indent + 1) << "{\n";
+                code << Indent(indent + 2) << "Robo::TextRun run;\n";
+                std::string content;
+                for (const XmlNode& spanChild : child.children) {
+                    if (spanChild.isText) {
+                        content += spanChild.text;
+                    }
+                }
+                code << Indent(indent + 2) << "run.content = \"" << EscapeCpp(content) << "\";\n";
+                code << Indent(indent + 2) << "text.AddRun(run);\n";
+                code << Indent(indent + 1) << "}\n";
+            }
+        }
+
+        code << Indent(indent + 1) << "scene.AddText(std::move(text));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
+    if (node.name == "Button") {
+        code << Indent(indent) << "{\n";
+        code << Indent(indent + 1) << "Robo::Button button;\n";
+        code << Indent(indent + 1) << "Robo::ButtonStyle style;\n";
+
+        std::string label;
+        for (const auto& attribute : node.attributes) {
+            if (attribute.first == "title" || attribute.first == "label") {
+                label = attribute.second;
+            } else if (attribute.first == "variant" || attribute.first == "style") {
+                code << Indent(indent + 1) << "style.variant = Robo::ParseButtonVariant(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+            } else if (attribute.first == "fontSize") {
+                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+            } else if (attribute.first == "fontWeight") {
+                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+            } else if (attribute.first == "color") {
+                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+                code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
+            } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
+                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+                code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
+            } else if (attribute.first == "cornerRadius") {
+                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+            } else if (attribute.first == "paddingX") {
+                code << Indent(indent + 1) << "style.paddingX = " << attribute.second << ";\n";
+            } else if (attribute.first == "paddingY") {
+                code << Indent(indent + 1) << "style.paddingY = " << attribute.second << ";\n";
+            } else if (attribute.first == "align") {
+                code << Indent(indent + 1) << "style.align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second)
+                     << "\");\n";
+            }
+        }
+
+        if (label.empty()) {
+            for (const XmlNode& child : node.children) {
+                if (child.isText) {
+                    label += child.text;
+                }
+            }
+        }
+
+        code << Indent(indent + 1) << "button.SetStyle(style);\n";
+        code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
+        code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
+        code << Indent(indent + 1) << "scene.AddButton(std::move(button));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
     return code.str();
 }
 
@@ -153,6 +288,9 @@ std::string XmlToCpp::Convert(const std::string& xml) const {
     const XmlNode root = parser.Parse(xml);
     std::ostringstream code;
     code << "#include \"Robo/Text.hpp\"\n";
+    code << "#include \"Robo/Heading.hpp\"\n";
+    code << "#include \"Robo/Paragraph.hpp\"\n";
+    code << "#include \"Robo/Button.hpp\"\n";
     code << "#include \"Robo/RoboScene.hpp\"\n";
     code << "#include \"Robo/Color.hpp\"\n";
     code << "#include \"Robo/FontStyle.hpp\"\n";

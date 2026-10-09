@@ -3,8 +3,11 @@
 
 #include "Robo/Color.hpp"
 #include "Robo/FontStyle.hpp"
+#include "Robo/Heading.hpp"
+#include "Robo/Paragraph.hpp"
 #include "Robo/TextAlign.hpp"
 
+#include <cstdlib>
 #include <sstream>
 
 namespace Robo {
@@ -115,9 +118,49 @@ std::string HtmlFromXml::BuildSpanHtml(const XmlNode& node) const {
     return html.str();
 }
 
-std::string HtmlFromXml::BuildTextHtml(const XmlNode& node) const {
+int HtmlFromXml::ParseHeadingLevel(const XmlNode& node) const {
+    std::string value;
+    if (GetAttribute(node, "level", value)) {
+        const int level = static_cast<int>(std::atof(value.c_str()));
+        if (level >= 1 && level <= 6) {
+            return level;
+        }
+    }
+    const std::string& name = node.name;
+    if (name.size() == 2 && (name[0] == 'H' || name[0] == 'h') && name[1] >= '1' && name[1] <= '6') {
+        return name[1] - '0';
+    }
+    if (name.size() == 8 && (name.compare(0, 7, "Heading") == 0 || name.compare(0, 7, "heading") == 0) &&
+        name[7] >= '1' && name[7] <= '6') {
+        return name[7] - '0';
+    }
+    return 1;
+}
+
+std::string HtmlFromXml::BuildTextHtml(const XmlNode& node, const std::string& tagName) const {
     std::ostringstream html;
-    html << "<p style=\"" << StyleFromAttributes(node, true) << "\">";
+    html << "<" << tagName << " style=\"";
+
+    if (!tagName.empty() && tagName[0] == 'h' && tagName.size() == 2 && tagName[1] >= '1' && tagName[1] <= '6') {
+        const TextStyle defaults = Heading::DefaultStyle(tagName[1] - '0');
+        html << "font-family:'Inter',sans-serif;"
+             << "font-size:" << defaults.fontSize << "px;"
+             << "font-weight:" << FontWeightToCss(defaults.fontWeight) << ";"
+             << "line-height:" << defaults.lineHeight << ";"
+             << "color:" << defaults.color.ToCss() << ";"
+             << "margin:0 0 0.75rem 0;";
+    } else if (tagName == "p") {
+        const TextStyle defaults = Paragraph::DefaultStyle();
+        html << "font-family:'Inter',sans-serif;"
+             << "font-size:" << defaults.fontSize << "px;"
+             << "font-weight:" << FontWeightToCss(defaults.fontWeight) << ";"
+             << "line-height:" << defaults.lineHeight << ";"
+             << "color:" << defaults.color.ToCss() << ";"
+             << "max-width:" << defaults.maxWidth << ";"
+             << "margin:0 0 0.75rem 0;";
+    }
+
+    html << StyleFromAttributes(node, true) << "\">";
     for (const XmlNode& child : node.children) {
         if (child.isText) {
             html << EscapeHtml(child.text);
@@ -125,7 +168,76 @@ std::string HtmlFromXml::BuildTextHtml(const XmlNode& node) const {
             html << BuildSpanHtml(child);
         }
     }
-    html << "</p>";
+    html << "</" << tagName << ">";
+    return html.str();
+}
+
+std::string HtmlFromXml::BuildButtonHtml(const XmlNode& node) const {
+    std::string label;
+    if (!GetAttribute(node, "title", label)) {
+        GetAttribute(node, "label", label);
+    }
+    if (label.empty()) {
+        for (const XmlNode& child : node.children) {
+            if (child.isText) {
+                label += child.text;
+            }
+        }
+    }
+
+    std::string variant = "filled";
+    if (!GetAttribute(node, "variant", variant)) {
+        GetAttribute(node, "style", variant);
+    }
+
+    std::string background = "#007AFF";
+    std::string color = "#FFFFFF";
+    if (variant == "tinted") {
+        background = "#E5F1FF";
+        color = "#007AFF";
+    } else if (variant == "gray" || variant == "grey") {
+        background = "#E5E5EA";
+        color = "#1C1C1E";
+    } else if (variant == "plain") {
+        background = "transparent";
+        color = "#007AFF";
+    }
+
+    std::string custom;
+    if (GetAttribute(node, "background", custom) || GetAttribute(node, "backgroundColor", custom)) {
+        background = custom;
+    }
+    if (GetAttribute(node, "color", custom)) {
+        color = custom;
+    }
+
+    std::string align = "left";
+    GetAttribute(node, "align", align);
+    std::string fontSize = "17";
+    GetAttribute(node, "fontSize", fontSize);
+    std::string cornerRadius = "14";
+    GetAttribute(node, "cornerRadius", cornerRadius);
+
+    std::ostringstream html;
+    html << "<button type=\"button\" style=\""
+         << "display:inline-block;"
+         << "font-family:'Inter',sans-serif;"
+         << "font-size:" << fontSize << "px;"
+         << "font-weight:600;"
+         << "line-height:1.2;"
+         << "white-space:nowrap;"
+         << "border:none;"
+         << "border-radius:" << cornerRadius << "px;"
+         << "padding:12px 20px;"
+         << "background:" << background << ";"
+         << "color:" << color << ";"
+         << "margin:0 0 16px 0;";
+    if (align == "center") {
+        html << "display:block;margin-left:auto;margin-right:auto;";
+    } else if (align == "right") {
+        html << "display:block;margin-left:auto;";
+    }
+    html << "\">" << EscapeHtml(label) << "</button>";
     return html.str();
 }
 
@@ -153,7 +265,23 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
     }
 
     if (node.name == "Text") {
-        return BuildTextHtml(node);
+        return BuildTextHtml(node, "p");
+    }
+
+    if (node.name == "Heading" || node.name == "heading" ||
+        (node.name.size() == 2 && (node.name[0] == 'H' || node.name[0] == 'h') && node.name[1] >= '1' &&
+         node.name[1] <= '6') ||
+        (node.name.size() == 8 && (node.name.compare(0, 7, "Heading") == 0 || node.name.compare(0, 7, "heading") == 0) &&
+         node.name[7] >= '1' && node.name[7] <= '6')) {
+        return BuildTextHtml(node, "h" + std::to_string(ParseHeadingLevel(node)));
+    }
+
+    if (node.name == "Paragraph" || node.name == "paragraph" || node.name == "P" || node.name == "p") {
+        return BuildTextHtml(node, "p");
+    }
+
+    if (node.name == "Button") {
+        return BuildButtonHtml(node);
     }
 
     return "";

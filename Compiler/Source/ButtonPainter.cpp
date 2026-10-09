@@ -73,9 +73,6 @@ void FillRoundedRect(FrameBuffer& buffer,
                 } else if (fx > right && fy > bottom) {
                     cx = right;
                     cy = bottom;
-                } else {
-                    cx = fx;
-                    cy = fy;
                 }
 
                 if (cx != fx || cy != fy) {
@@ -94,18 +91,20 @@ void FillRoundedRect(FrameBuffer& buffer,
 
 }  // namespace
 
-float ButtonPainter::Paint(FrameBuffer& buffer,
-                           const FontEngine& fonts,
-                           const Button& button,
-                           float originX,
-                           float originY,
-                           float containerWidth) {
+ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
+                                       const FontEngine& fonts,
+                                       Button& button,
+                                       float originX,
+                                       float originY,
+                                       float containerWidth) {
     const ButtonStyle& style = button.GetStyle();
     const std::string label = CollapseToSingleLine(button.GetLabel());
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
     const float fontSize = static_cast<float>(style.fontSize);
     const float letterSpacing = static_cast<float>(style.letterSpacing);
-    const float opacity = static_cast<float>(style.opacity);
+    const float opacity = button.ResolveOpacity();
+    const Color backgroundColor = button.ResolveBackgroundColor();
+    const Color textColor = button.ResolveTextColor();
 
     const float textWidth = fonts.MeasureWidth(label, fontSize, faceId, letterSpacing);
     const float ascent = fonts.GetAscent(fontSize, faceId);
@@ -125,31 +124,39 @@ float ButtonPainter::Paint(FrameBuffer& buffer,
     }
 
     const float buttonY = originY;
+    const float pressOffset = button.GetInteraction() == ButtonInteraction::Pressed ? 1.0f : 0.0f;
 
-    if (style.backgroundColor.alpha > 0) {
+    if (backgroundColor.alpha > 0) {
         FillRoundedRect(buffer,
                         buttonX,
-                        buttonY,
+                        buttonY + pressOffset,
                         buttonWidth,
                         buttonHeight,
                         static_cast<float>(style.cornerRadius),
-                        style.backgroundColor,
+                        backgroundColor,
                         opacity);
     }
 
     const float textX = buttonX + paddingX;
-    const float baseline = buttonY + paddingY + ascent;
+    const float baseline = buttonY + paddingY + ascent + pressOffset;
     fonts.DrawString(buffer,
                      textX,
                      baseline,
                      label,
                      fontSize,
                      faceId,
-                     style.textColor,
+                     textColor,
                      opacity,
                      letterSpacing);
 
-    return buttonHeight + 16.0f;
+    ButtonPaintResult result;
+    result.bounds.x = buttonX;
+    result.bounds.y = buttonY;
+    result.bounds.width = buttonWidth;
+    result.bounds.height = buttonHeight + pressOffset;
+    result.advanceY = buttonHeight + 16.0f;
+    button.SetBounds(result.bounds);
+    return result;
 }
 
 }  // namespace Robo

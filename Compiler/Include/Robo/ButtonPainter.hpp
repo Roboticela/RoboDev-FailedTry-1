@@ -6,14 +6,19 @@
 
 namespace Robo {
 
+struct ButtonPaintResult {
+    float advanceY = 0.0f;
+    ButtonBounds bounds;
+};
+
 class ButtonPainter {
 public:
-    static float Paint(FrameBuffer& buffer,
-                       const FontEngine& fonts,
-                       const Button& button,
-                       float originX,
-                       float originY,
-                       float containerWidth);
+    static ButtonPaintResult Paint(FrameBuffer& buffer,
+                                   const FontEngine& fonts,
+                                   Button& button,
+                                   float originX,
+                                   float originY,
+                                   float containerWidth);
 };
 
 }  // namespace Robo

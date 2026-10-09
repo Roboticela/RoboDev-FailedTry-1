@@ -5,9 +5,9 @@ Screen
 Board
 Container
 ✅ - Text (This component is going to support the rich text with multiple font sizes at same text and multiple colors. Options like wrap, left, center, right etc. Basically, all the features which text supports must come in this component and user must be able to tweak and play with the component using XML code.)
-heading (1 to 6)
-Paragraph
-[] - Button ()
+✅ - Heading (1 to 6; derives from Text with semantic size/weight defaults)
+✅ - Paragraph (derives from Text with body copy defaults)
+✅ - Button (Apple-style; label sizes the control; single-line text, no wrap)
 Input
 Scrollbar
 Dropdown

@@ -13,9 +13,11 @@ public:
 
 private:
     std::string EscapeHtml(const std::string& value) const;
-    std::string BuildTextHtml(const XmlNode& node) const;
+    std::string BuildTextHtml(const XmlNode& node, const std::string& tagName) const;
     std::string BuildSpanHtml(const XmlNode& node) const;
+    std::string BuildButtonHtml(const XmlNode& node) const;
     std::string StyleFromAttributes(const XmlNode& node, bool isBlock) const;
+    int ParseHeadingLevel(const XmlNode& node) const;
 };
 
 }  // namespace Robo

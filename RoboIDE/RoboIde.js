@@ -132,6 +132,71 @@ function ScheduleRender(xmlSource) {
   }, DEBOUNCE_MS);
 }
 
+function CanvasPoint(event) {
+  const rect = previewCanvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return { x: 0, y: 0 };
+  }
+  const scaleX = previewCanvas.width / rect.width;
+  const scaleY = previewCanvas.height / rect.height;
+  return {
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY,
+  };
+}
+
+function WireCanvasInteraction() {
+  previewCanvas.style.cursor = "default";
+
+  previewCanvas.addEventListener("pointermove", (event) => {
+    if (!roboModule) {
+      return;
+    }
+    const point = CanvasPoint(event);
+    roboModule.PointerMove(point.x, point.y);
+    previewCanvas.style.cursor = roboModule.HitTest(point.x, point.y) ? "pointer" : "default";
+  });
+
+  previewCanvas.addEventListener("pointerdown", (event) => {
+    if (!roboModule) {
+      return;
+    }
+    previewCanvas.setPointerCapture(event.pointerId);
+    const point = CanvasPoint(event);
+    roboModule.PointerDown(point.x, point.y);
+  });
+
+  previewCanvas.addEventListener("pointerup", (event) => {
+    if (!roboModule) {
+      return;
+    }
+    const point = CanvasPoint(event);
+    roboModule.PointerUp(point.x, point.y);
+    previewCanvas.style.cursor = roboModule.HitTest(point.x, point.y) ? "pointer" : "default";
+    try {
+      previewCanvas.releasePointerCapture(event.pointerId);
+    } catch (_) {
+      // ignore
+    }
+  });
+
+  previewCanvas.addEventListener("pointerleave", () => {
+    if (!roboModule) {
+      return;
+    }
+    roboModule.PointerLeave();
+    previewCanvas.style.cursor = "default";
+  });
+
+  previewCanvas.addEventListener("pointercancel", () => {
+    if (!roboModule) {
+      return;
+    }
+    roboModule.PointerLeave();
+    previewCanvas.style.cursor = "default";
+  });
+}
+
 async function LoadDefaultXml() {
   const response = await fetch("../Examples/Home.xml");
   if (!response.ok) {
@@ -231,6 +296,7 @@ async function Boot() {
 
   const initialXml = await LoadDefaultXml();
   CreateEditor(initialXml);
+  WireCanvasInteraction();
   RenderPreview(initialXml);
   SetStatus("Live · native C++ raster");
 }

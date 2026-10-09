@@ -15,6 +15,12 @@ enum class ButtonVariant {
     Plain
 };
 
+enum class ButtonInteraction {
+    Normal,
+    Hovered,
+    Pressed
+};
+
 struct ButtonStyle {
     ButtonVariant variant = ButtonVariant::Filled;
     double fontSize = 17.0;
@@ -32,6 +38,15 @@ struct ButtonStyle {
     bool hasCustomBackground = false;
 };
 
+struct ButtonBounds {
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+
+    bool Contains(float pointX, float pointY) const;
+};
+
 class Button {
 public:
     Button();
@@ -42,11 +57,23 @@ public:
     void SetStyle(const ButtonStyle& style);
     const ButtonStyle& GetStyle() const;
 
+    void SetInteraction(ButtonInteraction interaction);
+    ButtonInteraction GetInteraction() const;
+
+    void SetBounds(const ButtonBounds& bounds);
+    const ButtonBounds& GetBounds() const;
+
     void ApplyVariantDefaults();
+
+    Color ResolveBackgroundColor() const;
+    Color ResolveTextColor() const;
+    float ResolveOpacity() const;
 
 private:
     std::string label_;
     ButtonStyle style_;
+    ButtonInteraction interaction_ = ButtonInteraction::Normal;
+    ButtonBounds bounds_;
 };
 
 ButtonVariant ParseButtonVariant(const std::string& value);

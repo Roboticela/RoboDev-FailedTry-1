@@ -38,6 +38,31 @@ std::string RenderXml(const std::string& xml, int width, int height) {
     return "";
 }
 
+bool PointerMove(float x, float y) {
+    EnsureRuntime();
+    return gRuntime->PointerMove(x, y);
+}
+
+bool PointerDown(float x, float y) {
+    EnsureRuntime();
+    return gRuntime->PointerDown(x, y);
+}
+
+bool PointerUp(float x, float y) {
+    EnsureRuntime();
+    return gRuntime->PointerUp(x, y);
+}
+
+bool PointerLeave() {
+    EnsureRuntime();
+    return gRuntime->PointerLeave();
+}
+
+bool HitTest(float x, float y) {
+    EnsureRuntime();
+    return gRuntime->HitTest(x, y);
+}
+
 std::string XmlToHtml(const std::string& xml) {
     try {
         Robo::HtmlFromXml converter;
@@ -60,6 +85,11 @@ std::string XmlToCppCode(const std::string& xml) {
 
 EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("RenderXml", &RenderXml);
+    emscripten::function("PointerMove", &PointerMove);
+    emscripten::function("PointerDown", &PointerDown);
+    emscripten::function("PointerUp", &PointerUp);
+    emscripten::function("PointerLeave", &PointerLeave);
+    emscripten::function("HitTest", &HitTest);
     emscripten::function("XmlToHtml", &XmlToHtml);
     emscripten::function("XmlToCpp", &XmlToCppCode);
 }

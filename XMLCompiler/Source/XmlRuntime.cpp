@@ -1,8 +1,11 @@
 #include "XmlRuntime.hpp"
 #include "XmlParser.hpp"
 
+#include "Robo/Button.hpp"
 #include "Robo/Color.hpp"
 #include "Robo/FontStyle.hpp"
+#include "Robo/Heading.hpp"
+#include "Robo/Paragraph.hpp"
 #include "Robo/TextAlign.hpp"
 
 #include <cstdlib>
@@ -181,9 +184,7 @@ void XmlRuntime::CollectRuns(const XmlNode& node, const TextStyle& baseStyle, st
     }
 }
 
-Text XmlRuntime::BuildText(const XmlNode& node) {
-    Text text;
-    TextStyle style;
+void XmlRuntime::FillTextContent(Text& text, const XmlNode& node, TextStyle style) {
     ApplyTextAttributes(node, style);
     text.SetStyle(style);
 
@@ -192,7 +193,109 @@ Text XmlRuntime::BuildText(const XmlNode& node) {
     for (const TextRun& run : runs) {
         text.AddRun(run);
     }
+}
+
+Text XmlRuntime::BuildText(const XmlNode& node) {
+    Text text;
+    FillTextContent(text, node, TextStyle{});
     return text;
+}
+
+int XmlRuntime::ParseHeadingLevel(const XmlNode& node) const {
+    std::string value;
+    if (GetAttribute(node, "level", value)) {
+        return Heading::ClampLevel(static_cast<int>(ParseDouble(value, 1.0)));
+    }
+
+    const std::string& name = node.name;
+    if (name.size() == 2 && (name[0] == 'H' || name[0] == 'h') && name[1] >= '1' && name[1] <= '6') {
+        return name[1] - '0';
+    }
+    if (name.size() == 8 && (name.compare(0, 7, "Heading") == 0 || name.compare(0, 7, "heading") == 0) &&
+        name[7] >= '1' && name[7] <= '6') {
+        return name[7] - '0';
+    }
+    return 1;
+}
+
+Heading XmlRuntime::BuildHeading(const XmlNode& node, int level) {
+    Heading heading(level);
+    FillTextContent(heading, node, heading.GetStyle());
+    return heading;
+}
+
+Paragraph XmlRuntime::BuildParagraph(const XmlNode& node) {
+    Paragraph paragraph;
+    FillTextContent(paragraph, node, paragraph.GetStyle());
+    return paragraph;
+}
+
+void XmlRuntime::ApplyButtonAttributes(const XmlNode& node, ButtonStyle& style) const {
+    std::string value;
+    if (GetAttribute(node, "variant", value) || GetAttribute(node, "style", value)) {
+        style.variant = ParseButtonVariant(value);
+    }
+    if (GetAttribute(node, "fontSize", value)) {
+        style.fontSize = ParseDouble(value, style.fontSize);
+    }
+    if (GetAttribute(node, "fontWeight", value)) {
+        style.fontWeight = ParseFontWeight(value);
+    }
+    if (GetAttribute(node, "fontStyle", value)) {
+        style.fontStyle = ParseFontStyle(value);
+    }
+    if (GetAttribute(node, "color", value)) {
+        style.textColor = Color::FromHex(value);
+        style.hasCustomTextColor = true;
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style.backgroundColor = Color::FromHex(value);
+        style.hasCustomBackground = true;
+    }
+    if (GetAttribute(node, "cornerRadius", value)) {
+        style.cornerRadius = ParseDouble(value, style.cornerRadius);
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        style.paddingX = ParseDouble(value, style.paddingX);
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        style.paddingY = ParseDouble(value, style.paddingY);
+    }
+    if (GetAttribute(node, "letterSpacing", value)) {
+        style.letterSpacing = ParseDouble(value, style.letterSpacing);
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style.opacity = ParseDouble(value, style.opacity);
+    }
+    if (GetAttribute(node, "align", value)) {
+        style.align = ParseTextAlign(value);
+    }
+}
+
+std::string XmlRuntime::CollectPlainText(const XmlNode& node) const {
+    std::string content;
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            content += child.text;
+        }
+    }
+    return content;
+}
+
+Button XmlRuntime::BuildButton(const XmlNode& node) {
+    Button button;
+    ButtonStyle style;
+    ApplyButtonAttributes(node, style);
+    button.SetStyle(style);
+    button.ApplyVariantDefaults();
+
+    std::string label;
+    if (GetAttribute(node, "title", label) || GetAttribute(node, "label", label)) {
+        button.SetLabel(label);
+    } else {
+        button.SetLabel(CollectPlainText(node));
+    }
+    return button;
 }
 
 void XmlRuntime::MountNode(const XmlNode& node) {
@@ -212,7 +315,27 @@ void XmlRuntime::MountNode(const XmlNode& node) {
         return;
     }
 
-    lastError_ = "Unsupported element: <" + node.name + ">. Only <Robo> and <Text> are available until Screen is implemented.";
+    if (node.name == "Heading" || node.name == "heading" ||
+        (node.name.size() == 2 && (node.name[0] == 'H' || node.name[0] == 'h') && node.name[1] >= '1' &&
+         node.name[1] <= '6') ||
+        (node.name.size() == 8 && (node.name.compare(0, 7, "Heading") == 0 || node.name.compare(0, 7, "heading") == 0) &&
+         node.name[7] >= '1' && node.name[7] <= '6')) {
+        scene_.AddText(BuildHeading(node, ParseHeadingLevel(node)));
+        return;
+    }
+
+    if (node.name == "Paragraph" || node.name == "paragraph" || node.name == "P" || node.name == "p") {
+        scene_.AddText(BuildParagraph(node));
+        return;
+    }
+
+    if (node.name == "Button") {
+        scene_.AddButton(BuildButton(node));
+        return;
+    }
+
+    lastError_ = "Unsupported element: <" + node.name +
+                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>.";
 }
 
 bool XmlRuntime::RenderXml(const std::string& xml) {
@@ -236,6 +359,26 @@ bool XmlRuntime::RenderXml(const std::string& xml) {
         lastError_ = exception.what();
         return false;
     }
+}
+
+bool XmlRuntime::PointerMove(float x, float y) {
+    return scene_.PointerMove(x, y);
+}
+
+bool XmlRuntime::PointerDown(float x, float y) {
+    return scene_.PointerDown(x, y);
+}
+
+bool XmlRuntime::PointerUp(float x, float y) {
+    return scene_.PointerUp(x, y);
+}
+
+bool XmlRuntime::PointerLeave() {
+    return scene_.PointerLeave();
+}
+
+bool XmlRuntime::HitTest(float x, float y) const {
+    return scene_.HitTest(x, y);
 }
 
 }  // namespace Robo
