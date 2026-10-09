@@ -28,9 +28,10 @@ void EnsureRuntime() {
     }
 }
 
-std::string RenderXml(const std::string& xml, int width, int height) {
+std::string RenderXml(const std::string& xml, int width, int height, float pixelScale) {
     EnsureRuntime();
     gPlatform->SetSurfaceSize(width, height);
+    gPlatform->SetPixelScale(pixelScale > 0.0f ? pixelScale : 1.0f);
     const bool ok = gRuntime->RenderXml(xml);
     if (!ok) {
         return gRuntime->GetLastError();

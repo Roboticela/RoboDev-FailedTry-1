@@ -96,12 +96,14 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
                                        Button& button,
                                        float originX,
                                        float originY,
-                                       float containerWidth) {
+                                       float containerWidth,
+                                       float pixelScale) {
+    const float scale = std::max(0.5f, pixelScale);
     const ButtonStyle& style = button.GetStyle();
     const std::string label = CollapseToSingleLine(button.GetLabel());
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
-    const float fontSize = static_cast<float>(style.fontSize);
-    const float letterSpacing = static_cast<float>(style.letterSpacing);
+    const float fontSize = static_cast<float>(style.fontSize) * scale;
+    const float letterSpacing = static_cast<float>(style.letterSpacing) * scale;
     const float opacity = button.ResolveOpacity();
     const Color backgroundColor = button.ResolveBackgroundColor();
     const Color textColor = button.ResolveTextColor();
@@ -111,8 +113,8 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     const float descent = fonts.GetDescent(fontSize, faceId);
     const float textHeight = std::max(fontSize, ascent + descent);
 
-    const float paddingX = static_cast<float>(style.paddingX);
-    const float paddingY = static_cast<float>(style.paddingY);
+    const float paddingX = static_cast<float>(style.paddingX) * scale;
+    const float paddingY = static_cast<float>(style.paddingY) * scale;
     const float buttonWidth = textWidth + paddingX * 2.0f;
     const float buttonHeight = textHeight + paddingY * 2.0f;
 
@@ -124,7 +126,7 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     }
 
     const float buttonY = originY;
-    const float pressOffset = button.GetInteraction() == ButtonInteraction::Pressed ? 1.0f : 0.0f;
+    const float pressOffset = button.GetInteraction() == ButtonInteraction::Pressed ? 1.0f * scale : 0.0f;
 
     if (backgroundColor.alpha > 0) {
         FillRoundedRect(buffer,
@@ -132,7 +134,7 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
                         buttonY + pressOffset,
                         buttonWidth,
                         buttonHeight,
-                        static_cast<float>(style.cornerRadius),
+                        static_cast<float>(style.cornerRadius) * scale,
                         backgroundColor,
                         opacity);
     }
@@ -154,7 +156,7 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     result.bounds.y = buttonY;
     result.bounds.width = buttonWidth;
     result.bounds.height = buttonHeight + pressOffset;
-    result.advanceY = buttonHeight + 16.0f;
+    result.advanceY = buttonHeight + 16.0f * scale;
     button.SetBounds(result.bounds);
     return result;
 }

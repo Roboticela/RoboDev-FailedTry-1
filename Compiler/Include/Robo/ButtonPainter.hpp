@@ -18,7 +18,8 @@ public:
                                    Button& button,
                                    float originX,
                                    float originY,
-                                   float containerWidth);
+                                   float containerWidth,
+                                   float pixelScale = 1.0f);
 };
 
 }  // namespace Robo

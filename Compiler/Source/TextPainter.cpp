@@ -31,16 +31,17 @@ struct LayoutLine {
     float width = 0.0f;
 };
 
-ResolvedRun ResolveRun(const TextRun& run, const TextStyle& style, const FontEngine& fonts) {
+ResolvedRun ResolveRun(const TextRun& run, const TextStyle& style, const FontEngine& fonts, float pixelScale) {
     ResolvedRun resolved;
     resolved.content = run.content;
-    resolved.fontSize = static_cast<float>(run.hasFontSize ? run.fontSize : style.fontSize);
+    resolved.fontSize = static_cast<float>(run.hasFontSize ? run.fontSize : style.fontSize) * pixelScale;
     resolved.color = run.hasColor ? run.color : style.color;
     const FontWeight weight = run.hasFontWeight ? run.fontWeight : style.fontWeight;
     const FontStyleKind fontStyle = run.hasFontStyle ? run.fontStyle : style.fontStyle;
     resolved.faceId = fonts.ResolveFace(weight, fontStyle);
     resolved.decoration = run.hasTextDecoration ? run.textDecoration : style.textDecoration;
-    resolved.letterSpacing = static_cast<float>(run.hasLetterSpacing ? run.letterSpacing : style.letterSpacing);
+    resolved.letterSpacing =
+        static_cast<float>(run.hasLetterSpacing ? run.letterSpacing : style.letterSpacing) * pixelScale;
     resolved.opacity = static_cast<float>(run.hasOpacity ? run.opacity : style.opacity);
     return resolved;
 }
@@ -160,11 +161,14 @@ float TextPainter::Paint(FrameBuffer& buffer,
                          const Text& text,
                          float originX,
                          float originY,
-                         float containerWidth) {
+                         float containerWidth,
+                         float pixelScale) {
+    const float scale = std::max(0.5f, pixelScale);
     const TextStyle& style = text.GetStyle();
-    float blockWidth = ResolveWidthValue(style.width, containerWidth);
+    const float logicalWidth = containerWidth / scale;
+    float blockWidth = ResolveWidthValue(style.width, logicalWidth) * scale;
     if (!style.maxWidth.empty()) {
-        blockWidth = std::min(blockWidth, ResolveWidthValue(style.maxWidth, containerWidth));
+        blockWidth = std::min(blockWidth, ResolveWidthValue(style.maxWidth, logicalWidth) * scale);
     }
     blockWidth = std::max(1.0f, blockWidth);
 
@@ -173,7 +177,7 @@ float TextPainter::Paint(FrameBuffer& buffer,
         if (run.content.empty()) {
             continue;
         }
-        ResolvedRun resolved = ResolveRun(run, style, fonts);
+        ResolvedRun resolved = ResolveRun(run, style, fonts, scale);
         resolved.content = NormalizeXmlText(run.content);
         if (!resolved.content.empty()) {
             runs.push_back(resolved);
@@ -181,7 +185,7 @@ float TextPainter::Paint(FrameBuffer& buffer,
     }
 
     if (runs.empty()) {
-        return static_cast<float>(style.fontSize) * static_cast<float>(style.lineHeight) + 12.0f;
+        return static_cast<float>(style.fontSize) * static_cast<float>(style.lineHeight) * scale + 12.0f * scale;
     }
 
     // Re-join adjacent runs with spaces only between word boundaries handled per-token.
@@ -334,7 +338,7 @@ float TextPainter::Paint(FrameBuffer& buffer,
         cursorY += baseLineHeight;
     }
 
-    return std::max(baseLineHeight, cursorY - originY) + 12.0f;
+    return std::max(baseLineHeight, cursorY - originY) + 12.0f * scale;
 }
 
 }  // namespace Robo

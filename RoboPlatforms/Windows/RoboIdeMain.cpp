@@ -9,6 +9,7 @@
 #include "Robo/FontEngine.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -79,18 +80,44 @@ void SetStatus(const std::wstring& text) {
     }
 }
 
+float WindowPixelScale(HWND hwnd) {
+    const UINT dpi = GetDpiForWindow(hwnd);
+    if (dpi == 0) {
+        return 1.0f;
+    }
+    return static_cast<float>(dpi) / 96.0f;
+}
+
+void SyncPreviewSurface() {
+    if (!gApp || !gApp->platform || !gApp->preview) {
+        return;
+    }
+    RECT previewRect{};
+    GetClientRect(gApp->preview, &previewRect);
+    gApp->platform->SetSurfaceSize(std::max(1, static_cast<int>(previewRect.right)),
+                                   std::max(1, static_cast<int>(previewRect.bottom)));
+    gApp->platform->SetPixelScale(WindowPixelScale(gApp->preview));
+}
+
 void LayoutChildren(HWND hwnd) {
     RECT rect{};
     GetClientRect(hwnd, &rect);
-    const int header = 48;
-    const int title = 36;
+    const float uiScale = WindowPixelScale(hwnd);
+    const int header = static_cast<int>(std::lround(48.0f * uiScale));
+    const int title = static_cast<int>(std::lround(36.0f * uiScale));
+    const int minPane = static_cast<int>(std::lround(220.0f * uiScale));
     if (gApp->splitX <= 0) {
         gApp->splitX = rect.right * 48 / 100;
     }
-    gApp->splitX = std::max(220, std::min(gApp->splitX, static_cast<int>(rect.right) - 220));
+    gApp->splitX = std::max(minPane, std::min(gApp->splitX, static_cast<int>(rect.right) - minPane));
 
     if (gApp->status) {
-        MoveWindow(gApp->status, 16, 12, rect.right - 32, 24, TRUE);
+        MoveWindow(gApp->status,
+                   static_cast<int>(std::lround(16.0f * uiScale)),
+                   static_cast<int>(std::lround(12.0f * uiScale)),
+                   rect.right - static_cast<int>(std::lround(32.0f * uiScale)),
+                   static_cast<int>(std::lround(24.0f * uiScale)),
+                   TRUE);
     }
 
     const int bodyTop = header;
@@ -101,22 +128,14 @@ void LayoutChildren(HWND hwnd) {
 
     MoveWindow(gApp->editor, 0, bodyTop + title, editorWidth, bodyHeight - title, TRUE);
     MoveWindow(gApp->preview, previewLeft, bodyTop + title, previewWidth, bodyHeight - title, TRUE);
-
-    if (gApp->platform) {
-        RECT previewRect{};
-        GetClientRect(gApp->preview, &previewRect);
-        gApp->platform->SetSurfaceSize(previewRect.right, previewRect.bottom);
-    }
+    SyncPreviewSurface();
 }
 
 void RenderPreview() {
     if (!gApp || !gApp->runtime || !gApp->platform) {
         return;
     }
-    RECT previewRect{};
-    GetClientRect(gApp->preview, &previewRect);
-    gApp->platform->SetSurfaceSize(std::max(1, static_cast<int>(previewRect.right)),
-                                   std::max(1, static_cast<int>(previewRect.bottom)));
+    SyncPreviewSurface();
 
     const std::string xml = Robo::XmlEditor::GetTextUtf8(gApp->editor);
     const bool ok = gApp->runtime->RenderXml(xml);
@@ -162,10 +181,8 @@ LRESULT CALLBACK PreviewProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         case WM_ERASEBKGND:
             return 1;
         case WM_SIZE:
-            if (gApp && gApp->platform) {
-                gApp->platform->SetSurfaceSize(LOWORD(lParam), HIWORD(lParam));
-                QueueRender(GetParent(hwnd));
-            }
+            SyncPreviewSurface();
+            QueueRender(GetParent(hwnd));
             return 0;
         case WM_MOUSEMOVE: {
             if (!gApp || !gApp->runtime) {
@@ -275,6 +292,21 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             LayoutChildren(hwnd);
             QueueRender(hwnd);
             return 0;
+        case WM_DPICHANGED: {
+            const RECT* suggested = reinterpret_cast<const RECT*>(lParam);
+            if (suggested) {
+                SetWindowPos(hwnd,
+                             nullptr,
+                             suggested->left,
+                             suggested->top,
+                             suggested->right - suggested->left,
+                             suggested->bottom - suggested->top,
+                             SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+            LayoutChildren(hwnd);
+            QueueRender(hwnd);
+            return 0;
+        }
         case WM_COMMAND:
             if (LOWORD(wParam) == ID_EDITOR && HIWORD(wParam) == EN_CHANGE) {
                 QueueRender(hwnd);
@@ -377,6 +409,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }  // namespace
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand) {
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     Robo::XmlEditor::RegisterClassOnce(instance);
 
     WNDCLASSW windowClass{};

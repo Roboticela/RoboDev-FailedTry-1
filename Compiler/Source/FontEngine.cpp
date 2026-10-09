@@ -219,24 +219,28 @@ void FontEngine::DrawString(FrameBuffer& buffer,
             penX += scale * stbtt_GetGlyphKernAdvance(&face.info, previousGlyph, glyph);
         }
 
+        const float shiftX = penX - std::floor(penX);
+        const float shiftY = baselineY - std::floor(baselineY);
         int xoff = 0;
         int yoff = 0;
         int glyphWidth = 0;
         int glyphHeight = 0;
-        unsigned char* bitmap =
-            stbtt_GetGlyphBitmap(&face.info, scale, scale, glyph, &glyphWidth, &glyphHeight, &xoff, &yoff);
+        unsigned char* bitmap = stbtt_GetGlyphBitmapSubpixel(
+            &face.info, scale, scale, shiftX, shiftY, glyph, &glyphWidth, &glyphHeight, &xoff, &yoff);
 
         if (bitmap && glyphWidth > 0 && glyphHeight > 0) {
-            const int destX = static_cast<int>(std::floor(penX + static_cast<float>(xoff)));
-            const int destY = static_cast<int>(std::floor(baselineY + static_cast<float>(yoff)));
+            const int destX = static_cast<int>(std::floor(penX)) + xoff;
+            const int destY = static_cast<int>(std::floor(baselineY)) + yoff;
             for (int row = 0; row < glyphHeight; ++row) {
                 for (int col = 0; col < glyphWidth; ++col) {
                     const unsigned char coverage = bitmap[row * glyphWidth + col];
                     if (coverage == 0) {
                         continue;
                     }
-                    const float coverageOpacity = (coverage / 255.0f) * opacity;
-                    buffer.BlendPixel(destX + col, destY + row, color, coverageOpacity);
+                    // Slight contrast curve for cleaner edges on light backgrounds.
+                    float normalized = coverage / 255.0f;
+                    normalized = normalized * (normalized * 0.35f + 0.65f);
+                    buffer.BlendPixel(destX + col, destY + row, color, normalized * opacity);
                 }
             }
             stbtt_FreeBitmap(bitmap, nullptr);

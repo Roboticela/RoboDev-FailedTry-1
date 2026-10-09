@@ -14,7 +14,8 @@ public:
                        const Text& text,
                        float originX,
                        float originY,
-                       float containerWidth);
+                       float containerWidth,
+                       float pixelScale = 1.0f);
 };
 
 }  // namespace Robo

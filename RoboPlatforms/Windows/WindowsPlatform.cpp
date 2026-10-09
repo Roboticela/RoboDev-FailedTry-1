@@ -1,5 +1,6 @@
 #include "WindowsPlatform.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 
@@ -37,9 +38,17 @@ int WindowsPlatform::GetSurfaceHeight() const {
     return height_;
 }
 
+float WindowsPlatform::GetPixelScale() const {
+    return pixelScale_;
+}
+
 void WindowsPlatform::SetSurfaceSize(int width, int height) {
     width_ = width > 0 ? width : 1;
     height_ = height > 0 ? height : 1;
+}
+
+void WindowsPlatform::SetPixelScale(float scale) {
+    pixelScale_ = std::max(0.5f, scale);
 }
 
 void WindowsPlatform::Present(const FrameBuffer& buffer) {
@@ -52,6 +61,7 @@ void WindowsPlatform::Present(const FrameBuffer& buffer) {
     }
     if (previewHwnd_) {
         InvalidateRect(previewHwnd_, nullptr, FALSE);
+        UpdateWindow(previewHwnd_);
     }
 }
 
@@ -75,11 +85,14 @@ std::vector<std::uint8_t> WindowsPlatform::LoadAsset(const std::string& relative
 }
 
 void WindowsPlatform::Paint(HDC deviceContext) const {
+    RECT client{};
+    GetClientRect(previewHwnd_, &client);
+    const int clientWidth = std::max(1, static_cast<int>(client.right - client.left));
+    const int clientHeight = std::max(1, static_cast<int>(client.bottom - client.top));
+
     if (pixels_.empty() || width_ <= 0 || height_ <= 0) {
-        RECT rect{};
-        GetClientRect(previewHwnd_, &rect);
         HBRUSH brush = CreateSolidBrush(RGB(247, 243, 235));
-        FillRect(deviceContext, &rect, brush);
+        FillRect(deviceContext, &client, brush);
         DeleteObject(brush);
         return;
     }
@@ -99,14 +112,32 @@ void WindowsPlatform::Paint(HDC deviceContext) const {
         bgrx[dst + 0] = pixels_[src + 2];
         bgrx[dst + 1] = pixels_[src + 1];
         bgrx[dst + 2] = pixels_[src + 0];
-        bgrx[dst + 3] = pixels_[src + 3];
+        bgrx[dst + 3] = 255;
     }
 
+    if (width_ == clientWidth && height_ == clientHeight) {
+        SetDIBitsToDevice(deviceContext,
+                          0,
+                          0,
+                          clientWidth,
+                          clientHeight,
+                          0,
+                          0,
+                          0,
+                          height_,
+                          bgrx.data(),
+                          &info,
+                          DIB_RGB_COLORS);
+        return;
+    }
+
+    SetStretchBltMode(deviceContext, HALFTONE);
+    SetBrushOrgEx(deviceContext, 0, 0, nullptr);
     StretchDIBits(deviceContext,
                   0,
                   0,
-                  width_,
-                  height_,
+                  clientWidth,
+                  clientHeight,
                   0,
                   0,
                   width_,

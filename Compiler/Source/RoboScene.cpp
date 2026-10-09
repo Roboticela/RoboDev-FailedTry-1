@@ -3,8 +3,47 @@
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace Robo {
+
+namespace {
+
+void Downsample2x(const FrameBuffer& source, FrameBuffer& destination) {
+    const int width = destination.GetWidth();
+    const int height = destination.GetHeight();
+    const std::uint8_t* src = source.GetPixels();
+    std::uint8_t* dst = destination.GetPixels();
+    const int srcWidth = source.GetWidth();
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const int sx = x * 2;
+            const int sy = y * 2;
+            unsigned int r = 0;
+            unsigned int g = 0;
+            unsigned int b = 0;
+            unsigned int a = 0;
+            for (int oy = 0; oy < 2; ++oy) {
+                for (int ox = 0; ox < 2; ++ox) {
+                    const std::size_t index =
+                        static_cast<std::size_t>(((sy + oy) * srcWidth + (sx + ox)) * 4);
+                    r += src[index + 0];
+                    g += src[index + 1];
+                    b += src[index + 2];
+                    a += src[index + 3];
+                }
+            }
+            const std::size_t out = static_cast<std::size_t>((y * width + x) * 4);
+            dst[out + 0] = static_cast<std::uint8_t>((r + 2) / 4);
+            dst[out + 1] = static_cast<std::uint8_t>((g + 2) / 4);
+            dst[out + 2] = static_cast<std::uint8_t>((b + 2) / 4);
+            dst[out + 3] = static_cast<std::uint8_t>((a + 2) / 4);
+        }
+    }
+}
+
+}  // namespace
 
 void RoboScene::Clear() {
     items_.clear();
@@ -35,22 +74,49 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
 
     const int width = std::max(1, platform.GetSurfaceWidth());
     const int height = std::max(1, platform.GetSurfaceHeight());
-    FrameBuffer buffer(width, height);
-    buffer.Clear(background);
+    const float pixelScale = std::max(0.5f, platform.GetPixelScale());
+    // 2x supersample for sharper glyphs; drop to 1x if the hi-res buffer would be huge.
+    int superSample = 2;
+    const long long hiResBytes =
+        static_cast<long long>(width) * static_cast<long long>(height) * 4LL * 4LL;
+    if (hiResBytes > 96LL * 1024LL * 1024LL) {
+        superSample = 1;
+    }
+    const float paintScale = pixelScale * static_cast<float>(superSample);
 
-    const float contentWidth = static_cast<float>(width) - padding * 2.0f;
-    float cursorY = padding;
+    FrameBuffer hiRes(width * superSample, height * superSample);
+    hiRes.Clear(background);
+
+    const float pad = padding * paintScale;
+    const float contentWidth = static_cast<float>(width * superSample) - pad * 2.0f;
+    float cursorY = pad;
     for (SceneItem& item : items_) {
         if (item.kind == SceneItemKind::Text) {
-            cursorY += TextPainter::Paint(buffer, fonts, item.text, padding, cursorY, contentWidth);
+            cursorY += TextPainter::Paint(hiRes, fonts, item.text, pad, cursorY, contentWidth, paintScale);
         } else if (item.kind == SceneItemKind::Button) {
             const ButtonPaintResult painted =
-                ButtonPainter::Paint(buffer, fonts, item.button, padding, cursorY, contentWidth);
+                ButtonPainter::Paint(hiRes, fonts, item.button, pad, cursorY, contentWidth, paintScale);
             cursorY += painted.advanceY;
+
+            if (superSample > 1) {
+                ButtonBounds bounds = item.button.GetBounds();
+                const float inv = 1.0f / static_cast<float>(superSample);
+                bounds.x *= inv;
+                bounds.y *= inv;
+                bounds.width *= inv;
+                bounds.height *= inv;
+                item.button.SetBounds(bounds);
+            }
         }
     }
 
-    platform.Present(buffer);
+    if (superSample > 1) {
+        FrameBuffer output(width, height);
+        Downsample2x(hiRes, output);
+        platform.Present(output);
+    } else {
+        platform.Present(hiRes);
+    }
 }
 
 int RoboScene::HitTestButton(float x, float y) const {
@@ -136,16 +202,13 @@ bool RoboScene::PointerDown(float x, float y) {
 }
 
 bool RoboScene::PointerUp(float x, float y) {
-    const int released = pressedIndex_;
     bool changed = SetPressedIndex(-1);
-    const int hover = HitTestButton(x, y);
-    if (SetHoverIndex(hover)) {
+    if (SetHoverIndex(HitTestButton(x, y))) {
         changed = true;
     }
     if (changed && hasRenderContext_ && platform_ && fonts_) {
         Render(*platform_, *fonts_, background_, padding_);
     }
-    (void)released;
     return changed;
 }
 

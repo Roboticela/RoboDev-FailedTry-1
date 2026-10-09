@@ -87,13 +87,22 @@ function ShowError(message) {
   errorBanner.textContent = message;
 }
 
+function EffectivePixelRatio() {
+  const dpr = window.devicePixelRatio || 1;
+  // Page zoom usually updates devicePixelRatio. Pinch/visual zoom may only
+  // change visualViewport.scale — use the larger effective density so we
+  // re-rasterize instead of stretching a low-res bitmap.
+  const visualScale = window.visualViewport ? window.visualViewport.scale : 1;
+  return Math.max(dpr, dpr * visualScale);
+}
+
 function PreviewSize() {
   const styles = window.getComputedStyle(previewSurface);
   const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
   const padY = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
   const cssWidth = Math.max(1, Math.floor(previewSurface.clientWidth - padX));
   const cssHeight = Math.max(1, Math.floor(previewSurface.clientHeight - padY));
-  const pixelRatio = window.devicePixelRatio || 1;
+  const pixelRatio = EffectivePixelRatio();
   return {
     width: Math.max(1, Math.floor(cssWidth * pixelRatio)),
     height: Math.max(1, Math.floor(cssHeight * pixelRatio)),
@@ -109,7 +118,7 @@ function RenderPreview(xmlSource) {
   }
   try {
     const size = PreviewSize();
-    const error = roboModule.RenderXml(xmlSource, size.width, size.height);
+    const error = roboModule.RenderXml(xmlSource, size.width, size.height, size.pixelRatio);
     if (error) {
       ShowError(error);
       SetStatus("XML error");
@@ -273,10 +282,13 @@ function WireSplitter() {
       ScheduleRender(CurrentXml());
     });
     observer.observe(previewSurface);
-  } else {
-    window.addEventListener("resize", () => {
-      ScheduleRender(CurrentXml());
-    });
+  }
+
+  const requestRedraw = () => ScheduleRender(CurrentXml());
+  window.addEventListener("resize", requestRedraw);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", requestRedraw);
+    window.visualViewport.addEventListener("scroll", requestRedraw);
   }
 }
 
