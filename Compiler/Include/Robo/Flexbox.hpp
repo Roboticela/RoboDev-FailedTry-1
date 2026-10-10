@@ -49,6 +49,7 @@ enum class FlexItemKind {
     Button,
     Input,
     Scrollbar,
+    Container,
     Flexbox
 };
 
@@ -70,6 +71,7 @@ struct FlexItemProps {
     float marginRight = 0.0f;
 };
 
+class Container;
 class Flexbox;
 
 struct FlexboxItem {
@@ -79,6 +81,7 @@ struct FlexboxItem {
     Button button;
     Input input;
     Scrollbar scrollbar;
+    std::shared_ptr<Container> container;
     std::shared_ptr<Flexbox> flexbox;
 };
 
@@ -136,6 +139,7 @@ public:
     void AddButton(Button button, const FlexItemProps& props = {});
     void AddInput(Input input, const FlexItemProps& props = {});
     void AddScrollbar(Scrollbar scrollbar, const FlexItemProps& props = {});
+    void AddContainer(Container container, const FlexItemProps& props = {});
     void AddFlexbox(Flexbox flexbox, const FlexItemProps& props = {});
     void AddItem(FlexboxItem item);
 

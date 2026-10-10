@@ -1,0 +1,71 @@
+<Robo>
+  <Heading level="1" align="center">Robo</Heading>
+  <Paragraph align="center">
+    This page is Demo.xml, compiled to C++, then compiled for the browser.
+  </Paragraph>
+
+  <H2>Text</H2>
+  <Paragraph>
+    Paragraphs wrap, align, and share the text engine with headings. Edit Demo.xml and run RunDemo.ps1 to rebuild the page.
+  </Paragraph>
+
+  <H2>Buttons</H2>
+  <Button variant="filled">Continue</Button>
+  <Button variant="tinted">Not now</Button>
+  <Button variant="gray">Secondary</Button>
+  <Button variant="plain">Plain</Button>
+
+  <H2>Inputs</H2>
+  <Paragraph>Click a field and type. Escape leaves the field.</Paragraph>
+  <Input variant="filled" placeholder="Full name" width="100%" />
+  <Input variant="bordered" placeholder="Email address" width="100%" />
+  <Input variant="plain" placeholder="Search" width="100%" />
+
+  <H2>Flex</H2>
+  <Flexbox direction="row" justify="space-between" align="center" gap="12" width="100%">
+    <Button>Left</Button>
+    <Button variant="tinted">Middle</Button>
+    <Button>Right</Button>
+  </Flexbox>
+
+  <H2>Grid</H2>
+  <Grid columns="1fr 1fr" gap="12" width="100%">
+    <Button>A</Button>
+    <Button variant="gray">B</Button>
+    <Button variant="tinted">C</Button>
+    <Button>D</Button>
+  </Grid>
+
+  <H2>Position</H2>
+  <Position width="100%" height="150" background="#1C1C1E" cornerRadius="14">
+    <Button left="16" top="16">Top left</Button>
+    <Button right="16" bottom="16" variant="tinted">Bottom right</Button>
+  </Position>
+
+  <H2>Container</H2>
+  <Paragraph>Wheel, drag, or use the arrow keys. The cursor stays an arrow.</Paragraph>
+  <Container height="220" gap="10" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1" variant="thin" arrows="true" autoHide="false">
+    <H3>Inside the container</H3>
+    <Paragraph>The first row of a clipped, scrolling region.</Paragraph>
+    <Paragraph>Buttons and fields inside stay interactive.</Paragraph>
+    <Button>Tap me</Button>
+    <Input placeholder="A field inside the scroll region" width="100%" />
+    <Paragraph>Keep going. The thumb tracks how much is left.</Paragraph>
+    <Paragraph>Another row, so the region actually overflows.</Paragraph>
+    <Paragraph>Almost at the end of the scroll range.</Paragraph>
+    <Button variant="tinted">Last control</Button>
+  </Container>
+
+  <H2>Horizontal</H2>
+  <Paragraph>Swipe sideways, drag the thumb, or press Left and Right.</Paragraph>
+  <Container orientation="horizontal" height="92" width="100%" gap="10" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1" arrows="true" autoHide="false">
+    <Button>Alpha</Button>
+    <Button variant="tinted">Beta</Button>
+    <Button variant="gray">Gamma</Button>
+    <Button>Delta</Button>
+    <Button variant="tinted">Epsilon</Button>
+    <Button>Zeta</Button>
+    <Button variant="gray">Eta</Button>
+    <Button>Theta</Button>
+  </Container>
+</Robo>

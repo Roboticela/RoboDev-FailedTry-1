@@ -30,6 +30,8 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\Flexbox.cpp"),
         (Join-Path $Root "Compiler\Source\Grid.cpp"),
         (Join-Path $Root "Compiler\Source\Position.cpp"),
+        (Join-Path $Root "Compiler\Source\Container.cpp"),
+        (Join-Path $Root "Compiler\Source\Parse.cpp"),
         (Join-Path $Root "Compiler\Source\FrameBuffer.cpp"),
         (Join-Path $Root "Compiler\Source\FontEngine.cpp"),
         (Join-Path $Root "Compiler\Source\TextPainter.cpp"),
@@ -39,11 +41,8 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\FlexboxPainter.cpp"),
         (Join-Path $Root "Compiler\Source\GridPainter.cpp"),
         (Join-Path $Root "Compiler\Source\PositionPainter.cpp"),
-        (Join-Path $Root "Compiler\Source\RoboScene.cpp"),
-        (Join-Path $Root "XMLCompiler\Source\XmlParser.cpp"),
-        (Join-Path $Root "XMLCompiler\Source\XmlRuntime.cpp"),
-        (Join-Path $Root "XMLCompiler\Source\HtmlFromXml.cpp"),
-        (Join-Path $Root "XMLCompiler\Source\XmlToCpp.cpp")
+        (Join-Path $Root "Compiler\Source\ContainerPainter.cpp"),
+        (Join-Path $Root "Compiler\Source\RoboScene.cpp")
     )
 }
 
@@ -106,11 +105,66 @@ function Ensure-Emsdk {
     Write-Host "Using emcc: $emccPath"
 }
 
+function Invoke-XmlCompile {
+    Write-Step "Compiling Demo.xml to C++"
+    $vcvars = Find-VcVars64
+    if (-not $vcvars) {
+        throw "Visual Studio C++ toolchain not found (need vcvars64.bat)"
+    }
+
+    $toolDir = Join-Path $Root "Build\XmlCompile"
+    Ensure-Directory $toolDir
+    $generatedDir = Join-Path $Root "Build\Generated"
+    Ensure-Directory $generatedDir
+
+    $toolExe = Join-Path $toolDir "XmlCompile.exe"
+    $toolSources = @(
+        (Join-Path $Root "XMLCompiler\Source\XmlCompileMain.cpp"),
+        (Join-Path $Root "XMLCompiler\Source\XmlParser.cpp"),
+        (Join-Path $Root "XMLCompiler\Source\XmlToCpp.cpp")
+    )
+    $rspPath = Join-Path $toolDir "Sources.rsp"
+    $rspLines = @(
+        "/nologo",
+        "/EHsc",
+        "/std:c++17",
+        "/O2",
+        "/I$(Join-Path $Root 'XMLCompiler\Include')",
+        "/I$(Join-Path $Root 'Compiler\Include')"
+    ) + $toolSources + @(
+        "/Fe$($toolExe.Replace('\','/'))",
+        "/Fo$($toolDir.Replace('\','/'))/"
+    )
+    Set-Content -Path $rspPath -Value ($rspLines -join [Environment]::NewLine) -Encoding ASCII
+
+    $batchPath = Join-Path $toolDir "Compile.bat"
+    Set-Content -Path $batchPath -Value @"
+@echo off
+call "$vcvars" >nul
+cl @"$rspPath"
+exit /b %ERRORLEVEL%
+"@ -Encoding ASCII
+
+    & cmd.exe /c $batchPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "XmlCompile build failed with exit code $LASTEXITCODE"
+    }
+
+    $demoXml = Join-Path $Root "Demo.xml"
+    $demoCpp = Join-Path $generatedDir "DemoPage.cpp"
+    & $toolExe $demoXml $demoCpp
+    if ($LASTEXITCODE -ne 0) {
+        throw "XmlCompile failed to compile Demo.xml"
+    }
+    Write-Host "Built: $demoCpp"
+}
+
 function Invoke-WebBuild {
-    Write-Step "Compiling Robo WebAssembly module (native C++ raster → canvas)"
+    Write-Step "Compiling Demo C++ to WebAssembly"
     Ensure-Directory $BuildWeb
 
     $sources = (Get-CoreSources) + @(
+        (Join-Path $Root "Build\Generated\DemoPage.cpp"),
         (Join-Path $Root "RoboPlatforms\Web\WebPlatform.cpp"),
         (Join-Path $Root "RoboPlatforms\Web\Main.cpp")
     )
@@ -170,69 +224,9 @@ function Find-VcVars64 {
     return $null
 }
 
-function Invoke-WindowsBuild {
-    Write-Step "Compiling Robo Windows native IDE (Win32 + shared C++ raster)"
-    Ensure-Directory $BuildWindows
-
-    $vcvars = Find-VcVars64
-    if (-not $vcvars) {
-        throw "Visual Studio C++ toolchain not found (need vcvars64.bat)"
-    }
-
-    $sources = (Get-CoreSources) + @(
-        (Join-Path $Root "RoboPlatforms\Windows\WindowsPlatform.cpp"),
-        (Join-Path $Root "RoboPlatforms\Windows\XmlEditor.cpp"),
-        (Join-Path $Root "RoboPlatforms\Windows\RoboIdeMain.cpp")
-    )
-
-    $outputExe = Join-Path $BuildWindows "RoboIDE.exe"
-    $objDir = Join-Path $BuildWindows "obj"
-    Ensure-Directory $objDir
-
-    $rspPath = Join-Path $BuildWindows "Sources.rsp"
-    $rspLines = @(
-        "/nologo",
-        "/EHsc",
-        "/std:c++17",
-        "/O2",
-        "/DUNICODE",
-        "/D_UNICODE",
-        "/DNOMINMAX",
-        "/Fo$($objDir.Replace('\','/'))/",
-        "/I$(Join-Path $Root 'Compiler\Include')",
-        "/I$(Join-Path $Root 'Compiler\ThirdParty')",
-        "/I$(Join-Path $Root 'XMLCompiler\Include')",
-        "/I$(Join-Path $Root 'RoboPlatforms\Windows')"
-    ) + $sources + @(
-        "/Fe$($outputExe.Replace('\','/'))",
-        "/link",
-        "/SUBSYSTEM:WINDOWS",
-        "user32.lib",
-        "gdi32.lib"
-    )
-    Set-Content -Path $rspPath -Value ($rspLines -join [Environment]::NewLine) -Encoding ASCII
-
-    $batch = @"
-@echo off
-call "$vcvars" >nul
-cl @"$rspPath"
-exit /b %ERRORLEVEL%
-"@
-    $batchPath = Join-Path $BuildWindows "Compile.bat"
-    Set-Content -Path $batchPath -Value $batch -Encoding ASCII
-
-    & cmd.exe /c $batchPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Windows cl build failed with exit code $LASTEXITCODE"
-    }
-
-    Write-Host "Built: $outputExe"
-}
-
-Write-Step "RoboDev build (Web + Windows)"
+Write-Step "RoboDev build (Demo.xml to WebAssembly)"
+Invoke-XmlCompile
 Ensure-Emsdk
 Invoke-WebBuild
-Invoke-WindowsBuild
 Write-Step "Build complete"
-Write-Host "Web IDE:     .\RunRoboIDE.ps1 -Platform Web"
-Write-Host "Windows IDE: .\RunRoboIDE.ps1 -Platform Windows"
+Write-Host "Demo: .\RunDemo.ps1"

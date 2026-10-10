@@ -13,6 +13,7 @@
 
 namespace Robo {
 
+class Container;
 class Flexbox;
 class Grid;
 class Position;
@@ -38,6 +39,7 @@ enum class PositionItemKind {
     Button,
     Input,
     Scrollbar,
+    Container,
     Flexbox,
     Grid,
     Position
@@ -113,6 +115,7 @@ struct PositionItem {
     Button button;
     Input input;
     Scrollbar scrollbar;
+    std::shared_ptr<Container> container;
     std::shared_ptr<Flexbox> flexbox;
     std::shared_ptr<Grid> grid;
     std::shared_ptr<Position> position;
@@ -138,6 +141,7 @@ public:
     void AddButton(Button button, const PositionItemProps& props = {});
     void AddInput(Input input, const PositionItemProps& props = {});
     void AddScrollbar(Scrollbar scrollbar, const PositionItemProps& props = {});
+    void AddContainer(Container container, const PositionItemProps& props = {});
     void AddFlexbox(Flexbox flexbox, const PositionItemProps& props = {});
     void AddGrid(Grid grid, const PositionItemProps& props = {});
     void AddPosition(Position position, const PositionItemProps& props = {});

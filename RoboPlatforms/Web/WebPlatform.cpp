@@ -11,7 +11,7 @@ namespace Robo {
 namespace {
 
 EM_JS(void, JsPresentRgba, (int width, int height, float pixelScale, const uint8_t* pixels), {
-    const canvas = document.getElementById("robo-preview-canvas");
+    const canvas = document.getElementById("robo-canvas");
     if (!canvas) {
         return;
     }
@@ -20,8 +20,8 @@ EM_JS(void, JsPresentRgba, (int width, int height, float pixelScale, const uint8
         canvas.height = height;
     }
     const scale = Math.max(0.01, pixelScale || 1);
-    const cssWidth = Math.max(1, Math.round(width / scale));
-    const cssHeight = Math.max(1, Math.round(height / scale));
+    const cssWidth = Math.max(1, width / scale);
+    const cssHeight = Math.max(1, height / scale);
     canvas.style.width = cssWidth + "px";
     canvas.style.height = cssHeight + "px";
     const context = canvas.getContext("2d", { alpha: false, desynchronized: true });

@@ -1,4 +1,5 @@
 #include "Robo/FlexboxPainter.hpp"
+#include "Robo/ContainerPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/InputPainter.hpp"
 #include "Robo/ScrollbarPainter.hpp"
@@ -38,6 +39,8 @@ void FillRoundedRect(FrameBuffer& buffer,
                      float radius,
                      const Color& color,
                      float opacity) {
+    buffer.FillRoundedRect(x, y, width, height, radius, color, opacity);
+    return;
     if (width <= 0.0f || height <= 0.0f || color.alpha == 0) {
         return;
     }
@@ -276,6 +279,21 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 ScrollbarMeasureResult measured = ScrollbarPainter::Measure(item.scrollbar, availW, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::Container: {
+                if (item.container) {
+                    const float availW = hasExplicitWidth
+                        ? ParseDimension(item.props.width, innerW, innerW, scale)
+                        : innerW;
+                    const float forcedH = hasExplicitHeight
+                        ? ParseDimension(item.props.height, 0.0f, -1.0f, scale)
+                        : -1.0f;
+                    ContainerMeasureResult measured =
+                        ContainerPainter::Measure(fonts, *item.container, availW, scale, -1.0f, forcedH);
+                    child.baseWidth = measured.width;
+                    child.baseHeight = measured.height;
+                }
                 break;
             }
             case FlexItemKind::Flexbox: {
@@ -714,6 +732,22 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                                             scale,
                                             vertical ? -1.0f : childW,
                                             vertical ? childH : -1.0f);
+                    break;
+                }
+                case FlexItemKind::Container: {
+                    if (item.container) {
+                        const float cw = (!item.props.width.empty() && item.props.width != "auto") ? childW : -1.0f;
+                        const float ch = (!item.props.height.empty() && item.props.height != "auto") ? childH : -1.0f;
+                        ContainerPainter::Paint(buffer,
+                                                fonts,
+                                                *item.container,
+                                                childX,
+                                                childY,
+                                                childW,
+                                                scale,
+                                                cw,
+                                                ch);
+                    }
                     break;
                 }
                 case FlexItemKind::Flexbox: {

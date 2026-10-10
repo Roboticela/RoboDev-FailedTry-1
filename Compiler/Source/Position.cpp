@@ -1,4 +1,5 @@
 #include "Robo/Position.hpp"
+#include "Robo/Container.hpp"
 #include "Robo/Flexbox.hpp"
 #include "Robo/Grid.hpp"
 
@@ -115,6 +116,14 @@ void Position::AddScrollbar(Scrollbar scrollbar, const PositionItemProps& props)
     item.kind = PositionItemKind::Scrollbar;
     item.props = props;
     item.scrollbar = std::move(scrollbar);
+    items_.push_back(std::move(item));
+}
+
+void Position::AddContainer(Container container, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::Container;
+    item.props = props;
+    item.container = std::make_shared<Container>(std::move(container));
     items_.push_back(std::move(item));
 }
 

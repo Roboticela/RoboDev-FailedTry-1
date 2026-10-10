@@ -398,26 +398,240 @@ std::string HtmlFromXml::BuildScrollbarHtml(const XmlNode& node) const {
         value = 1.0;
     }
 
+    // Filled arrowheads at both ends of the track.
+    std::string arrowsValue;
+    bool showArrows = false;
+    if (GetAttribute(node, "arrows", arrowsValue) || GetAttribute(node, "showArrows", arrowsValue) ||
+        GetAttribute(node, "arrow", arrowsValue)) {
+        showArrows = arrowsValue == "true" || arrowsValue == "1" || arrowsValue == "yes";
+    }
+
+    // Auto-hide: the control only appears while the pointer is over it.
+    std::string autoHideValue;
+    bool autoHide = false;
+    if (GetAttribute(node, "autoHide", autoHideValue) || GetAttribute(node, "autohide", autoHideValue)) {
+        autoHide = autoHideValue == "true" || autoHideValue == "1" || autoHideValue == "yes";
+    } else {
+        std::string variant;
+        if (GetAttribute(node, "variant", variant)) {
+            autoHide = variant == "thin" || variant == "overlay";
+        }
+    }
+
+    // visibility=auto drops the element entirely while nothing overflows, so the
+    // static HTML never renders a pointless scrollbar.
+    std::string visibilityValue;
+    if (GetAttribute(node, "visibility", visibilityValue) || GetAttribute(node, "showWhen", visibilityValue)) {
+        if (visibilityValue == "auto" || visibilityValue == "overflow") {
+            std::string contentValue;
+            std::string viewportValue;
+            const double contentSize = GetAttribute(node, "contentSize", contentValue) ||
+                                               GetAttribute(node, "content", contentValue)
+                                           ? std::atof(contentValue.c_str())
+                                           : 0.0;
+            const double viewportSize = GetAttribute(node, "viewportSize", viewportValue) ||
+                                                GetAttribute(node, "viewport", viewportValue) ||
+                                                GetAttribute(node, "pageSize", viewportValue)
+                                            ? std::atof(viewportValue.c_str())
+                                            : 0.0;
+            const bool overflowing = (contentSize > 0.0 && viewportSize > 0.0)
+                                         ? contentSize > viewportSize
+                                         : ratio < 0.999999;
+            if (!overflowing) {
+                return std::string();
+            }
+        }
+    }
+
+    const double arrowSize = showArrows ? std::max(std::atof(thickness.c_str()), 6.0) : 0.0;
+    const double arrowCap = showArrows ? arrowSize + 2.0 : 0.0;
+    const double trackLength = std::atof(length.c_str());
+    const double innerLength = std::max(0.0, trackLength - arrowCap * 2.0);
+    const double thumbLength = std::max(18.0, ratio * innerLength);
+    const double thumbStart = arrowCap + std::max(0.0, innerLength - thumbLength) * value;
+
     const double offsetPercent = (1.0 - ratio) * value * 100.0;
     const double thumbPercent = ratio * 100.0;
 
     std::ostringstream html;
     html << "<div role=\"scrollbar\" aria-orientation=\"" << (vertical ? "vertical" : "horizontal")
-         << "\" style=\"position:relative;overflow:hidden;box-sizing:border-box;"
-         << "border-radius:" << radius << "px;background:" << trackColor << ";margin:0 0 16px 0;";
+         << "\" class=\"RoboScrollbar\"";
+    if (autoHide) {
+        html << " data-autohide=\"true\"";
+    }
+    html << " style=\"border-radius:" << radius
+         << "px;background:" << trackColor << ";margin:0 0 16px 0;";
     if (vertical) {
         html << "width:" << thickness << "px;height:" << length << "px;";
     } else {
         html << "width:" << length << "px;height:" << thickness << "px;";
     }
     html << "\">";
+
+    if (showArrows) {
+        std::string arrowColorValue;
+        if (GetAttribute(node, "arrowColor", arrowColorValue)) {
+            arrowColorValue = Color::FromHex(arrowColorValue).ToCss();
+        } else {
+            arrowColorValue = "#8E8E93";
+        }
+        if (vertical) {
+            html << "<span class=\"RoboScrollbarArrow\" style=\"--RoboArrow:" << arrowColorValue
+                 << ";left:0;right:0;top:0;height:" << arrowSize
+                 << "px;clip-path:polygon(50% 24%,24% 76%,76% 76%);\"></span>";
+            html << "<span class=\"RoboScrollbarArrow\" style=\"--RoboArrow:" << arrowColorValue
+                 << ";left:0;right:0;bottom:0;height:" << arrowSize
+                 << "px;clip-path:polygon(50% 76%,24% 24%,76% 24%);\"></span>";
+        } else {
+            html << "<span class=\"RoboScrollbarArrow\" style=\"--RoboArrow:" << arrowColorValue
+                 << ";top:0;bottom:0;left:0;width:" << arrowSize
+                 << "px;clip-path:polygon(24% 50%,76% 24%,76% 76%);\"></span>";
+            html << "<span class=\"RoboScrollbarArrow\" style=\"--RoboArrow:" << arrowColorValue
+                 << ";top:0;bottom:0;right:0;width:" << arrowSize
+                 << "px;clip-path:polygon(76% 50%,24% 24%,24% 76%);\"></span>";
+        }
+    }
+
     html << "<div style=\"position:absolute;border-radius:" << radius << "px;background:" << thumbColor << ";";
-    if (vertical) {
+    if (showArrows) {
+        if (vertical) {
+            html << "left:0;right:0;top:" << thumbStart << "px;height:" << thumbLength << "px;";
+        } else {
+            html << "top:0;bottom:0;left:" << thumbStart << "px;width:" << thumbLength << "px;";
+        }
+    } else if (vertical) {
         html << "left:0;right:0;top:" << offsetPercent << "%;height:" << thumbPercent << "%;";
     } else {
         html << "top:0;bottom:0;left:" << offsetPercent << "%;width:" << thumbPercent << "%;";
     }
     html << "\"></div></div>";
+    return html.str();
+}
+
+// A container becomes a clipped flex region, so the static HTML keeps the same
+// child order, spacing and stacking as the canvas without any scripting.
+std::string HtmlFromXml::BuildContainerHtml(const XmlNode& node) const {
+    std::string value;
+    std::string layout = "stack";
+    GetAttribute(node, "layout", layout);
+    bool horizontal = false;
+    if (GetAttribute(node, "orientation", value) || GetAttribute(node, "scrollAxis", value) ||
+        GetAttribute(node, "axis", value) || (layout == "stack" && GetAttribute(node, "direction", value))) {
+        horizontal = value == "horizontal" || value == "h" || value == "row" || value == "x";
+    }
+
+    std::ostringstream style;
+    style << "box-sizing:border-box;overflow:hidden;";
+    if (layout == "flex" || layout == "flexbox") {
+        style << "display:flex;";
+        std::string direction = "row";
+        if (!GetAttribute(node, "flexDirection", direction)) {
+            GetAttribute(node, "direction", direction);
+        }
+        style << "flex-direction:" << direction << ";";
+        if (GetAttribute(node, "justify", value) || GetAttribute(node, "justifyContent", value)) {
+            style << "justify-content:" << value << ";";
+        }
+        if (GetAttribute(node, "align", value) || GetAttribute(node, "alignItems", value)) {
+            style << "align-items:" << value << ";";
+        }
+        if (GetAttribute(node, "wrap", value) || GetAttribute(node, "flexWrap", value)) {
+            style << "flex-wrap:" << value << ";";
+        }
+    } else if (layout == "grid") {
+        style << "display:grid;";
+        if (GetAttribute(node, "columns", value) || GetAttribute(node, "templateColumns", value)) {
+            style << "grid-template-columns:" << value << ";";
+        }
+        if (GetAttribute(node, "rows", value) || GetAttribute(node, "templateRows", value)) {
+            style << "grid-template-rows:" << value << ";";
+        }
+        if (GetAttribute(node, "justify", value) || GetAttribute(node, "justifyItems", value)) {
+            style << "justify-items:" << value << ";";
+        }
+        if (GetAttribute(node, "align", value) || GetAttribute(node, "alignItems", value)) {
+            style << "align-items:" << value << ";";
+        }
+    } else if (layout == "position" || layout == "absolute") {
+        style << "display:block;position:relative;";
+    } else {
+        style << "display:flex;";
+        style << (horizontal ? "flex-direction:row;align-items:stretch;" : "flex-direction:column;");
+    }
+    if (horizontal) {
+        style << "max-width:100%;";
+    }
+
+    if (GetAttribute(node, "width", value)) {
+        style << "width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "height", value)) {
+        style << "height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style << "min-width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        style << "max-width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        style << "min-height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        style << "max-height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "padding", value)) {
+        style << "padding:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        style << "padding-left:" << value << "px;padding-right:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        style << "padding-top:" << value << "px;padding-bottom:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingTop", value)) {
+        style << "padding-top:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingBottom", value)) {
+        style << "padding-bottom:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingLeft", value)) {
+        style << "padding-left:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingRight", value)) {
+        style << "padding-right:" << value << "px;";
+    }
+    if (GetAttribute(node, "gap", value) || GetAttribute(node, "itemGap", value)) {
+        style << "gap:" << value << "px;";
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style << "background:" << Color::FromHex(value).ToCss() << ";";
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style << "border-color:" << Color::FromHex(value).ToCss() << ";";
+    }
+    if (GetAttribute(node, "borderWidth", value)) {
+        style << "border-width:" << value << "px;border-style:solid;";
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "borderRadius", value)) {
+        style << "border-radius:" << value << "px;";
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style << "opacity:" << value << ";";
+    }
+
+    std::ostringstream html;
+    html << "<section class=\"RoboContainer\" style=\"" << style.str() << "\"";
+    html << (horizontal ? " data-orientation=\"horizontal\"" : " data-orientation=\"vertical\"");
+    html << " data-layout=\"" << layout << "\"";
+    html << ">";
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            continue;
+        }
+        html << ConvertNode(child);
+    }
+    html << "</section>";
     return html.str();
 }
 
@@ -435,7 +649,19 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
              << "@font-face{font-family:'Inter';src:url('/Assets/Fonts/Inter-Medium.ttf');font-weight:500;}"
              << "@font-face{font-family:'Inter';src:url('/Assets/Fonts/Inter-SemiBold.ttf');font-weight:600;}"
              << "@font-face{font-family:'Inter';src:url('/Assets/Fonts/Inter-Italic.ttf');font-style:italic;font-weight:400;}"
-             << "body{margin:0;padding:24px;background:#FFFFFF;color:#1A1A1A;font-family:'Inter',sans-serif;}</style>"
+             << "body{margin:0;padding:24px;background:#FFFFFF;color:#1A1A1A;font-family:'Inter',sans-serif;}"
+             << ".RoboContainer{box-sizing:border-box;overflow:hidden;}"
+             << ".RoboContainer[data-orientation='vertical']>*{flex:0 0 auto;align-self:stretch;}"
+             << ".RoboContainer[data-orientation='horizontal']>*{flex:0 0 auto;}"
+             << ".RoboScrollbar{position:relative;overflow:hidden;box-sizing:border-box;cursor:default;}"
+             << ".RoboScrollbar[data-autohide='true']{opacity:0;transition:opacity .18s ease;}"
+             << ".RoboScrollbar[data-autohide='true']:hover,.RoboScrollbar[data-autohide='true']:focus-within{opacity:1;}"
+             << ".RoboScrollbarArrow{position:absolute;display:block;pointer-events:none;"
+                "background:var(--RoboArrow,#8E8E93);}"
+             << ".RoboScrollbar:hover .RoboScrollbarArrow{background:#636366;}"
+             << ".RoboScrollbar:active .RoboScrollbarArrow{background:#1C1C1E;}"
+             << ".RoboScrollbar:active>div{filter:brightness(0.92);}"
+             << "</style>"
              << "</head><body>";
         for (const XmlNode& child : node.children) {
             html << ConvertNode(child);
@@ -470,6 +696,10 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
 
     if (node.name == "Scrollbar" || node.name == "scrollbar") {
         return BuildScrollbarHtml(node);
+    }
+
+    if (node.name == "Container" || node.name == "container") {
+        return BuildContainerHtml(node);
     }
 
     if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {

@@ -1,4 +1,5 @@
 #include "Robo/Flexbox.hpp"
+#include "Robo/Container.hpp"
 
 #include <algorithm>
 
@@ -59,6 +60,14 @@ void Flexbox::AddFlexbox(Flexbox flexbox, const FlexItemProps& props) {
     item.kind = FlexItemKind::Flexbox;
     item.flexbox = std::make_shared<Flexbox>(std::move(flexbox));
     item.props = props;
+    items_.push_back(std::move(item));
+}
+
+void Flexbox::AddContainer(Container container, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::Container;
+    item.props = props;
+    item.container = std::make_shared<Container>(std::move(container));
     items_.push_back(std::move(item));
 }
 

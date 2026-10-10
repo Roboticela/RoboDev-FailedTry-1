@@ -1,72 +1,191 @@
 #include "WebPlatform.hpp"
-#include "HtmlFromXml.hpp"
-#include "XmlRuntime.hpp"
-#include "XmlToCpp.hpp"
 #include "Robo/FontEngine.hpp"
+#include "Robo/RoboScene.hpp"
 
+#include <emscripten.h>
 #include <emscripten/bind.h>
 
-#include <exception>
+#include <algorithm>
 #include <memory>
 #include <string>
+
+void BuildPage(Robo::RoboScene& scene);
 
 namespace {
 
 std::unique_ptr<Robo::WebPlatform> gPlatform;
 std::unique_ptr<Robo::FontEngine> gFonts;
-std::unique_ptr<Robo::XmlRuntime> gRuntime;
+Robo::RoboScene gScene;
+bool gReady = false;
+bool gPresentQueued = false;
+int gWidth = 0;
+int gHeight = 0;
+float gPixelScale = 1.0f;
 
-void EnsureRuntime() {
+void Render(int width, int height, float pixelScale);
+
+void FlushPresent(void*) {
+    gPresentQueued = false;
+    if (gWidth > 0 && gHeight > 0) {
+        Render(gWidth, gHeight, gPixelScale);
+    }
+}
+
+void SchedulePresent() {
+    if (gPresentQueued || gWidth <= 0 || gHeight <= 0 || !gScene.NeedsRender()) {
+        return;
+    }
+    gPresentQueued = true;
+    emscripten_async_call(FlushPresent, nullptr, 0);
+}
+
+bool EnsureApp() {
     if (!gPlatform) {
         gPlatform = std::make_unique<Robo::WebPlatform>();
     }
     if (!gFonts) {
         gFonts = std::make_unique<Robo::FontEngine>();
     }
-    if (!gRuntime) {
-        gRuntime = std::make_unique<Robo::XmlRuntime>(*gPlatform, *gFonts);
+    if (gReady) {
+        return gFonts->IsReady();
     }
+
+    const bool regular = gFonts->LoadFace(Robo::FontFaceId::Regular, gPlatform->LoadAsset("Assets/Fonts/Inter-Regular.ttf"));
+    gFonts->LoadFace(Robo::FontFaceId::Medium, gPlatform->LoadAsset("Assets/Fonts/Inter-Medium.ttf"));
+    gFonts->LoadFace(Robo::FontFaceId::SemiBold, gPlatform->LoadAsset("Assets/Fonts/Inter-SemiBold.ttf"));
+    gFonts->LoadFace(Robo::FontFaceId::Italic, gPlatform->LoadAsset("Assets/Fonts/Inter-Italic.ttf"));
+    if (!regular) {
+        return false;
+    }
+
+    BuildPage(gScene);
+    gReady = true;
+    return true;
 }
 
-std::string RenderXml(const std::string& xml, int width, int height, float pixelScale) {
-    EnsureRuntime();
-    gPlatform->SetSurfaceSize(width, height);
-    gPlatform->SetPixelScale(pixelScale > 0.0f ? pixelScale : 1.0f);
-    const bool ok = gRuntime->RenderXml(xml);
-    if (!ok) {
-        return gRuntime->GetLastError();
+void Render(int width, int height, float pixelScale) {
+    if (!EnsureApp()) {
+        return;
     }
-    return "";
+    gWidth = std::max(1, width);
+    gHeight = std::max(1, height);
+    gPixelScale = pixelScale > 0.0f ? pixelScale : 1.0f;
+    gPlatform->SetSurfaceSize(gWidth, gHeight);
+    gPlatform->SetPixelScale(gPixelScale);
+    gScene.Render(*gPlatform, *gFonts, Robo::Color::FromHex("#F7F3EB"), 28.0f);
 }
 
 bool PointerMove(float x, float y) {
-    EnsureRuntime();
-    return gRuntime->PointerMove(x, y);
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.PointerMove(x, y);
+    SchedulePresent();
+    return changed;
 }
 
-bool PointerDown(float x, float y) {
-    EnsureRuntime();
-    return gRuntime->PointerDown(x, y);
+bool PointerDown(float x, float y, bool fromTouch) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.PointerDown(x, y, fromTouch);
+    SchedulePresent();
+    return changed;
 }
 
 bool PointerUp(float x, float y) {
-    EnsureRuntime();
-    return gRuntime->PointerUp(x, y);
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.PointerUp(x, y);
+    SchedulePresent();
+    return changed;
 }
 
 bool PointerLeave() {
-    EnsureRuntime();
-    return gRuntime->PointerLeave();
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.PointerLeave();
+    SchedulePresent();
+    return changed;
 }
 
 bool HitTest(float x, float y) {
-    EnsureRuntime();
-    return gRuntime->HitTest(x, y);
+    if (!EnsureApp()) {
+        return false;
+    }
+    return gScene.HitTest(x, y);
+}
+
+bool Wheel(float x, float y, float deltaX, float deltaY) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.Wheel(x, y, deltaX, deltaY);
+    SchedulePresent();
+    return changed;
+}
+
+bool ScrollBy(float deltaY) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.ScrollBy(deltaY);
+    SchedulePresent();
+    return changed;
+}
+
+bool KeyScrollLine(int direction) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyScrollLine(direction);
+    SchedulePresent();
+    return changed;
+}
+
+bool KeyScrollPage(int direction) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyScrollPage(direction);
+    SchedulePresent();
+    return changed;
+}
+
+bool KeyScrollToStart() {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyScrollToStart();
+    SchedulePresent();
+    return changed;
+}
+
+bool KeyScrollToEnd() {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyScrollToEnd();
+    SchedulePresent();
+    return changed;
+}
+
+bool Tick(float deltaMs) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    gScene.Tick(static_cast<double>(deltaMs));
+    SchedulePresent();
+    return gScene.NeedsTick();
 }
 
 std::string HitTestKind(float x, float y) {
-    EnsureRuntime();
-    switch (gRuntime->HitTestKind(x, y)) {
+    if (!EnsureApp()) {
+        return "none";
+    }
+    switch (gScene.HitTestKind(x, y)) {
         case Robo::HitKind::Button:
             return "button";
         case Robo::HitKind::Input:
@@ -79,68 +198,97 @@ std::string HitTestKind(float x, float y) {
 }
 
 bool KeyInsert(const std::string& utf8) {
-    EnsureRuntime();
-    return gRuntime->KeyInsert(utf8);
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyInsert(utf8);
+    SchedulePresent();
+    return changed;
 }
 
 bool KeyBackspace() {
-    EnsureRuntime();
-    return gRuntime->KeyBackspace();
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyBackspace();
+    SchedulePresent();
+    return changed;
 }
 
 bool KeyDelete() {
-    EnsureRuntime();
-    return gRuntime->KeyDelete();
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyDelete();
+    SchedulePresent();
+    return changed;
 }
 
 bool KeyLeft() {
-    EnsureRuntime();
-    return gRuntime->KeyLeft();
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyLeft();
+    SchedulePresent();
+    return changed;
 }
 
 bool KeyRight() {
-    EnsureRuntime();
-    return gRuntime->KeyRight();
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyRight();
+    SchedulePresent();
+    return changed;
 }
 
 bool KeyEscape() {
-    EnsureRuntime();
-    return gRuntime->KeyEscape();
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyEscape();
+    SchedulePresent();
+    return changed;
 }
 
 bool HasFocusedInput() {
-    EnsureRuntime();
-    return gRuntime->HasFocusedInput();
+    if (!EnsureApp()) {
+        return false;
+    }
+    return gScene.HasFocusedInput();
 }
 
-std::string XmlToHtml(const std::string& xml) {
-    try {
-        Robo::HtmlFromXml converter;
-        return converter.Convert(xml);
-    } catch (const std::exception& exception) {
-        return std::string("<!-- error: ") + exception.what() + " -->";
+int ActiveScrollbarAxis() {
+    if (!EnsureApp()) {
+        return 0;
     }
+    return gScene.ActiveScrollbarAxis();
 }
 
-std::string XmlToCppCode(const std::string& xml) {
-    try {
-        Robo::XmlToCpp converter;
-        return converter.Convert(xml);
-    } catch (const std::exception& exception) {
-        return std::string("// error: ") + exception.what();
+bool OwnsScrollGesture(float x, float y) {
+    if (!EnsureApp()) {
+        return false;
     }
+    return gScene.OwnsScrollGesture(x, y);
 }
 
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(RoboModule) {
-    emscripten::function("RenderXml", &RenderXml);
+    emscripten::function("Render", &Render);
     emscripten::function("PointerMove", &PointerMove);
     emscripten::function("PointerDown", &PointerDown);
     emscripten::function("PointerUp", &PointerUp);
     emscripten::function("PointerLeave", &PointerLeave);
     emscripten::function("HitTest", &HitTest);
+    emscripten::function("Wheel", &Wheel);
+    emscripten::function("ScrollBy", &ScrollBy);
+    emscripten::function("KeyScrollLine", &KeyScrollLine);
+    emscripten::function("KeyScrollPage", &KeyScrollPage);
+    emscripten::function("KeyScrollToStart", &KeyScrollToStart);
+    emscripten::function("KeyScrollToEnd", &KeyScrollToEnd);
     emscripten::function("HitTestKind", &HitTestKind);
+    emscripten::function("Tick", &Tick);
     emscripten::function("KeyInsert", &KeyInsert);
     emscripten::function("KeyBackspace", &KeyBackspace);
     emscripten::function("KeyDelete", &KeyDelete);
@@ -148,6 +296,6 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("KeyRight", &KeyRight);
     emscripten::function("KeyEscape", &KeyEscape);
     emscripten::function("HasFocusedInput", &HasFocusedInput);
-    emscripten::function("XmlToHtml", &XmlToHtml);
-    emscripten::function("XmlToCpp", &XmlToCppCode);
+    emscripten::function("ActiveScrollbarAxis", &ActiveScrollbarAxis);
+    emscripten::function("OwnsScrollGesture", &OwnsScrollGesture);
 }

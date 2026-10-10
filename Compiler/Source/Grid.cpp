@@ -1,4 +1,5 @@
 #include "Robo/Grid.hpp"
+#include "Robo/Container.hpp"
 #include "Robo/Flexbox.hpp"
 
 #include <algorithm>
@@ -125,6 +126,14 @@ void Grid::AddGrid(Grid grid, const GridItemProps& props) {
     item.kind = GridItemKind::Grid;
     item.props = props;
     item.grid = std::make_shared<Grid>(std::move(grid));
+    items_.push_back(std::move(item));
+}
+
+void Grid::AddContainer(Container container, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::Container;
+    item.props = props;
+    item.container = std::make_shared<Container>(std::move(container));
     items_.push_back(std::move(item));
 }
 

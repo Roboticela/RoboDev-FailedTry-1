@@ -17,6 +17,8 @@ void FillRoundedRect(FrameBuffer& buffer,
                      float radius,
                      const Color& color,
                      float opacity) {
+    buffer.FillRoundedRect(x, y, width, height, radius, color, opacity);
+    return;
     if (width <= 0.0f || height <= 0.0f || color.alpha == 0) {
         return;
     }

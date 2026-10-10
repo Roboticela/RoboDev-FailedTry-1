@@ -1,5 +1,6 @@
 #include "Robo/PositionPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
+#include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/GridPainter.hpp"
 #include "Robo/InputPainter.hpp"
@@ -39,6 +40,8 @@ void FillRoundedRect(FrameBuffer& buffer,
                     float radius,
                     const Color& color,
                     float opacity) {
+    buffer.FillRoundedRect(x, y, width, height, radius, color, opacity);
+    return;
     if (width <= 0.0f || height <= 0.0f || opacity <= 0.0f || color.alpha == 0) {
         return;
     }
@@ -207,6 +210,23 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
                 ScrollbarMeasureResult res = ScrollbarPainter::Measure(item.scrollbar, innerAvailW, scale);
                 childW = res.width;
                 childH = res.height;
+                break;
+            }
+            case PositionItemKind::Container: {
+                if (item.container) {
+                    float cw = -1.0f;
+                    float ch = -1.0f;
+                    if (!item.props.width.empty() && item.props.width != "auto") {
+                        cw = ParseDimension(item.props.width, innerAvailW, innerAvailW, scale);
+                    }
+                    if (!item.props.height.empty() && item.props.height != "auto") {
+                        ch = ParseDimension(item.props.height, 0.0f, 0.0f, scale);
+                    }
+                    ContainerMeasureResult res =
+                        ContainerPainter::Measure(fonts, *item.container, innerAvailW, scale, cw, ch);
+                    childW = res.width;
+                    childH = res.height;
+                }
                 break;
             }
             case PositionItemKind::Flexbox: {
@@ -394,6 +414,23 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 ScrollbarMeasureResult res = ScrollbarPainter::Measure(item.scrollbar, innerAvailW, scale);
                 lc.width = res.width;
                 lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::Container: {
+                if (item.container) {
+                    float cw = -1.0f;
+                    float ch = -1.0f;
+                    if (!item.props.width.empty() && item.props.width != "auto") {
+                        cw = ParseDimension(item.props.width, innerAvailW, innerAvailW, scale);
+                    }
+                    if (!item.props.height.empty() && item.props.height != "auto") {
+                        ch = ParseDimension(item.props.height, 0.0f, 0.0f, scale);
+                    }
+                    ContainerMeasureResult res =
+                        ContainerPainter::Measure(fonts, *item.container, innerAvailW, scale, cw, ch);
+                    lc.width = res.width;
+                    lc.height = res.height;
+                }
                 break;
             }
             case PositionItemKind::Flexbox: {
@@ -659,6 +696,13 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                     const float gw = (!item.props.width.empty() && item.props.width != "auto") ? lc.width : -1.0f;
                     const float gh = (!item.props.height.empty() && item.props.height != "auto") ? lc.height : -1.0f;
                     GridPainter::Paint(buffer, fonts, *item.grid, lc.x, lc.y, lc.width, scale, gw, gh);
+                }
+                break;
+            case PositionItemKind::Container:
+                if (item.container) {
+                    const float cw = (!item.props.width.empty() && item.props.width != "auto") ? lc.width : -1.0f;
+                    const float ch = (!item.props.height.empty() && item.props.height != "auto") ? lc.height : -1.0f;
+                    ContainerPainter::Paint(buffer, fonts, *item.container, lc.x, lc.y, lc.width, scale, cw, ch);
                 }
                 break;
             case PositionItemKind::Position:

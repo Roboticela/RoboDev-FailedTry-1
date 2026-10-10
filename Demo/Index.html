@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robo Demo</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #F7F3EB;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    canvas {
+      display: block;
+      outline: none;
+      image-rendering: auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="robo-canvas" tabindex="0"></canvas>
+  <script src="../Build/Web/Robo.js"></script>
+  <script src="./Demo.js"></script>
+</body>
+</html>

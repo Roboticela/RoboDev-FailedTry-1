@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Robo {
@@ -44,7 +45,18 @@ public:
 
 private:
     struct FaceData;
+    struct CachedGlyph {
+        int width = 0;
+        int height = 0;
+        int xOff = 0;
+        int yOff = 0;
+        std::vector<std::uint8_t> coverage;
+    };
+
+    const CachedGlyph& CachedGlyphFor(int faceIndex, int glyph, float fontSize, float shiftX, float shiftY) const;
+
     std::unique_ptr<FaceData> faces_[4];
+    mutable std::unordered_map<std::uint64_t, CachedGlyph> glyphCache_;
 };
 
 }  // namespace Robo

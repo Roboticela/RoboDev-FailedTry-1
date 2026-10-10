@@ -18,6 +18,7 @@ private:
     std::string BuildButtonHtml(const XmlNode& node) const;
     std::string BuildInputHtml(const XmlNode& node) const;
     std::string BuildScrollbarHtml(const XmlNode& node) const;
+    std::string BuildContainerHtml(const XmlNode& node) const;
     std::string BuildFlexboxHtml(const XmlNode& node) const;
     std::string BuildGridHtml(const XmlNode& node) const;
     std::string BuildPositionHtml(const XmlNode& node) const;

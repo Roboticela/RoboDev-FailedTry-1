@@ -1,29 +1,13 @@
-param(
-    [ValidateSet("Web", "Windows")]
-    [string]$Platform = "Windows"
-)
-
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $WebJs = Join-Path $Root "Build\Web\Robo.js"
-$WindowsExe = Join-Path $Root "Build\Windows\RoboIDE.exe"
 $Port = 4173
-$Url = "http://127.0.0.1:$Port/RoboIDE/"
+$Url = "http://127.0.0.1:$Port/Demo/"
 
-if ($Platform -eq "Windows") {
-    if (-not (Test-Path $WindowsExe)) {
-        Write-Host "Windows build not found. Running Build.ps1..." -ForegroundColor Yellow
-        & (Join-Path $Root "Build.ps1")
-    }
-    Write-Host "Launching native Windows RoboIDE..."
-    Start-Process -FilePath $WindowsExe -WorkingDirectory $Root
-    return
-}
-
+& (Join-Path $Root "Build.ps1")
 if (-not (Test-Path $WebJs)) {
-    Write-Host "WASM build not found. Running Build.ps1..." -ForegroundColor Yellow
-    & (Join-Path $Root "Build.ps1")
+    throw "Web build was not produced."
 }
 
 $listenerRunning = $false
@@ -37,7 +21,7 @@ try {
 }
 
 if (-not $listenerRunning) {
-    Write-Host "Starting RoboIDE server on $Url"
+    Write-Host "Starting demo server on $Url"
     $serverScript = @"
 const http = require('http');
 const fs = require('fs');
@@ -48,16 +32,14 @@ const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
-  '.xml': 'application/xml; charset=utf-8',
   '.wasm': 'application/wasm',
   '.data': 'application/octet-stream',
-  '.ttf': 'font/ttf',
-  '.pack': 'application/octet-stream'
+  '.ttf': 'font/ttf'
 };
 const server = http.createServer((req, res) => {
   try {
     let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-    if (urlPath === '/') urlPath = '/RoboIDE/';
+    if (urlPath === '/') urlPath = '/Demo/';
     if (urlPath.endsWith('/')) urlPath += 'Index.html';
     const filePath = path.normalize(path.join(root, urlPath));
     if (!filePath.startsWith(root)) {
@@ -67,23 +49,23 @@ const server = http.createServer((req, res) => {
       res.writeHead(404); res.end('Not found'); return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    res.writeHead(200, {
+      'Content-Type': types[ext] || 'application/octet-stream',
+      'Cache-Control': 'no-store'
+    });
     fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     res.writeHead(500); res.end(String(error));
   }
 });
-server.listen(port, '127.0.0.1', () => console.log('RoboIDE at http://127.0.0.1:' + port + '/RoboIDE/'));
+server.listen(port, '127.0.0.1', () => console.log('Robo demo at http://127.0.0.1:' + port + '/Demo/'));
 "@
-
-    $serverPath = Join-Path $Root "Build\RoboIdeServer.js"
-    if (-not (Test-Path (Join-Path $Root "Build"))) {
-        New-Item -ItemType Directory -Path (Join-Path $Root "Build") | Out-Null
-    }
+    $serverPath = Join-Path $Root "Build\DemoServer.js"
+    New-Item -ItemType Directory -Force -Path (Join-Path $Root "Build") | Out-Null
     Set-Content -Path $serverPath -Value $serverScript -Encoding UTF8
-    Start-Process -FilePath "node" -ArgumentList @($serverPath) -WorkingDirectory $Root -WindowStyle Hidden | Out-Null
+    Start-Process -FilePath "node" -ArgumentList $serverPath -WorkingDirectory $Root -WindowStyle Hidden
     Start-Sleep -Seconds 1
 }
 
 Start-Process $Url
-Write-Host "Opened $Url"
+Write-Host "Demo: $Url"

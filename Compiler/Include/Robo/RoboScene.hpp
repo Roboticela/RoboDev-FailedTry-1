@@ -1,16 +1,19 @@
 #pragma once
 
 #include "Button.hpp"
+#include "Container.hpp"
 #include "Flexbox.hpp"
 #include "FontEngine.hpp"
 #include "FrameBuffer.hpp"
 #include "Grid.hpp"
 #include "IPlatform.hpp"
 #include "Input.hpp"
+#include "Parse.hpp"
 #include "Position.hpp"
 #include "Scrollbar.hpp"
 #include "Text.hpp"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,6 +24,7 @@ enum class SceneItemKind {
     Button,
     Input,
     Scrollbar,
+    Container,
     Flexbox,
     Grid,
     Position
@@ -39,6 +43,7 @@ struct SceneItem {
     Button button;
     Input input;
     Scrollbar scrollbar;
+    std::shared_ptr<Container> container;
     Flexbox flexbox;
     Grid grid;
     Position position;
@@ -51,17 +56,38 @@ public:
     void AddButton(Button button);
     void AddInput(Input input);
     void AddScrollbar(Scrollbar scrollbar);
+    void AddContainer(Container container);
     void AddFlexbox(Flexbox flexbox);
     void AddGrid(Grid grid);
     void AddPosition(Position position);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     bool PointerMove(float x, float y);
-    bool PointerDown(float x, float y);
+    bool PointerDown(float x, float y, bool fromTouch = false);
     bool PointerUp(float x, float y);
     bool PointerLeave();
+
+    // Wheel / touchpad scrolling at a position, in device pixels.
+    bool Wheel(float x, float y, float deltaX, float deltaY);
+    // Keyboard scrolling applied to the focused or hovered scroll target.
+    bool KeyScrollLine(int direction);
+    bool KeyScrollPage(int direction);
+    bool KeyScrollToStart();
+    bool KeyScrollToEnd();
+    // 0 none, 1 vertical, 2 horizontal. The focused bar wins over the hovered one.
+    int ActiveScrollbarAxis() const;
+    // True when a finger at this point should move a scrollbar instead of the page.
+    bool OwnsScrollGesture(float x, float y);
+    // Moves the page when the pointer is not over a scrolling region.
+    bool ScrollBy(float deltaY);
     bool HitTest(float x, float y) const;
     HitKind HitTestKind(float x, float y) const;
+
+    // Advances auto-hide / reveal animations; returns true when a repaint happened.
+    bool Tick(double deltaMs);
+    // True while any control still needs animation frames.
+    bool NeedsTick();
+    bool NeedsRender() const;
 
     bool KeyInsert(const std::string& utf8);
     bool KeyBackspace();
@@ -75,6 +101,10 @@ private:
     Button* FindButtonAt(float x, float y);
     Input* FindInputAt(float x, float y);
     Scrollbar* FindScrollbarAt(float x, float y);
+    Scrollbar* FindScrollbarNear(float x, float y, float tolerance);
+    Container* FindContainerAt(float x, float y);
+    Scrollbar* ScrollTargetAt(float x, float y);
+    Scrollbar* ActiveScrollbar();
     const Button* FindButtonAt(float x, float y) const;
     const Input* FindInputAt(float x, float y) const;
     const Scrollbar* FindScrollbarAt(float x, float y) const;
@@ -82,6 +112,7 @@ private:
     bool SetHoveredButton(Button* button);
     bool SetHoveredInput(Input* input);
     bool SetHoveredScrollbar(Scrollbar* scrollbar);
+    bool SetFocusedScrollbar(Scrollbar* scrollbar);
     bool SetPressedButton(Button* button);
     bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
@@ -93,12 +124,19 @@ private:
     Button* pressedButton_ = nullptr;
     Input* focusedInput_ = nullptr;
     Scrollbar* draggingScrollbar_ = nullptr;
+    Scrollbar* focusedScrollbar_ = nullptr;
+    Container* panningContainer_ = nullptr;
+    float panX_ = 0.0f;
+    float panY_ = 0.0f;
 
     Color background_ = Color::FromHex("#F7F3EB");
     float padding_ = 28.0f;
+    float scrollY_ = 0.0f;
+    float maxScrollY_ = 0.0f;
     IPlatform* platform_ = nullptr;
     FontEngine* fonts_ = nullptr;
     bool hasRenderContext_ = false;
+    bool needsRender_ = false;
 };
 
 }  // namespace Robo
