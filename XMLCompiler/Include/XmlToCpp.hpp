@@ -12,6 +12,7 @@ public:
 
 private:
     std::string ConvertNode(const XmlNode& node, int indent) const;
+    void EmitScrollbar(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const;
     void EmitFlexbox(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const;
     void EmitFlexChild(std::ostringstream& code, const XmlNode& child, int indent, const std::string& parentVar) const;
     void EmitGrid(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const;

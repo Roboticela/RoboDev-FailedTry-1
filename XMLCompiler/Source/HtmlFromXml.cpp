@@ -334,6 +334,93 @@ std::string HtmlFromXml::BuildInputHtml(const XmlNode& node) const {
     return html.str();
 }
 
+std::string HtmlFromXml::BuildScrollbarHtml(const XmlNode& node) const {
+    std::string orientation = "vertical";
+    if (!GetAttribute(node, "orientation", orientation)) {
+        GetAttribute(node, "direction", orientation);
+    }
+    const bool vertical = !(orientation == "horizontal" || orientation == "h");
+
+    std::string attr;
+    std::string thickness = "8";
+    if (!GetAttribute(node, "thickness", thickness)) {
+        GetAttribute(node, "size", thickness);
+    }
+    std::string length = "220";
+    if (!GetAttribute(node, "length", length)) {
+        GetAttribute(node, "trackLength", length);
+    }
+    std::string radius = "4";
+    GetAttribute(node, "cornerRadius", radius);
+
+    std::string trackColor = "transparent";
+    if (GetAttribute(node, "trackColor", attr)) {
+        trackColor = Color::FromHex(attr).ToCss();
+    }
+
+    std::string thumbColorHex = "#C7C7CC";
+    if (!GetAttribute(node, "thumbColor", attr)) {
+        GetAttribute(node, "color", attr);
+    }
+    if (!attr.empty()) {
+        thumbColorHex = attr;
+    }
+    const std::string thumbColor = Color::FromHex(thumbColorHex).ToCss();
+
+    double ratio = 1.0;
+    std::string ratioStr;
+    if (GetAttribute(node, "thumbRatio", ratioStr) || GetAttribute(node, "thumbSize", ratioStr)) {
+        ratio = std::atof(ratioStr.c_str());
+    } else {
+        std::string content;
+        std::string viewport;
+        if (GetAttribute(node, "contentSize", content) && GetAttribute(node, "viewportSize", viewport)) {
+            const double contentSize = std::atof(content.c_str());
+            const double viewportSize = std::atof(viewport.c_str());
+            if (contentSize > 0.0 && viewportSize > 0.0) {
+                ratio = viewportSize / contentSize;
+            }
+        }
+    }
+    if (ratio < 0.05) {
+        ratio = 0.05;
+    } else if (ratio > 1.0) {
+        ratio = 1.0;
+    }
+
+    double value = 0.0;
+    if (GetAttribute(node, "value", attr)) {
+        value = std::atof(attr.c_str());
+    }
+    if (value < 0.0) {
+        value = 0.0;
+    } else if (value > 1.0) {
+        value = 1.0;
+    }
+
+    const double offsetPercent = (1.0 - ratio) * value * 100.0;
+    const double thumbPercent = ratio * 100.0;
+
+    std::ostringstream html;
+    html << "<div role=\"scrollbar\" aria-orientation=\"" << (vertical ? "vertical" : "horizontal")
+         << "\" style=\"position:relative;overflow:hidden;box-sizing:border-box;"
+         << "border-radius:" << radius << "px;background:" << trackColor << ";margin:0 0 16px 0;";
+    if (vertical) {
+        html << "width:" << thickness << "px;height:" << length << "px;";
+    } else {
+        html << "width:" << length << "px;height:" << thickness << "px;";
+    }
+    html << "\">";
+    html << "<div style=\"position:absolute;border-radius:" << radius << "px;background:" << thumbColor << ";";
+    if (vertical) {
+        html << "left:0;right:0;top:" << offsetPercent << "%;height:" << thumbPercent << "%;";
+    } else {
+        html << "top:0;bottom:0;left:" << offsetPercent << "%;width:" << thumbPercent << "%;";
+    }
+    html << "\"></div></div>";
+    return html.str();
+}
+
 std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
     if (node.isText) {
         return EscapeHtml(node.text);
@@ -379,6 +466,10 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
 
     if (node.name == "Input" || node.name == "TextField" || node.name == "TextInput") {
         return BuildInputHtml(node);
+    }
+
+    if (node.name == "Scrollbar" || node.name == "scrollbar") {
+        return BuildScrollbarHtml(node);
     }
 
     if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {

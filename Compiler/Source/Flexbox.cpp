@@ -46,6 +46,14 @@ void Flexbox::AddInput(Input input, const FlexItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Flexbox::AddScrollbar(Scrollbar scrollbar, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::Scrollbar;
+    item.scrollbar = std::move(scrollbar);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
 void Flexbox::AddFlexbox(Flexbox flexbox, const FlexItemProps& props) {
     FlexboxItem item;
     item.kind = FlexItemKind::Flexbox;

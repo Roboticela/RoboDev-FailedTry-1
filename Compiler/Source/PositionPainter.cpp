@@ -3,6 +3,7 @@
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/GridPainter.hpp"
 #include "Robo/InputPainter.hpp"
+#include "Robo/ScrollbarPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -202,6 +203,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
                 childH = res.height;
                 break;
             }
+            case PositionItemKind::Scrollbar: {
+                ScrollbarMeasureResult res = ScrollbarPainter::Measure(item.scrollbar, innerAvailW, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
             case PositionItemKind::Flexbox: {
                 if (item.flexbox) {
                     float fw = -1.0f;
@@ -380,6 +387,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 }
                 InputMeasureResult res = InputPainter::Measure(fonts, item.input, intrinsicWidth, scale);
                 lc.width = intrinsicWidth;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::Scrollbar: {
+                ScrollbarMeasureResult res = ScrollbarPainter::Measure(item.scrollbar, innerAvailW, scale);
+                lc.width = res.width;
                 lc.height = res.height;
                 break;
             }
@@ -621,6 +634,19 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             case PositionItemKind::Input:
                 InputPainter::Paint(buffer, fonts, item.input, lc.x, lc.y, lc.width, scale, lc.width, lc.height);
                 break;
+            case PositionItemKind::Scrollbar: {
+                const bool vertical =
+                    item.scrollbar.GetOrientation() == ScrollbarOrientation::Vertical;
+                ScrollbarPainter::Paint(buffer,
+                                        item.scrollbar,
+                                        lc.x,
+                                        lc.y,
+                                        lc.width,
+                                        scale,
+                                        vertical ? -1.0f : lc.width,
+                                        vertical ? lc.height : -1.0f);
+                break;
+            }
             case PositionItemKind::Flexbox:
                 if (item.flexbox) {
                     const float fw = (!item.props.width.empty() && item.props.width != "auto") ? lc.width : -1.0f;

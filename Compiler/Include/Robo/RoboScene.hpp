@@ -8,6 +8,7 @@
 #include "IPlatform.hpp"
 #include "Input.hpp"
 #include "Position.hpp"
+#include "Scrollbar.hpp"
 #include "Text.hpp"
 
 #include <string>
@@ -19,6 +20,7 @@ enum class SceneItemKind {
     Text,
     Button,
     Input,
+    Scrollbar,
     Flexbox,
     Grid,
     Position
@@ -27,7 +29,8 @@ enum class SceneItemKind {
 enum class HitKind {
     None,
     Button,
-    Input
+    Input,
+    Scrollbar
 };
 
 struct SceneItem {
@@ -35,6 +38,7 @@ struct SceneItem {
     Text text;
     Button button;
     Input input;
+    Scrollbar scrollbar;
     Flexbox flexbox;
     Grid grid;
     Position position;
@@ -46,6 +50,7 @@ public:
     void AddText(Text text);
     void AddButton(Button button);
     void AddInput(Input input);
+    void AddScrollbar(Scrollbar scrollbar);
     void AddFlexbox(Flexbox flexbox);
     void AddGrid(Grid grid);
     void AddPosition(Position position);
@@ -69,11 +74,14 @@ public:
 private:
     Button* FindButtonAt(float x, float y);
     Input* FindInputAt(float x, float y);
+    Scrollbar* FindScrollbarAt(float x, float y);
     const Button* FindButtonAt(float x, float y) const;
     const Input* FindInputAt(float x, float y) const;
+    const Scrollbar* FindScrollbarAt(float x, float y) const;
 
     bool SetHoveredButton(Button* button);
     bool SetHoveredInput(Input* input);
+    bool SetHoveredScrollbar(Scrollbar* scrollbar);
     bool SetPressedButton(Button* button);
     bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
@@ -81,8 +89,10 @@ private:
     std::vector<SceneItem> items_;
     Button* hoveredButton_ = nullptr;
     Input* hoveredInput_ = nullptr;
+    Scrollbar* hoveredScrollbar_ = nullptr;
     Button* pressedButton_ = nullptr;
     Input* focusedInput_ = nullptr;
+    Scrollbar* draggingScrollbar_ = nullptr;
 
     Color background_ = Color::FromHex("#F7F3EB");
     float padding_ = 28.0f;

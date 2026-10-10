@@ -10,6 +10,7 @@
 #include "Robo/Input.hpp"
 #include "Robo/Paragraph.hpp"
 #include "Robo/RoboScene.hpp"
+#include "Robo/Scrollbar.hpp"
 #include "Robo/Text.hpp"
 
 #include <string>
@@ -44,6 +45,7 @@ private:
     Paragraph BuildParagraph(const XmlNode& node);
     Button BuildButton(const XmlNode& node);
     Input BuildInput(const XmlNode& node);
+    Scrollbar BuildScrollbar(const XmlNode& node);
     Flexbox BuildFlexbox(const XmlNode& node);
     Grid BuildGrid(const XmlNode& node);
     Position BuildPosition(const XmlNode& node);
@@ -52,6 +54,7 @@ private:
     void ApplyTextAttributes(const XmlNode& node, TextStyle& style) const;
     void ApplyButtonAttributes(const XmlNode& node, ButtonStyle& style) const;
     void ApplyInputAttributes(const XmlNode& node, InputStyle& style) const;
+    void ApplyScrollbarAttributes(const XmlNode& node, Scrollbar& scrollbar) const;
     void ApplyFlexboxAttributes(const XmlNode& node, FlexboxStyle& style) const;
     void ApplyFlexItemAttributes(const XmlNode& node, FlexItemProps& props) const;
     void ApplyGridAttributes(const XmlNode& node, GridStyle& style) const;

@@ -335,6 +335,14 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    if (node.name == "Scrollbar" || node.name == "scrollbar") {
+        code << Indent(indent) << "{\n";
+        EmitScrollbar(code, node, indent + 1, "scrollbar");
+        code << Indent(indent + 1) << "scene.AddScrollbar(std::move(scrollbar));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
     if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {
         code << Indent(indent) << "{\n";
         EmitFlexbox(code, node, indent + 1, "scene");
@@ -357,6 +365,60 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
     }
 
     return code.str();
+}
+
+void XmlToCpp::EmitScrollbar(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const {
+    code << Indent(indent) << "Robo::Scrollbar " << targetVar << ";\n";
+    code << Indent(indent) << "Robo::ScrollbarStyle style;\n";
+
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "orientation" || attribute.first == "direction") {
+            code << Indent(indent) << "style.orientation = Robo::ParseScrollbarOrientation(\""
+                 << EscapeCpp(attribute.second) << "\");\n";
+        } else if (attribute.first == "thickness" || attribute.first == "size") {
+            code << Indent(indent) << "style.thickness = " << attribute.second << ";\n";
+        } else if (attribute.first == "length" || attribute.first == "trackLength") {
+            code << Indent(indent) << "style.length = " << attribute.second << ";\n";
+        } else if (attribute.first == "cornerRadius" || attribute.first == "radius") {
+            code << Indent(indent) << "style.cornerRadius = " << attribute.second << ";\n";
+        } else if (attribute.first == "minThumbLength" || attribute.first == "minThumb") {
+            code << Indent(indent) << "style.minThumbLength = " << attribute.second << ";\n";
+        } else if (attribute.first == "trackColor" || attribute.first == "track") {
+            code << Indent(indent) << "style.trackColor = Robo::Color::FromHex(\""
+                 << EscapeCpp(attribute.second) << "\");\n";
+            code << Indent(indent) << "style.hasCustomTrackColor = true;\n";
+        } else if (attribute.first == "thumbColor" || attribute.first == "color") {
+            code << Indent(indent) << "style.thumbColor = Robo::Color::FromHex(\""
+                 << EscapeCpp(attribute.second) << "\");\n";
+            code << Indent(indent) << "style.hasCustomThumbColor = true;\n";
+        } else if (attribute.first == "thumbHoverColor") {
+            code << Indent(indent) << "style.thumbHoverColor = Robo::Color::FromHex(\""
+                 << EscapeCpp(attribute.second) << "\");\n";
+            code << Indent(indent) << "style.hasCustomThumbHoverColor = true;\n";
+        } else if (attribute.first == "thumbActiveColor") {
+            code << Indent(indent) << "style.thumbActiveColor = Robo::Color::FromHex(\""
+                 << EscapeCpp(attribute.second) << "\");\n";
+            code << Indent(indent) << "style.hasCustomThumbActiveColor = true;\n";
+        } else if (attribute.first == "opacity") {
+            code << Indent(indent) << "style.opacity = " << attribute.second << ";\n";
+        }
+    }
+
+    code << Indent(indent) << targetVar << ".SetStyle(style);\n";
+    code << Indent(indent) << targetVar << ".ApplyVariantDefaults();\n";
+
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "value") {
+            code << Indent(indent) << targetVar << ".SetValue(" << attribute.second << ");\n";
+        } else if (attribute.first == "contentSize" || attribute.first == "content") {
+            code << Indent(indent) << targetVar << ".SetContentSize(" << attribute.second << ");\n";
+        } else if (attribute.first == "viewportSize" || attribute.first == "viewport" ||
+                   attribute.first == "pageSize") {
+            code << Indent(indent) << targetVar << ".SetViewportSize(" << attribute.second << ");\n";
+        } else if (attribute.first == "thumbRatio" || attribute.first == "thumbSize") {
+            code << Indent(indent) << targetVar << ".SetThumbRatio(" << attribute.second << ");\n";
+        }
+    }
 }
 
 void XmlToCpp::EmitFlexbox(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const {
@@ -563,6 +625,9 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
         code << Indent(indent + 1) << "input.SetValue(\"" << EscapeCpp(value) << "\");\n";
         code << Indent(indent + 1) << parentVar << ".AddInput(std::move(input), props);\n";
+    } else if (child.name == "Scrollbar" || child.name == "scrollbar") {
+        EmitScrollbar(code, child, indent + 1, "scrollbar");
+        code << Indent(indent + 1) << parentVar << ".AddScrollbar(std::move(scrollbar), props);\n";
     } else if (child.name == "Text") {
         code << Indent(indent + 1) << "Robo::Text text;\n";
         code << Indent(indent + 1) << "Robo::TextStyle style;\n";
@@ -860,6 +925,9 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
         code << Indent(indent + 1) << "input.SetValue(\"" << EscapeCpp(value) << "\");\n";
         code << Indent(indent + 1) << parentVar << ".AddInput(std::move(input), props);\n";
+    } else if (child.name == "Scrollbar" || child.name == "scrollbar") {
+        EmitScrollbar(code, child, indent + 1, "scrollbar");
+        code << Indent(indent + 1) << parentVar << ".AddScrollbar(std::move(scrollbar), props);\n";
     } else if (child.name == "Text") {
         code << Indent(indent + 1) << "Robo::Text text;\n";
         code << Indent(indent + 1) << "Robo::TextStyle style;\n";
@@ -1095,6 +1163,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
         code << Indent(indent + 1) << "input.SetValue(\"" << EscapeCpp(value) << "\");\n";
         code << Indent(indent + 1) << parentVar << ".AddInput(std::move(input), props);\n";
+    } else if (child.name == "Scrollbar" || child.name == "scrollbar") {
+        EmitScrollbar(code, child, indent + 1, "scrollbar");
+        code << Indent(indent + 1) << parentVar << ".AddScrollbar(std::move(scrollbar), props);\n";
     } else if (child.name == "Text") {
         code << Indent(indent + 1) << "Robo::Text text;\n";
         code << Indent(indent + 1) << "Robo::TextStyle style;\n";
@@ -1156,6 +1227,7 @@ std::string XmlToCpp::Convert(const std::string& xml) const {
     code << "#include \"Robo/Paragraph.hpp\"\n";
     code << "#include \"Robo/Button.hpp\"\n";
     code << "#include \"Robo/Input.hpp\"\n";
+    code << "#include \"Robo/Scrollbar.hpp\"\n";
     code << "#include \"Robo/Flexbox.hpp\"\n";
     code << "#include \"Robo/Grid.hpp\"\n";
     code << "#include \"Robo/Position.hpp\"\n";

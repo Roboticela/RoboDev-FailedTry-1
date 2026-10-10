@@ -2,6 +2,7 @@
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/InputPainter.hpp"
+#include "Robo/ScrollbarPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -342,6 +343,14 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
                 child.measuredHeight = measured.height;
                 break;
             }
+            case GridItemKind::Scrollbar: {
+                const float availW =
+                    hasExplicitWidth ? ParseDimension(item.props.width, innerW, innerW, scale) : innerW;
+                ScrollbarMeasureResult measured = ScrollbarPainter::Measure(item.scrollbar, availW, scale);
+                child.measuredWidth = measured.width;
+                child.measuredHeight = measured.height;
+                break;
+            }
             case GridItemKind::Flexbox: {
                 if (item.flexbox) {
                     const float availW = hasExplicitWidth ? ParseDimension(item.props.width, innerW, innerW, scale) : innerW;
@@ -528,6 +537,10 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
         } else {
             itemW = std::min(cellW, child.measuredWidth);
         }
+        if (items[child.itemIndex].kind == GridItemKind::Scrollbar &&
+            items[child.itemIndex].scrollbar.GetOrientation() == ScrollbarOrientation::Vertical) {
+            itemW = std::min(cellW, child.measuredWidth);
+        }
         if (!props.maxWidth.empty()) {
             itemW = std::min(itemW, ParseDimension(props.maxWidth, innerW, itemW, scale));
         }
@@ -546,6 +559,10 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
         if (align == GridAlignment::Stretch) {
             itemH = cellH;
         } else {
+            itemH = std::min(cellH, child.measuredHeight);
+        }
+        if (items[child.itemIndex].kind == GridItemKind::Scrollbar &&
+            items[child.itemIndex].scrollbar.GetOrientation() == ScrollbarOrientation::Horizontal) {
             itemH = std::min(cellH, child.measuredHeight);
         }
         if (!props.maxHeight.empty()) {
@@ -670,6 +687,19 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
                                     scale,
                                     childW,
                                     childH);
+                break;
+            }
+            case GridItemKind::Scrollbar: {
+                const bool vertical =
+                    item.scrollbar.GetOrientation() == ScrollbarOrientation::Vertical;
+                ScrollbarPainter::Paint(buffer,
+                                        item.scrollbar,
+                                        childX,
+                                        childY,
+                                        childW,
+                                        scale,
+                                        vertical ? -1.0f : childW,
+                                        vertical ? childH : -1.0f);
                 break;
             }
             case GridItemKind::Flexbox: {

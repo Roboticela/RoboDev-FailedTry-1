@@ -161,6 +161,9 @@ function CursorForHit(kind) {
   if (kind === "input") {
     return "text";
   }
+  if (kind === "scrollbar") {
+    return "grab";
+  }
   return "default";
 }
 

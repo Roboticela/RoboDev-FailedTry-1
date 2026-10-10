@@ -9,7 +9,7 @@ Container
 ✅ - Paragraph (derives from Text with body copy defaults)
 ✅ - Button (Apple-style; label sizes the control; single-line text, no wrap)
 ✅ - Input (Apple-style; filled / bordered / plain; focus ring; placeholder; caret typing)
-Scrollbar
+✅ - Scrollbar
 Dropdown
 Icons
 Menu

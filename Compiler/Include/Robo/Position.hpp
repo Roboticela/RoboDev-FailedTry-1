@@ -3,6 +3,7 @@
 #include "Button.hpp"
 #include "Color.hpp"
 #include "Input.hpp"
+#include "Scrollbar.hpp"
 #include "Text.hpp"
 
 #include <cstddef>
@@ -36,6 +37,7 @@ enum class PositionItemKind {
     Text,
     Button,
     Input,
+    Scrollbar,
     Flexbox,
     Grid,
     Position
@@ -110,6 +112,7 @@ struct PositionItem {
     Text text;
     Button button;
     Input input;
+    Scrollbar scrollbar;
     std::shared_ptr<Flexbox> flexbox;
     std::shared_ptr<Grid> grid;
     std::shared_ptr<Position> position;
@@ -134,6 +137,7 @@ public:
     void AddText(Text text, const PositionItemProps& props = {});
     void AddButton(Button button, const PositionItemProps& props = {});
     void AddInput(Input input, const PositionItemProps& props = {});
+    void AddScrollbar(Scrollbar scrollbar, const PositionItemProps& props = {});
     void AddFlexbox(Flexbox flexbox, const PositionItemProps& props = {});
     void AddGrid(Grid grid, const PositionItemProps& props = {});
     void AddPosition(Position position, const PositionItemProps& props = {});

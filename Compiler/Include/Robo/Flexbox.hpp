@@ -4,6 +4,7 @@
 #include "Color.hpp"
 #include "FontStyle.hpp"
 #include "Input.hpp"
+#include "Scrollbar.hpp"
 #include "Text.hpp"
 #include "TextAlign.hpp"
 
@@ -47,6 +48,7 @@ enum class FlexItemKind {
     Text,
     Button,
     Input,
+    Scrollbar,
     Flexbox
 };
 
@@ -76,6 +78,7 @@ struct FlexboxItem {
     Text text;
     Button button;
     Input input;
+    Scrollbar scrollbar;
     std::shared_ptr<Flexbox> flexbox;
 };
 
@@ -132,6 +135,7 @@ public:
     void AddText(Text text, const FlexItemProps& props = {});
     void AddButton(Button button, const FlexItemProps& props = {});
     void AddInput(Input input, const FlexItemProps& props = {});
+    void AddScrollbar(Scrollbar scrollbar, const FlexItemProps& props = {});
     void AddFlexbox(Flexbox flexbox, const FlexItemProps& props = {});
     void AddItem(FlexboxItem item);
 

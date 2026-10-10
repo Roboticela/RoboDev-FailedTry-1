@@ -1,6 +1,7 @@
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/InputPainter.hpp"
+#include "Robo/ScrollbarPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -164,6 +165,16 @@ void StrokeRoundedRect(FrameBuffer& buffer,
     }
 }
 
+bool KeepsIntrinsicCrossSize(const FlexboxItem& item) {
+    if (item.kind == FlexItemKind::Button) {
+        return item.props.width.empty();
+    }
+    if (item.kind == FlexItemKind::Scrollbar) {
+        return item.props.width.empty() && item.props.height.empty();
+    }
+    return false;
+}
+
 struct MeasuredFlexChild {
     std::size_t itemIndex = 0;
     float baseWidth = 0.0f;
@@ -255,6 +266,15 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 }
                 InputMeasureResult measured = InputPainter::Measure(fonts, item.input, intrinsicWidth, scale);
                 child.baseWidth = intrinsicWidth;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::Scrollbar: {
+                const float availW = hasExplicitWidth
+                    ? ParseDimension(item.props.width, innerW, innerW, scale)
+                    : innerW;
+                ScrollbarMeasureResult measured = ScrollbarPainter::Measure(item.scrollbar, availW, scale);
+                child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
                 break;
             }
@@ -404,9 +424,8 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             const FlexItemProps& props = items[child.itemIndex].props;
             FlexAlign align = props.alignSelf != FlexAlign::Auto ? props.alignSelf : style.align;
             if (align == FlexAlign::Stretch) {
-                if (items[child.itemIndex].kind == FlexItemKind::Button &&
-                    props.alignSelf != FlexAlign::Stretch &&
-                    props.width.empty()) {
+                if (KeepsIntrinsicCrossSize(items[child.itemIndex]) &&
+                    props.alignSelf != FlexAlign::Stretch) {
                     child.allocatedCross = child.baseCross;
                 } else {
                     child.allocatedCross = line.lineCrossSize;
@@ -459,9 +478,8 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 const FlexItemProps& props = items[child.itemIndex].props;
                 FlexAlign align = props.alignSelf != FlexAlign::Auto ? props.alignSelf : style.align;
                 if (align == FlexAlign::Stretch) {
-                    if (items[child.itemIndex].kind == FlexItemKind::Button &&
-                        props.alignSelf != FlexAlign::Stretch &&
-                        props.width.empty()) {
+                    if (KeepsIntrinsicCrossSize(items[child.itemIndex]) &&
+                        props.alignSelf != FlexAlign::Stretch) {
                         child.allocatedCross = child.baseCross;
                     } else {
                         child.allocatedCross = finalInnerW;
@@ -683,6 +701,19 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                                         scale,
                                         childW,
                                         childH);
+                    break;
+                }
+                case FlexItemKind::Scrollbar: {
+                    const bool vertical =
+                        item.scrollbar.GetOrientation() == ScrollbarOrientation::Vertical;
+                    ScrollbarPainter::Paint(buffer,
+                                            item.scrollbar,
+                                            childX,
+                                            childY,
+                                            childW,
+                                            scale,
+                                            vertical ? -1.0f : childW,
+                                            vertical ? childH : -1.0f);
                     break;
                 }
                 case FlexItemKind::Flexbox: {

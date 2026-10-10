@@ -4,6 +4,7 @@
 #include "Robo/GridPainter.hpp"
 #include "Robo/InputPainter.hpp"
 #include "Robo/PositionPainter.hpp"
+#include "Robo/ScrollbarPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -61,6 +62,20 @@ void ScaleBounds(InputBounds& bounds, float inv) {
     bounds.height *= inv;
 }
 
+void ScaleBounds(ScrollbarBounds& bounds, float inv) {
+    bounds.x *= inv;
+    bounds.y *= inv;
+    bounds.width *= inv;
+    bounds.height *= inv;
+}
+
+void ScaleScrollbar(Scrollbar& scrollbar, float inv) {
+    ScrollbarBounds bounds = scrollbar.GetBounds();
+    ScaleBounds(bounds, inv);
+    scrollbar.SetBounds(bounds);
+    scrollbar.SetPixelScale(scrollbar.GetPixelScale() * inv);
+}
+
 void ScaleBounds(FlexboxBounds& bounds, float inv) {
     bounds.x *= inv;
     bounds.y *= inv;
@@ -92,6 +107,8 @@ void ScaleFlexboxBounds(Flexbox& flexbox, float inv) {
             InputBounds ib = item.input.GetBounds();
             ScaleBounds(ib, inv);
             item.input.SetBounds(ib);
+        } else if (item.kind == FlexItemKind::Scrollbar) {
+            ScaleScrollbar(item.scrollbar, inv);
         } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
             ScaleFlexboxBounds(*item.flexbox, inv);
         }
@@ -112,6 +129,8 @@ void ScaleGridBounds(Grid& grid, float inv) {
             InputBounds ib = item.input.GetBounds();
             ScaleBounds(ib, inv);
             item.input.SetBounds(ib);
+        } else if (item.kind == GridItemKind::Scrollbar) {
+            ScaleScrollbar(item.scrollbar, inv);
         } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
             ScaleFlexboxBounds(*item.flexbox, inv);
         } else if (item.kind == GridItemKind::Grid && item.grid) {
@@ -156,6 +175,24 @@ Input* FindInputInFlexbox(Flexbox& flexbox, float x, float y) {
     return nullptr;
 }
 
+Scrollbar* FindScrollbarInFlexbox(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            Scrollbar* found = FindScrollbarInFlexbox(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 const Button* FindButtonInFlexboxConst(const Flexbox& flexbox, float x, float y) {
     const std::vector<FlexboxItem>& items = flexbox.GetItems();
     for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
@@ -192,10 +229,30 @@ const Input* FindInputInFlexboxConst(const Flexbox& flexbox, float x, float y) {
     return nullptr;
 }
 
+const Scrollbar* FindScrollbarInFlexboxConst(const Flexbox& flexbox, float x, float y) {
+    const std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        const FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            const Scrollbar* found = FindScrollbarInFlexboxConst(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 Button* FindButtonInGrid(Grid& grid, float x, float y);
 Input* FindInputInGrid(Grid& grid, float x, float y);
+Scrollbar* FindScrollbarInGrid(Grid& grid, float x, float y);
 const Button* FindButtonInGridConst(const Grid& grid, float x, float y);
 const Input* FindInputInGridConst(const Grid& grid, float x, float y);
+const Scrollbar* FindScrollbarInGridConst(const Grid& grid, float x, float y);
 
 Button* FindButtonInGrid(Grid& grid, float x, float y) {
     std::vector<GridItem>& items = grid.GetItems();
@@ -235,6 +292,29 @@ Input* FindInputInGrid(Grid& grid, float x, float y) {
             }
         } else if (item.kind == GridItemKind::Grid && item.grid) {
             Input* found = FindInputInGrid(*item.grid, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+Scrollbar* FindScrollbarInGrid(Grid& grid, float x, float y) {
+    std::vector<GridItem>& items = grid.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        GridItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == GridItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            Scrollbar* found = FindScrollbarInFlexbox(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            Scrollbar* found = FindScrollbarInGrid(*item.grid, x, y);
             if (found) {
                 return found;
             }
@@ -289,6 +369,29 @@ const Input* FindInputInGridConst(const Grid& grid, float x, float y) {
     return nullptr;
 }
 
+const Scrollbar* FindScrollbarInGridConst(const Grid& grid, float x, float y) {
+    const std::vector<GridItem>& items = grid.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        const GridItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == GridItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            const Scrollbar* found = FindScrollbarInFlexboxConst(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            const Scrollbar* found = FindScrollbarInGridConst(*item.grid, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 void ScalePositionBounds(Position& position, float inv) {
     InputBounds pb = position.GetBounds();
     ScaleBounds(pb, inv);
@@ -304,6 +407,8 @@ void ScalePositionBounds(Position& position, float inv) {
             InputBounds ib = item.input.GetBounds();
             ScaleBounds(ib, inv);
             item.input.SetBounds(ib);
+        } else if (item.kind == PositionItemKind::Scrollbar) {
+            ScaleScrollbar(item.scrollbar, inv);
         } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
             ScaleFlexboxBounds(*item.flexbox, inv);
         } else if (item.kind == PositionItemKind::Grid && item.grid) {
@@ -384,6 +489,41 @@ Input* FindInputInPosition(Position& position, float x, float y) {
     return nullptr;
 }
 
+Scrollbar* FindScrollbarInPosition(Position& position, float x, float y) {
+    std::vector<PositionItem>& items = position.GetItems();
+    std::vector<std::size_t> indices(items.size());
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        indices[i] = i;
+    }
+    std::stable_sort(indices.begin(), indices.end(), [&](std::size_t a, std::size_t b) {
+        return items[a].props.zIndex > items[b].props.zIndex;
+    });
+    for (std::size_t idx : indices) {
+        PositionItem& item = items[idx];
+        if (item.kind == PositionItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            Scrollbar* found = FindScrollbarInFlexbox(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            Scrollbar* found = FindScrollbarInGrid(*item.grid, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            Scrollbar* found = FindScrollbarInPosition(*item.position, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 const Button* FindButtonInPositionConst(const Position& position, float x, float y) {
     const std::vector<PositionItem>& items = position.GetItems();
     std::vector<std::size_t> indices(items.size());
@@ -454,14 +594,51 @@ const Input* FindInputInPositionConst(const Position& position, float x, float y
     return nullptr;
 }
 
+const Scrollbar* FindScrollbarInPositionConst(const Position& position, float x, float y) {
+    const std::vector<PositionItem>& items = position.GetItems();
+    std::vector<std::size_t> indices(items.size());
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        indices[i] = i;
+    }
+    std::stable_sort(indices.begin(), indices.end(), [&](std::size_t a, std::size_t b) {
+        return items[a].props.zIndex > items[b].props.zIndex;
+    });
+    for (std::size_t idx : indices) {
+        const PositionItem& item = items[idx];
+        if (item.kind == PositionItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            const Scrollbar* found = FindScrollbarInFlexboxConst(*item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            const Scrollbar* found = FindScrollbarInGridConst(*item.grid, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            const Scrollbar* found = FindScrollbarInPositionConst(*item.position, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 }  // namespace
 
 void RoboScene::Clear() {
     items_.clear();
     hoveredButton_ = nullptr;
     hoveredInput_ = nullptr;
+    hoveredScrollbar_ = nullptr;
     pressedButton_ = nullptr;
     focusedInput_ = nullptr;
+    draggingScrollbar_ = nullptr;
 }
 
 void RoboScene::AddText(Text text) {
@@ -482,6 +659,13 @@ void RoboScene::AddInput(Input input) {
     SceneItem item;
     item.kind = SceneItemKind::Input;
     item.input = std::move(input);
+    items_.push_back(std::move(item));
+}
+
+void RoboScene::AddScrollbar(Scrollbar scrollbar) {
+    SceneItem item;
+    item.kind = SceneItemKind::Scrollbar;
+    item.scrollbar = std::move(scrollbar);
     items_.push_back(std::move(item));
 }
 
@@ -568,6 +752,21 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 InputBounds bounds = item.input.GetBounds();
                 ScaleBounds(bounds, 1.0f / static_cast<float>(superSample));
                 item.input.SetBounds(bounds);
+            }
+        } else if (item.kind == SceneItemKind::Scrollbar) {
+            if (&item.scrollbar == draggingScrollbar_) {
+                item.scrollbar.SetInteraction(ScrollbarInteraction::Dragging);
+            } else if (&item.scrollbar == hoveredScrollbar_) {
+                item.scrollbar.SetInteraction(ScrollbarInteraction::Hovered);
+            } else {
+                item.scrollbar.SetInteraction(ScrollbarInteraction::Normal);
+            }
+
+            const ScrollbarPaintResult painted =
+                ScrollbarPainter::Paint(hiRes, item.scrollbar, pad, cursorY, contentWidth, paintScale);
+            cursorY += painted.advanceY;
+            if (superSample > 1) {
+                ScaleScrollbar(item.scrollbar, 1.0f / static_cast<float>(superSample));
             }
         } else if (item.kind == SceneItemKind::Flexbox) {
             const FlexboxPaintResult painted =
@@ -656,6 +855,33 @@ Input* RoboScene::FindInputAt(float x, float y) {
     return nullptr;
 }
 
+Scrollbar* RoboScene::FindScrollbarAt(float x, float y) {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            Scrollbar* found = FindScrollbarInFlexbox(item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Grid) {
+            Scrollbar* found = FindScrollbarInGrid(item.grid, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Position) {
+            Scrollbar* found = FindScrollbarInPosition(item.position, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 const Button* RoboScene::FindButtonAt(float x, float y) const {
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
         const SceneItem& item = items_[static_cast<std::size_t>(i)];
@@ -710,7 +936,37 @@ const Input* RoboScene::FindInputAt(float x, float y) const {
     return nullptr;
 }
 
+const Scrollbar* RoboScene::FindScrollbarAt(float x, float y) const {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        const SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Scrollbar) {
+            if (item.scrollbar.GetBounds().Contains(x, y)) {
+                return &item.scrollbar;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            const Scrollbar* found = FindScrollbarInFlexboxConst(item.flexbox, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Grid) {
+            const Scrollbar* found = FindScrollbarInGridConst(item.grid, x, y);
+            if (found) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Position) {
+            const Scrollbar* found = FindScrollbarInPositionConst(item.position, x, y);
+            if (found) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 HitKind RoboScene::HitTestKind(float x, float y) const {
+    if (FindScrollbarAt(x, y)) {
+        return HitKind::Scrollbar;
+    }
     if (FindButtonAt(x, y)) {
         return HitKind::Button;
     }
@@ -752,6 +1008,20 @@ bool RoboScene::SetHoveredInput(Input* input) {
     return true;
 }
 
+bool RoboScene::SetHoveredScrollbar(Scrollbar* scrollbar) {
+    if (hoveredScrollbar_ == scrollbar) {
+        return false;
+    }
+    if (hoveredScrollbar_ && hoveredScrollbar_ != draggingScrollbar_) {
+        hoveredScrollbar_->SetInteraction(ScrollbarInteraction::Normal);
+    }
+    hoveredScrollbar_ = scrollbar;
+    if (hoveredScrollbar_ && hoveredScrollbar_ != draggingScrollbar_) {
+        hoveredScrollbar_->SetInteraction(ScrollbarInteraction::Hovered);
+    }
+    return true;
+}
+
 bool RoboScene::SetPressedButton(Button* button) {
     if (pressedButton_ == button) {
         return false;
@@ -786,6 +1056,12 @@ bool RoboScene::SetFocusedInput(Input* input) {
 }
 
 bool RoboScene::PointerMove(float x, float y) {
+    if (draggingScrollbar_) {
+        draggingScrollbar_->UpdateDrag(x, y);
+        RerenderIfPossible();
+        return true;
+    }
+
     if (pressedButton_) {
         const bool inside = FindButtonAt(x, y) == pressedButton_;
         const ButtonInteraction next = inside ? ButtonInteraction::Pressed : ButtonInteraction::Hovered;
@@ -797,10 +1073,12 @@ bool RoboScene::PointerMove(float x, float y) {
         return false;
     }
 
-    Button* button = FindButtonAt(x, y);
-    Input* input = button ? nullptr : FindInputAt(x, y);
+    Scrollbar* scrollbar = FindScrollbarAt(x, y);
+    Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
+    Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
 
-    bool changed = SetHoveredButton(button);
+    bool changed = SetHoveredScrollbar(scrollbar);
+    changed = SetHoveredButton(button) || changed;
     changed = SetHoveredInput(input) || changed;
     if (changed) {
         RerenderIfPossible();
@@ -809,21 +1087,34 @@ bool RoboScene::PointerMove(float x, float y) {
 }
 
 bool RoboScene::PointerDown(float x, float y) {
-    Button* button = FindButtonAt(x, y);
-    Input* input = button ? nullptr : FindInputAt(x, y);
+    Scrollbar* scrollbar = FindScrollbarAt(x, y);
+    Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
+    Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
 
     bool changed = false;
-    if (button) {
+    if (scrollbar) {
+        changed = SetFocusedInput(nullptr) || changed;
+        changed = SetPressedButton(nullptr) || changed;
+        changed = SetHoveredButton(nullptr) || changed;
+        changed = SetHoveredInput(nullptr) || changed;
+        scrollbar->BeginDrag(x, y);
+        draggingScrollbar_ = scrollbar;
+        changed = SetHoveredScrollbar(scrollbar) || changed;
+        changed = true;
+    } else if (button) {
+        changed = SetHoveredScrollbar(nullptr) || changed;
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetPressedButton(button) || changed;
         changed = SetHoveredButton(button) || changed;
         changed = SetHoveredInput(nullptr) || changed;
     } else if (input) {
+        changed = SetHoveredScrollbar(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
         changed = SetFocusedInput(input) || changed;
         changed = SetHoveredInput(input) || changed;
         changed = SetHoveredButton(nullptr) || changed;
     } else {
+        changed = SetHoveredScrollbar(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetHoveredButton(nullptr) || changed;
@@ -837,10 +1128,20 @@ bool RoboScene::PointerDown(float x, float y) {
 }
 
 bool RoboScene::PointerUp(float x, float y) {
-    bool changed = SetPressedButton(nullptr);
-    Button* button = FindButtonAt(x, y);
-    Input* input = button ? nullptr : FindInputAt(x, y);
+    bool changed = false;
+    if (draggingScrollbar_) {
+        draggingScrollbar_->EndDrag();
+        hoveredScrollbar_ = nullptr;
+        draggingScrollbar_ = nullptr;
+        changed = true;
+    }
 
+    changed = SetPressedButton(nullptr) || changed;
+    Scrollbar* scrollbar = FindScrollbarAt(x, y);
+    Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
+    Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
+
+    changed = SetHoveredScrollbar(scrollbar) || changed;
     changed = SetHoveredButton(button) || changed;
     changed = SetHoveredInput(input) || changed;
     if (changed) {
@@ -859,6 +1160,9 @@ bool RoboScene::PointerLeave() {
     }
     if (hoveredInput_) {
         changed = SetHoveredInput(nullptr) || changed;
+    }
+    if (hoveredScrollbar_) {
+        changed = SetHoveredScrollbar(nullptr) || changed;
     }
     if (changed) {
         RerenderIfPossible();

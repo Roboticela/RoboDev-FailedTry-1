@@ -71,6 +71,8 @@ std::string HitTestKind(float x, float y) {
             return "button";
         case Robo::HitKind::Input:
             return "input";
+        case Robo::HitKind::Scrollbar:
+            return "scrollbar";
         default:
             return "none";
     }

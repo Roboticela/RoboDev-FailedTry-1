@@ -3,6 +3,7 @@
 #include "Button.hpp"
 #include "Color.hpp"
 #include "Input.hpp"
+#include "Scrollbar.hpp"
 #include "Text.hpp"
 
 #include <cstddef>
@@ -53,6 +54,7 @@ enum class GridItemKind {
     Text,
     Button,
     Input,
+    Scrollbar,
     Flexbox,
     Grid
 };
@@ -135,6 +137,7 @@ struct GridItem {
     Text text;
     Button button;
     Input input;
+    Scrollbar scrollbar;
     std::shared_ptr<Flexbox> flexbox;
     std::shared_ptr<Grid> grid;
 };
@@ -150,6 +153,7 @@ public:
     void AddText(Text text, const GridItemProps& props = {});
     void AddButton(Button button, const GridItemProps& props = {});
     void AddInput(Input input, const GridItemProps& props = {});
+    void AddScrollbar(Scrollbar scrollbar, const GridItemProps& props = {});
     void AddFlexbox(Flexbox flexbox, const GridItemProps& props = {});
     void AddGrid(Grid grid, const GridItemProps& props = {});
     void AddItem(GridItem item);

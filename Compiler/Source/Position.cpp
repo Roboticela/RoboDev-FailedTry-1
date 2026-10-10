@@ -110,6 +110,14 @@ void Position::AddInput(Input input, const PositionItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Position::AddScrollbar(Scrollbar scrollbar, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::Scrollbar;
+    item.props = props;
+    item.scrollbar = std::move(scrollbar);
+    items_.push_back(std::move(item));
+}
+
 void Position::AddFlexbox(Flexbox flexbox, const PositionItemProps& props) {
     PositionItem item;
     item.kind = PositionItemKind::Flexbox;

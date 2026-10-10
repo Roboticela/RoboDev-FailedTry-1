@@ -104,6 +104,14 @@ void Grid::AddInput(Input input, const GridItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Grid::AddScrollbar(Scrollbar scrollbar, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::Scrollbar;
+    item.props = props;
+    item.scrollbar = std::move(scrollbar);
+    items_.push_back(std::move(item));
+}
+
 void Grid::AddFlexbox(Flexbox flexbox, const GridItemProps& props) {
     GridItem item;
     item.kind = GridItemKind::Flexbox;

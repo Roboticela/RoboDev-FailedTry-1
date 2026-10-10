@@ -1,0 +1,51 @@
+<Robo>
+  <Heading level="1" align="center">Robo Scrollbar</Heading>
+  <Paragraph align="center">
+    Apple-style scrollbars rasterized natively in C++. Drag the thumb, click the track to jump, and hover to see the interactive states.
+  </Paragraph>
+
+  <Paragraph>
+    Try it before scrolling down: drag a thumb, or click a track to jump. Both orientations are live here.
+  </Paragraph>
+  <Flexbox direction="row" align="center" gap="28" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Scrollbar orientation="vertical" value="0.3" contentSize="900" viewportSize="300" length="150" thickness="10" trackColor="#EDEDF0" thumbColor="#007AFF" cornerRadius="5" />
+    <Scrollbar orientation="horizontal" value="0.4" contentSize="800" viewportSize="320" length="260" thickness="10" trackColor="#EDEDF0" thumbColor="#007AFF" cornerRadius="5" />
+  </Flexbox>
+
+  <H2>1. Vertical scrollbar (sized by content)</H2>
+  <Paragraph>
+    With contentSize=800 and viewportSize=200 the thumb occupies 25% of the 240px track. Drag it or click anywhere on the track.
+  </Paragraph>
+  <Scrollbar orientation="vertical" value="0.25" contentSize="800" viewportSize="200" length="240" thickness="10" trackColor="#EDEDF0" thumbColor="#8E8E93" cornerRadius="5" />
+
+  <H2>2. Horizontal scrollbar</H2>
+  <Paragraph>
+    Orientation="horizontal" lays the track along the x-axis. Here the thumb ratio is set explicitly to 35%.
+  </Paragraph>
+  <Scrollbar orientation="horizontal" value="0.5" thumbRatio="0.35" length="360" thickness="10" trackColor="#EDEDF0" thumbColor="#007AFF" cornerRadius="5" />
+
+  <H2>3. Overlay scrollbar pinned to a panel edge</H2>
+  <Paragraph>
+    A scrollbar placed inside a Position container and anchored to the top-right corner, the classic overlay pattern used by long scroll areas.
+  </Paragraph>
+  <Position height="200" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1" padding="16">
+    <Paragraph>Scrollable content lives here. The overlay thumb floats above the panel on the right edge.</Paragraph>
+    <Scrollbar anchor="topright" right="0" top="0" orientation="vertical" value="0.4" contentSize="1000" viewportSize="300" height="160" thickness="8" thumbColor="#C7C7CC" />
+  </Position>
+
+  <H2>4. Inside a Flexbox toolbar</H2>
+  <Paragraph>
+    The scrollbar participates in flex layout like any other child, so it lines up with headings and buttons on the same row.
+  </Paragraph>
+  <Flexbox direction="row" align="center" gap="16" padding="16" background="#F2F2F7" cornerRadius="14">
+    <H4>Zoom</H4>
+    <Scrollbar orientation="horizontal" value="0.6" thumbRatio="0.3" length="260" thickness="10" trackColor="#E5E5EA" thumbColor="#007AFF" cornerRadius="5" />
+    <Button variant="filled">Apply</Button>
+  </Flexbox>
+
+  <H2>5. Thick track with a colored thumb</H2>
+  <Paragraph>
+    Thickness, corner radius, and every color are configurable, so the control matches any dark or light surface.
+  </Paragraph>
+  <Scrollbar orientation="vertical" value="0.75" thumbRatio="0.4" length="200" thickness="16" cornerRadius="8" trackColor="#1C1C1E" thumbColor="#30D158" thumbHoverColor="#34C759" thumbActiveColor="#28A745" />
+</Robo>

@@ -7,6 +7,7 @@
 #include "Robo/Heading.hpp"
 #include "Robo/Input.hpp"
 #include "Robo/Paragraph.hpp"
+#include "Robo/Scrollbar.hpp"
 #include "Robo/TextAlign.hpp"
 
 #include <cstdlib>
@@ -384,6 +385,68 @@ Input XmlRuntime::BuildInput(const XmlNode& node) {
     return input;
 }
 
+void XmlRuntime::ApplyScrollbarAttributes(const XmlNode& node, Scrollbar& scrollbar) const {
+    std::string value;
+    if (GetAttribute(node, "orientation", value) || GetAttribute(node, "direction", value)) {
+        scrollbar.SetOrientation(ParseScrollbarOrientation(value));
+    }
+    if (GetAttribute(node, "value", value)) {
+        scrollbar.SetValue(ParseDouble(value, scrollbar.GetValue()));
+    }
+    if (GetAttribute(node, "contentSize", value) || GetAttribute(node, "content", value)) {
+        scrollbar.SetContentSize(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "viewportSize", value) || GetAttribute(node, "viewport", value) ||
+        GetAttribute(node, "pageSize", value)) {
+        scrollbar.SetViewportSize(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "thumbRatio", value) || GetAttribute(node, "thumbSize", value)) {
+        scrollbar.SetThumbRatio(ParseDouble(value, 1.0));
+    }
+
+    ScrollbarStyle style = scrollbar.GetStyle();
+    if (GetAttribute(node, "thickness", value) || GetAttribute(node, "size", value)) {
+        style.thickness = ParseDouble(value, style.thickness);
+    }
+    if (GetAttribute(node, "length", value) || GetAttribute(node, "trackLength", value)) {
+        style.length = ParseDouble(value, style.length);
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "radius", value)) {
+        style.cornerRadius = ParseDouble(value, style.cornerRadius);
+    }
+    if (GetAttribute(node, "minThumbLength", value) || GetAttribute(node, "minThumb", value)) {
+        style.minThumbLength = ParseDouble(value, style.minThumbLength);
+    }
+    if (GetAttribute(node, "trackColor", value) || GetAttribute(node, "track", value)) {
+        style.trackColor = Color::FromHex(value);
+        style.hasCustomTrackColor = true;
+    }
+    if (GetAttribute(node, "thumbColor", value) || GetAttribute(node, "color", value)) {
+        style.thumbColor = Color::FromHex(value);
+        style.hasCustomThumbColor = true;
+    }
+    if (GetAttribute(node, "thumbHoverColor", value)) {
+        style.thumbHoverColor = Color::FromHex(value);
+        style.hasCustomThumbHoverColor = true;
+    }
+    if (GetAttribute(node, "thumbActiveColor", value)) {
+        style.thumbActiveColor = Color::FromHex(value);
+        style.hasCustomThumbActiveColor = true;
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style.opacity = ParseDouble(value, style.opacity);
+    }
+
+    scrollbar.SetStyle(style);
+    scrollbar.ApplyVariantDefaults();
+}
+
+Scrollbar XmlRuntime::BuildScrollbar(const XmlNode& node) {
+    Scrollbar scrollbar;
+    ApplyScrollbarAttributes(node, scrollbar);
+    return scrollbar;
+}
+
 void XmlRuntime::ApplyFlexboxAttributes(const XmlNode& node, FlexboxStyle& style) const {
     std::string value;
     if (GetAttribute(node, "direction", value) || GetAttribute(node, "flexDirection", value)) {
@@ -605,6 +668,8 @@ Flexbox XmlRuntime::BuildFlexbox(const XmlNode& node) {
             flexbox.AddButton(BuildButton(child), props);
         } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
             flexbox.AddInput(BuildInput(child), props);
+        } else if (child.name == "Scrollbar" || child.name == "scrollbar") {
+            flexbox.AddScrollbar(BuildScrollbar(child), props);
         } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
             flexbox.AddFlexbox(BuildFlexbox(child), props);
         } else if (child.name == "Grid" || child.name == "grid") {
@@ -807,6 +872,8 @@ Grid XmlRuntime::BuildGrid(const XmlNode& node) {
             grid.AddButton(BuildButton(child), props);
         } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
             grid.AddInput(BuildInput(child), props);
+        } else if (child.name == "Scrollbar" || child.name == "scrollbar") {
+            grid.AddScrollbar(BuildScrollbar(child), props);
         } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
             grid.AddFlexbox(BuildFlexbox(child), props);
         } else if (child.name == "Grid" || child.name == "grid") {
@@ -992,6 +1059,8 @@ Position XmlRuntime::BuildPosition(const XmlNode& node) {
             position.AddButton(BuildButton(child), props);
         } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
             position.AddInput(BuildInput(child), props);
+        } else if (child.name == "Scrollbar" || child.name == "scrollbar") {
+            position.AddScrollbar(BuildScrollbar(child), props);
         } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
             position.AddFlexbox(BuildFlexbox(child), props);
         } else if (child.name == "Grid" || child.name == "grid") {
@@ -1046,6 +1115,11 @@ void XmlRuntime::MountNode(const XmlNode& node) {
         return;
     }
 
+    if (node.name == "Scrollbar" || node.name == "scrollbar") {
+        scene_.AddScrollbar(BuildScrollbar(node));
+        return;
+    }
+
     if (node.name == "Flexbox" || node.name == "flexbox" || node.name == "Flex" || node.name == "flex") {
         scene_.AddFlexbox(BuildFlexbox(node));
         return;
@@ -1062,7 +1136,7 @@ void XmlRuntime::MountNode(const XmlNode& node) {
     }
 
     lastError_ = "Unsupported element: <" + node.name +
-                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>, <Flexbox>, <Grid>, <Position>.";
+                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>, <Scrollbar>, <Flexbox>, <Grid>, <Position>.";
 }
 
 bool XmlRuntime::RenderXml(const std::string& xml) {
