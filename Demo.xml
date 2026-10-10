@@ -5,8 +5,8 @@
   </Paragraph>
 
   <H2>Text</H2>
-  <Paragraph>
-    Paragraphs wrap, align, and share the text engine with headings. Edit Demo.xml and run RunDemo.ps1 to rebuild the page.
+  <Paragraph selectable="true">
+    Paragraphs wrap, align, and share the text engine with headings. This one can be selected and copied. Edit Demo.xml and run RunDemo.ps1 to rebuild the page.
   </Paragraph>
 
   <H2>Buttons</H2>
@@ -46,7 +46,7 @@
   <Paragraph>Wheel, drag, or use the arrow keys. The cursor stays an arrow.</Paragraph>
   <Container height="220" gap="10" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1" variant="thin" arrows="true" autoHide="false">
     <H3>Inside the container</H3>
-    <Paragraph>The first row of a clipped, scrolling region.</Paragraph>
+    <Paragraph selectable="true">The first row of a clipped, scrolling region.</Paragraph>
     <Paragraph>Buttons and fields inside stay interactive.</Paragraph>
     <Button>Tap me</Button>
     <Input placeholder="A field inside the scroll region" width="100%" />

@@ -136,6 +136,40 @@ bool ScrollBy(float deltaY) {
     return changed;
 }
 
+bool ScrollByX(float deltaX) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.ScrollByX(deltaX);
+    SchedulePresent();
+    return changed;
+}
+
+bool ZoomBy(float factor, float anchorX, float anchorY) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.ZoomBy(factor, anchorX, anchorY);
+    SchedulePresent();
+    return changed;
+}
+
+bool ZoomTo(float zoom, float anchorX, float anchorY) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.ZoomTo(zoom, anchorX, anchorY);
+    SchedulePresent();
+    return changed;
+}
+
+float GetZoom() {
+    if (!EnsureApp()) {
+        return 1.0f;
+    }
+    return gScene.GetZoom();
+}
+
 bool KeyScrollLine(int direction) {
     if (!EnsureApp()) {
         return false;
@@ -251,6 +285,29 @@ bool KeyEscape() {
     return changed;
 }
 
+bool SelectableAt(float x, float y) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    return gScene.SelectableAt(x, y);
+}
+
+bool CopySelection() {
+    if (!EnsureApp()) {
+        return false;
+    }
+    return gScene.CopySelection();
+}
+
+bool SelectAllText() {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.SelectAllText();
+    SchedulePresent();
+    return changed;
+}
+
 bool HasFocusedInput() {
     if (!EnsureApp()) {
         return false;
@@ -283,6 +340,10 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("HitTest", &HitTest);
     emscripten::function("Wheel", &Wheel);
     emscripten::function("ScrollBy", &ScrollBy);
+    emscripten::function("ScrollByX", &ScrollByX);
+    emscripten::function("ZoomBy", &ZoomBy);
+    emscripten::function("ZoomTo", &ZoomTo);
+    emscripten::function("GetZoom", &GetZoom);
     emscripten::function("KeyScrollLine", &KeyScrollLine);
     emscripten::function("KeyScrollPage", &KeyScrollPage);
     emscripten::function("KeyScrollToStart", &KeyScrollToStart);
@@ -296,6 +357,9 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("KeyRight", &KeyRight);
     emscripten::function("KeyEscape", &KeyEscape);
     emscripten::function("HasFocusedInput", &HasFocusedInput);
+    emscripten::function("SelectableAt", &SelectableAt);
+    emscripten::function("CopySelection", &CopySelection);
+    emscripten::function("SelectAllText", &SelectAllText);
     emscripten::function("ActiveScrollbarAxis", &ActiveScrollbarAxis);
     emscripten::function("OwnsScrollGesture", &OwnsScrollGesture);
 }

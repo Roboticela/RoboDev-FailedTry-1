@@ -1,4 +1,5 @@
 #include "Robo/FlexboxPainter.hpp"
+#include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/InputPainter.hpp"
@@ -648,6 +649,7 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                                         float pixelScale,
                                         float forcedWidth,
                                         float forcedHeight) {
+    const SelectableScope selection(&flexbox, flexbox.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const FlexboxStyle& style = flexbox.GetStyle();
 

@@ -19,17 +19,31 @@ EM_JS(void, JsPresentRgba, (int width, int height, float pixelScale, const uint8
         canvas.width = width;
         canvas.height = height;
     }
-    const scale = Math.max(0.01, pixelScale || 1);
-    const cssWidth = Math.max(1, width / scale);
-    const cssHeight = Math.max(1, height / scale);
-    canvas.style.width = cssWidth + "px";
-    canvas.style.height = cssHeight + "px";
+    canvas.style.position = "fixed";
+    canvas.style.left = "0px";
+    canvas.style.top = "0px";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
     const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.imageSmoothingEnabled = false;
     const imageData = context.createImageData(width, height);
     imageData.data.set(HEAPU8.subarray(pixels, pixels + width * height * 4));
     context.putImageData(imageData, 0, 0);
+});
+
+EM_JS(void, JsCopyText, (const char* text), {
+    const value = UTF8ToString(text);
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.focus();
+    area.select();
+    document.execCommand("copy");
+    area.remove();
 });
 
 }  // namespace
@@ -57,6 +71,10 @@ void WebPlatform::SetPixelScale(float scale) {
 
 void WebPlatform::Present(const FrameBuffer& buffer) {
     JsPresentRgba(buffer.GetWidth(), buffer.GetHeight(), pixelScale_, buffer.GetPixels());
+}
+
+void WebPlatform::CopyText(const std::string& text) {
+    JsCopyText(text.c_str());
 }
 
 std::vector<std::uint8_t> WebPlatform::LoadAsset(const std::string& relativePath) const {

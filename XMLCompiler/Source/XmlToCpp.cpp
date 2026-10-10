@@ -110,6 +110,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
             }
         }
 
+        EmitSelectable(code, indent + 1, "style", node);
         code << Indent(indent + 1) << "text.SetStyle(style);\n";
 
         for (const XmlNode& child : node.children) {
@@ -219,6 +220,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 code << Indent(indent + 1) << "style.maxWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", node);
         code << Indent(indent + 1) << "text.SetStyle(style);\n";
 
         for (const XmlNode& child : node.children) {
@@ -289,6 +291,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
             }
         }
 
+        EmitSelectable(code, indent + 1, "style", node);
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
@@ -343,6 +346,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
             }
         }
 
+        EmitSelectable(code, indent + 1, "style", node);
         code << Indent(indent + 1) << "input.SetStyle(style);\n";
         code << Indent(indent + 1) << "input.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
@@ -614,6 +618,7 @@ void XmlToCpp::EmitContainer(std::ostringstream& code,
         }
     }
 
+    EmitSelectable(code, indent, "style", node);
     code << Indent(indent) << containerVar << ".SetStyle(style);\n";
     code << Indent(indent) << containerVar << ".RefreshVariantDefaults();\n";
 
@@ -729,6 +734,7 @@ void XmlToCpp::EmitFlexbox(std::ostringstream& code, const XmlNode& node, int in
         }
     }
 
+    EmitSelectable(code, indent, "style", node);
     code << Indent(indent) << flexVar << ".SetStyle(style);\n";
 
     for (const XmlNode& child : node.children) {
@@ -830,6 +836,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
                 }
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
@@ -865,6 +872,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
                 }
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "input.SetStyle(style);\n";
         code << Indent(indent + 1) << "input.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
@@ -890,6 +898,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
                 code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "text.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -919,6 +928,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
                 code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "heading.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -934,6 +944,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
                 code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "paragraph.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -1033,6 +1044,7 @@ void XmlToCpp::EmitGrid(std::ostringstream& code, const XmlNode& node, int inden
         }
     }
 
+    EmitSelectable(code, indent, "style", node);
     code << Indent(indent) << gridVar << ".SetStyle(style);\n";
 
     for (const XmlNode& child : node.children) {
@@ -1135,6 +1147,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
                 }
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
@@ -1170,6 +1183,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
                 }
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "input.SetStyle(style);\n";
         code << Indent(indent + 1) << "input.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
@@ -1195,6 +1209,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
                 code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "text.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -1224,6 +1239,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
                 code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "heading.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -1239,6 +1255,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
                 code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "paragraph.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -1311,6 +1328,7 @@ void XmlToCpp::EmitPosition(std::ostringstream& code, const XmlNode& node, int i
         }
     }
 
+    EmitSelectable(code, indent, "style", node);
     code << Indent(indent) << posVar << ".SetStyle(style);\n";
 
     for (const XmlNode& child : node.children) {
@@ -1388,6 +1406,7 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
                 }
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
@@ -1413,6 +1432,7 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
                 }
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "input.SetStyle(style);\n";
         code << Indent(indent + 1) << "input.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "input.SetPlaceholder(\"" << EscapeCpp(placeholder) << "\");\n";
@@ -1436,6 +1456,7 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
                 code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
             }
         }
+        EmitSelectable(code, indent + 1, "style", child);
         code << Indent(indent + 1) << "text.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
@@ -1447,6 +1468,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
                (child.name.size() == 2 && (child.name[0] == 'H' || child.name[0] == 'h') && child.name[1] >= '1' && child.name[1] <= '6')) {
         int level = (child.name.size() == 2) ? (child.name[1] - '0') : 1;
         code << Indent(indent + 1) << "Robo::Heading heading(" << level << ");\n";
+        code << Indent(indent + 1) << "Robo::TextStyle style = heading.GetStyle();\n";
+        EmitSelectable(code, indent + 1, "style", child);
+        code << Indent(indent + 1) << "heading.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
                 code << Indent(indent + 1) << "heading.AddPlain(\"" << EscapeCpp(c.text) << "\");\n";
@@ -1455,6 +1479,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         code << Indent(indent + 1) << parentVar << ".AddText(std::move(heading), props);\n";
     } else if (child.name == "Paragraph" || child.name == "paragraph" || child.name == "P" || child.name == "p") {
         code << Indent(indent + 1) << "Robo::Paragraph paragraph;\n";
+        code << Indent(indent + 1) << "Robo::TextStyle style = paragraph.GetStyle();\n";
+        EmitSelectable(code, indent + 1, "style", child);
+        code << Indent(indent + 1) << "paragraph.SetStyle(style);\n";
         for (const XmlNode& c : child.children) {
             if (c.isText) {
                 code << Indent(indent + 1) << "paragraph.AddPlain(\"" << EscapeCpp(c.text) << "\");\n";
@@ -1478,6 +1505,18 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     code << Indent(indent) << "}\n";
 }
 
+void XmlToCpp::EmitSelectable(std::ostringstream& code,
+                              int indent,
+                              const std::string& styleName,
+                              const XmlNode& node) const {
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "selectable" || attribute.first == "select") {
+            code << Indent(indent) << styleName << ".selectable = Robo::ParseSelectable(\""
+                 << EscapeCpp(attribute.second) << "\");\n";
+        }
+    }
+}
+
 std::string XmlToCpp::Convert(const std::string& xml) const {
     XmlParser parser;
     const XmlNode root = parser.Parse(xml);
@@ -1495,7 +1534,8 @@ std::string XmlToCpp::Convert(const std::string& xml) const {
     code << "#include \"Robo/RoboScene.hpp\"\n";
     code << "#include \"Robo/Color.hpp\"\n";
     code << "#include \"Robo/FontStyle.hpp\"\n";
-    code << "#include \"Robo/TextAlign.hpp\"\n\n";
+    code << "#include \"Robo/TextAlign.hpp\"\n";
+    code << "#include \"Robo/Selectable.hpp\"\n\n";
     code << ConvertNode(root, 0);
     return code.str();
 }

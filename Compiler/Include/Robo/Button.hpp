@@ -2,6 +2,7 @@
 
 #include "Color.hpp"
 #include "FontStyle.hpp"
+#include "Selectable.hpp"
 #include "TextAlign.hpp"
 
 #include <string>
@@ -33,6 +34,7 @@ struct ButtonStyle {
     double paddingY = 12.0;
     double letterSpacing = 0.0;
     double opacity = 1.0;
+    SelectableMode selectable = SelectableMode::Inherit;
     TextAlign align = TextAlign::Left;
     bool hasCustomTextColor = false;
     bool hasCustomBackground = false;

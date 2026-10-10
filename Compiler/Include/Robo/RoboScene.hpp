@@ -80,6 +80,12 @@ public:
     bool OwnsScrollGesture(float x, float y);
     // Moves the page when the pointer is not over a scrolling region.
     bool ScrollBy(float deltaY);
+    bool ScrollByX(float deltaX);
+    // App zoom. The browser's own zoom stays disabled. Anchor is a point in the
+    // current surface, in device pixels, which stays under the pointer.
+    bool ZoomBy(float factor, float anchorX, float anchorY);
+    bool ZoomTo(float zoom, float anchorX, float anchorY);
+    float GetZoom() const;
     bool HitTest(float x, float y) const;
     HitKind HitTestKind(float x, float y) const;
 
@@ -96,6 +102,9 @@ public:
     bool KeyRight();
     bool KeyEscape();
     bool HasFocusedInput() const;
+    bool SelectableAt(float x, float y) const;
+    bool CopySelection();
+    bool SelectAllText();
 
 private:
     Button* FindButtonAt(float x, float y);
@@ -116,6 +125,11 @@ private:
     bool SetPressedButton(Button* button);
     bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
+    void ConfigurePageBars();
+    void PullPageScroll();
+    bool PageBarDriving(const Scrollbar& bar) const;
+    Scrollbar* PageScrollbarAt(float x, float y);
+    const Scrollbar* PageScrollbarAt(float x, float y) const;
 
     std::vector<SceneItem> items_;
     Button* hoveredButton_ = nullptr;
@@ -131,8 +145,14 @@ private:
 
     Color background_ = Color::FromHex("#F7F3EB");
     float padding_ = 28.0f;
+    float scrollX_ = 0.0f;
     float scrollY_ = 0.0f;
+    float appZoom_ = 1.0f;
+    float maxScrollX_ = 0.0f;
     float maxScrollY_ = 0.0f;
+    Scrollbar pageVertical_;
+    Scrollbar pageHorizontal_;
+    bool pageBarsReady_ = false;
     IPlatform* platform_ = nullptr;
     FontEngine* fonts_ = nullptr;
     bool hasRenderContext_ = false;

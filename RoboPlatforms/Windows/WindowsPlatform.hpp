@@ -25,6 +25,7 @@ public:
     void SetSurfaceSize(int width, int height) override;
     void SetPixelScale(float scale) override;
     void Present(const FrameBuffer& buffer) override;
+    void CopyText(const std::string& text) override;
     std::vector<std::uint8_t> LoadAsset(const std::string& relativePath) const override;
 
     void Paint(HDC deviceContext) const;

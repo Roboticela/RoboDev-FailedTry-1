@@ -1,4 +1,5 @@
 #include "Robo/TextPainter.hpp"
+#include "Robo/TextSelection.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -284,12 +285,13 @@ TextMeasureResult TextPainter::Measure(const FontEngine& fonts,
 }
 
 float TextPainter::Paint(FrameBuffer& buffer,
-                         const FontEngine& fonts,
-                         const Text& text,
-                         float originX,
-                         float originY,
-                         float containerWidth,
-                         float pixelScale) {
+                       const FontEngine& fonts,
+                       const Text& text,
+                       float originX,
+                       float originY,
+                       float containerWidth,
+                       float pixelScale) {
+    const SelectableScope selection(&text, text.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const TextStyle& style = text.GetStyle();
     const float logicalWidth = containerWidth / scale;

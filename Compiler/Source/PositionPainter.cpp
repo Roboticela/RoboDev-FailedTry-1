@@ -1,4 +1,5 @@
 #include "Robo/PositionPainter.hpp"
+#include "Robo/TextSelection.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -359,6 +360,7 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                                            float pixelScale,
                                            float forcedWidth,
                                            float forcedHeight) {
+    const SelectableScope selection(&position, position.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const PositionStyle& style = position.GetStyle();
 

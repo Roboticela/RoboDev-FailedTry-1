@@ -18,6 +18,7 @@ public:
     virtual void SetSurfaceSize(int width, int height) = 0;
     virtual void SetPixelScale(float scale) = 0;
     virtual void Present(const FrameBuffer& buffer) = 0;
+    virtual void CopyText(const std::string& text) = 0;
     virtual std::vector<std::uint8_t> LoadAsset(const std::string& relativePath) const = 0;
 };
 

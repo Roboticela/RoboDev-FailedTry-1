@@ -1,4 +1,5 @@
 #include "Robo/ContainerPainter.hpp"
+#include "Robo/TextSelection.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/GridPainter.hpp"
@@ -444,29 +445,30 @@ ContainerPaintResult ContainerPainter::Paint(FrameBuffer& buffer,
                                              float pixelScale,
                                              float forcedWidth,
                                              float forcedHeight) {
+    const SelectableScope selection(&container, container.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const ContainerStyle& style = container.GetStyle();
     const BodyLayout body = ResolveBody(fonts, container, containerWidth, scale, forcedWidth, forcedHeight);
 
     const float padL = style.paddingLeft * scale;
-    const float padR = style.paddingRight * scale;
     const float padT = style.paddingTop * scale;
-    const float padB = style.paddingBottom * scale;
     const float bar = style.showScrollbar ? static_cast<float>(style.scrollbarStyle.thickness) * scale : 0.0f;
 
     const float innerX = originX + padL;
     const float innerY = originY + padT;
 
+    // The bar sits on the container edge. Content padding does not push it inward.
+    const float edge = 3.0f * scale;
     ScrollbarBounds track;
     if (body.vertical) {
-        track.x = originX + body.width - padR - bar;
-        track.y = innerY;
+        track.x = originX + body.width - bar;
+        track.y = originY + edge;
         track.width = bar;
-        track.height = body.innerHeight;
+        track.height = std::max(0.0f, body.height - edge * 2.0f);
     } else {
-        track.x = innerX;
-        track.y = originY + body.height - padB - bar;
-        track.width = body.innerWidth;
+        track.x = originX + edge;
+        track.y = originY + body.height - bar;
+        track.width = std::max(0.0f, body.width - edge * 2.0f);
         track.height = bar;
     }
 

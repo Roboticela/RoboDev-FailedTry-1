@@ -32,6 +32,7 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\Position.cpp"),
         (Join-Path $Root "Compiler\Source\Container.cpp"),
         (Join-Path $Root "Compiler\Source\Parse.cpp"),
+        (Join-Path $Root "Compiler\Source\TextSelection.cpp"),
         (Join-Path $Root "Compiler\Source\FrameBuffer.cpp"),
         (Join-Path $Root "Compiler\Source\FontEngine.cpp"),
         (Join-Path $Root "Compiler\Source\TextPainter.cpp"),

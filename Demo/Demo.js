@@ -5,16 +5,30 @@ let animationHandle = 0;
 let lastAnimationTime = 0;
 
 function PageSize() {
-  const view = window.visualViewport;
-  const cssWidth = Math.max(1, view ? view.width : window.innerWidth);
-  const cssHeight = Math.max(1, view ? view.height : window.innerHeight);
-  const zoom = view && view.scale ? view.scale : 1;
-  const pixelRatio = Math.min(3, Math.max(1, (window.devicePixelRatio || 1) * zoom));
+  const cssWidth = Math.max(1, window.innerWidth);
+  const cssHeight = Math.max(1, window.innerHeight);
+  // Page zoom already changes devicePixelRatio and the CSS viewport together,
+  // so this buffer stays about one screen of physical pixels and stays sharp.
+  const pixelRatio = Math.min(8, Math.max(1, window.devicePixelRatio || 1));
   return {
     width: Math.max(1, Math.round(cssWidth * pixelRatio)),
     height: Math.max(1, Math.round(cssHeight * pixelRatio)),
     pixelRatio,
   };
+}
+
+let sharpRender = 0;
+
+function ScheduleSharpRender() {
+  if (sharpRender) {
+    clearTimeout(sharpRender);
+  }
+  // The browser scales the current frame during the gesture. One sharp paint
+  // lands after the gesture settles, at the browser's zoom level.
+  sharpRender = setTimeout(() => {
+    sharpRender = 0;
+    RenderPage();
+  }, 80);
 }
 
 function RenderPage() {
@@ -77,12 +91,13 @@ function WheelPixels(event) {
 }
 
 function WireInteraction() {
-  canvas.style.touchAction = "none";
+  canvas.style.touchAction = "manipulation";
   canvas.style.cursor = "default";
 
   let touchPage = false;
   let touchX = 0;
   let touchY = 0;
+  const pointers = new Map();
 
   canvas.addEventListener(
     "wheel",
@@ -90,11 +105,20 @@ function WireInteraction() {
       if (!roboModule) {
         return;
       }
+      // Ctrl/Cmd + wheel and trackpad pinch belong to the browser so its zoom
+      // control stays in the address bar and the gesture stays on the GPU.
+      if (event.ctrlKey || event.metaKey) {
+        return;
+      }
       const point = CanvasPoint(event);
       const delta = WheelPixels(event);
       event.preventDefault();
       if (!roboModule.Wheel(point.x, point.y, delta.x, delta.y)) {
-        roboModule.ScrollBy(delta.y);
+        if (Math.abs(delta.x) > Math.abs(delta.y)) {
+          roboModule.ScrollByX(delta.x);
+        } else {
+          roboModule.ScrollBy(delta.y);
+        }
       }
       StartAnimationLoop();
     },
@@ -106,17 +130,29 @@ function WireInteraction() {
       return;
     }
     const point = CanvasPoint(event);
+    if (pointers.has(event.pointerId)) {
+      pointers.set(event.pointerId, point);
+    }
+    if (pointers.size >= 2) {
+      return;
+    }
     if (touchPage) {
       const rect = canvas.getBoundingClientRect();
-      const scale = rect.height > 0 ? canvas.height / rect.height : 1;
-      roboModule.ScrollBy((touchY - event.clientY) * scale);
+      const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+      const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
+      roboModule.ScrollByX((touchX - event.clientX) * scaleX);
+      roboModule.ScrollBy((touchY - event.clientY) * scaleY);
       touchX = event.clientX;
       touchY = event.clientY;
       return;
     }
     roboModule.PointerMove(point.x, point.y);
     const kind = roboModule.HitTestKind(point.x, point.y);
-    canvas.style.cursor = kind === "scrollbar" ? "default" : CursorForHit(kind);
+    if (roboModule.SelectableAt(point.x, point.y)) {
+      canvas.style.cursor = "text";
+    } else {
+      canvas.style.cursor = kind === "scrollbar" ? "default" : CursorForHit(kind);
+    }
   });
 
   canvas.addEventListener("pointerdown", (event) => {
@@ -125,6 +161,11 @@ function WireInteraction() {
     }
     canvas.focus();
     const point = CanvasPoint(event);
+    pointers.set(event.pointerId, point);
+    if (pointers.size >= 2) {
+      touchPage = false;
+      return;
+    }
     const touch = IsTouch(event);
     touchPage = touch && !roboModule.OwnsScrollGesture(point.x, point.y);
     touchX = event.clientX;
@@ -141,6 +182,7 @@ function WireInteraction() {
     if (!roboModule) {
       return;
     }
+    pointers.delete(event.pointerId);
     touchPage = false;
     const point = CanvasPoint(event);
     roboModule.PointerUp(point.x, point.y);
@@ -155,9 +197,29 @@ function WireInteraction() {
     }
   });
 
+  canvas.addEventListener("pointercancel", (event) => {
+    pointers.delete(event.pointerId);
+    touchPage = false;
+    if (roboModule) {
+      roboModule.PointerUp(CanvasPoint(event).x, CanvasPoint(event).y);
+    }
+  });
+
   canvas.addEventListener("keydown", (event) => {
     if (!roboModule) {
       return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      if (roboModule.CopySelection()) {
+        event.preventDefault();
+        return;
+      }
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+      if (roboModule.SelectAllText()) {
+        event.preventDefault();
+        return;
+      }
     }
     if (!roboModule.HasFocusedInput()) {
       const axis = roboModule.ActiveScrollbarAxis();
@@ -165,10 +227,15 @@ function WireInteraction() {
         const ratio = PageSize().pixelRatio;
         const page = PageSize().height * 0.9;
         let delta = 0;
+        let deltaX = 0;
         if (event.key === "ArrowDown") {
           delta = 64 * ratio;
         } else if (event.key === "ArrowUp") {
           delta = -64 * ratio;
+        } else if (event.key === "ArrowRight") {
+          deltaX = 64 * ratio;
+        } else if (event.key === "ArrowLeft") {
+          deltaX = -64 * ratio;
         } else if (event.key === "PageDown") {
           delta = page;
         } else if (event.key === "PageUp") {
@@ -179,6 +246,9 @@ function WireInteraction() {
           delta = 1000000;
         }
         if (delta !== 0 && roboModule.ScrollBy(delta)) {
+          event.preventDefault();
+        }
+        if (deltaX !== 0 && roboModule.ScrollByX(deltaX)) {
           event.preventDefault();
         }
         return;
@@ -240,9 +310,23 @@ function WireInteraction() {
     roboModule.KeyInsert(event.key);
   });
 
-  window.addEventListener("resize", RenderPage);
+  let lastRatio = window.devicePixelRatio || 1;
+  let lastScale = window.visualViewport ? window.visualViewport.scale : 1;
+  function OnViewportChange() {
+    const ratio = window.devicePixelRatio || 1;
+    const scale = window.visualViewport ? window.visualViewport.scale : 1;
+    const zoomChanged = ratio !== lastRatio || scale !== lastScale;
+    lastRatio = ratio;
+    lastScale = scale;
+    if (zoomChanged) {
+      ScheduleSharpRender();
+    } else {
+      RenderPage();
+    }
+  }
+  window.addEventListener("resize", OnViewportChange);
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", RenderPage);
+    window.visualViewport.addEventListener("resize", OnViewportChange);
   }
 }
 

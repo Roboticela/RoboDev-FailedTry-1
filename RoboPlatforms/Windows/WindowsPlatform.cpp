@@ -65,6 +65,29 @@ void WindowsPlatform::Present(const FrameBuffer& buffer) {
     }
 }
 
+void WindowsPlatform::CopyText(const std::string& text) {
+    if (!OpenClipboard(nullptr)) {
+        return;
+    }
+    EmptyClipboard();
+    const std::wstring wide = Widen(text);
+    const std::size_t bytes = (wide.size() + 1) * sizeof(wchar_t);
+    HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (memory) {
+        void* locked = GlobalLock(memory);
+        if (locked) {
+            std::memcpy(locked, wide.c_str(), bytes);
+            GlobalUnlock(memory);
+            if (!SetClipboardData(CF_UNICODETEXT, memory)) {
+                GlobalFree(memory);
+            }
+        } else {
+            GlobalFree(memory);
+        }
+    }
+    CloseClipboard();
+}
+
 std::vector<std::uint8_t> WindowsPlatform::LoadAsset(const std::string& relativePath) const {
     std::wstring path = assetRoot_;
     if (!path.empty() && path.back() != L'\\' && path.back() != L'/') {

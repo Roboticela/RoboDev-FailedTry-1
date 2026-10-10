@@ -1,4 +1,5 @@
 #include "Robo/ButtonPainter.hpp"
+#include "Robo/TextSelection.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -127,6 +128,7 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
                                        float pixelScale,
                                        float forcedWidth,
                                        float forcedHeight) {
+    const SelectableScope selection(&button, button.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const ButtonStyle& style = button.GetStyle();
     const std::string label = CollapseToSingleLine(button.GetLabel());

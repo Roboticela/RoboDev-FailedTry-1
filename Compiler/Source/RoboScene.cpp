@@ -1,4 +1,5 @@
 #include "Robo/RoboScene.hpp"
+#include "Robo/TextSelection.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -1143,6 +1144,38 @@ bool RoboScene::NeedsRender() const {
     return needsRender_;
 }
 
+void RoboScene::ConfigurePageBars() {
+    if (pageBarsReady_) {
+        return;
+    }
+    auto makeStyle = [](ScrollbarOrientation orientation) {
+        ScrollbarStyle style;
+        style.orientation = orientation;
+        style.thickness = 14.0;
+        style.cornerRadius = 7.0;
+        style.minThumbLength = 28.0;
+        style.showArrows = true;
+        style.arrowSize = 16.0;
+        style.autoHide = false;
+        style.visibility = ScrollbarVisibility::Auto;
+        return style;
+    };
+    pageVertical_.SetStyle(makeStyle(ScrollbarOrientation::Vertical));
+    pageVertical_.ApplyVariantDefaults();
+    pageHorizontal_.SetStyle(makeStyle(ScrollbarOrientation::Horizontal));
+    pageHorizontal_.ApplyVariantDefaults();
+    pageBarsReady_ = true;
+}
+
+void RoboScene::PullPageScroll() {
+    scrollY_ = maxScrollY_ > 0.0f ? static_cast<float>(pageVertical_.GetValue()) * maxScrollY_ : 0.0f;
+    scrollX_ = maxScrollX_ > 0.0f ? static_cast<float>(pageHorizontal_.GetValue()) * maxScrollX_ : 0.0f;
+}
+
+bool RoboScene::PageBarDriving(const Scrollbar& bar) const {
+    return bar.IsDragging() || bar.NeedsAnimation() || bar.GetPressedArrow() != ScrollbarArrow::None;
+}
+
 void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding) {
     platform_ = &platform;
     fonts_ = &fonts;
@@ -1150,96 +1183,220 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     padding_ = padding;
     hasRenderContext_ = true;
     needsRender_ = false;
+    ConfigurePageBars();
 
     const int width = std::max(1, platform.GetSurfaceWidth());
     const int height = std::max(1, platform.GetSurfaceHeight());
-    // The surface is already device pixels. Paint into it 1:1. A second
-    // supersample made the bitmap larger than the pane, which overflowed,
-    // fired scroll events, and re-rendered in a loop.
-    const float paintScale = std::max(0.5f, platform.GetPixelScale());
+    // The surface is already device pixels and matches the screen. Page overflow
+    // scrolls inside this canvas; the canvas itself does not grow.
+    const float paintScale = std::max(0.5f, platform.GetPixelScale() * appZoom_);
+    const float pad = padding * paintScale;
+    const float barThickness = 14.0f * paintScale;
+    const float edge = 3.0f * paintScale;
 
     FrameBuffer frame(width, height);
-    frame.Clear(background);
 
-    const float pad = padding * paintScale;
-    const float contentWidth = static_cast<float>(width) - pad * 2.0f;
-    if (scrollY_ < 0.0f) {
-        scrollY_ = 0.0f;
-    }
-    if (scrollY_ > maxScrollY_) {
-        scrollY_ = maxScrollY_;
-    }
-    float cursorY = pad - scrollY_;
+    float verticalReserve = 0.0f;
+    float horizontalReserve = 0.0f;
+    for (int pass = 0; pass < 3; ++pass) {
+        scrollX_ = std::max(0.0f, std::min(scrollX_, maxScrollX_));
+        scrollY_ = std::max(0.0f, std::min(scrollY_, maxScrollY_));
 
-    for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
-        SceneItem& item = items_[static_cast<std::size_t>(i)];
-        if (item.kind == SceneItemKind::Text) {
-            cursorY += TextPainter::Paint(frame, fonts, item.text, pad, cursorY, contentWidth, paintScale);
-        } else if (item.kind == SceneItemKind::Button) {
-            const ButtonPaintResult painted =
-                ButtonPainter::Paint(frame, fonts, item.button, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
-        } else if (item.kind == SceneItemKind::Input) {
-            if (&item.input == focusedInput_) {
-                item.input.SetInteraction(InputInteraction::Focused);
-            } else if (&item.input == hoveredInput_ && item.input.GetInteraction() != InputInteraction::Focused) {
-                item.input.SetInteraction(InputInteraction::Hovered);
-            } else if (&item.input != focusedInput_) {
-                item.input.SetInteraction(InputInteraction::Normal);
+        frame.Clear(background);
+        TextSelection::BeginFrame();
+
+        const float contentWidth = std::max(0.0f, static_cast<float>(width) - pad * 2.0f - verticalReserve);
+        const float originX = pad - scrollX_;
+        float cursorY = pad - scrollY_;
+        float contentRight = originX + scrollX_;
+
+        for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
+            SceneItem& item = items_[static_cast<std::size_t>(i)];
+            if (item.kind == SceneItemKind::Text) {
+                cursorY += TextPainter::Paint(frame, fonts, item.text, originX, cursorY, contentWidth, paintScale);
+                contentRight = std::max(contentRight, originX + contentWidth + scrollX_);
+            } else if (item.kind == SceneItemKind::Button) {
+                const ButtonPaintResult painted =
+                    ButtonPainter::Paint(frame, fonts, item.button, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const ButtonBounds& bounds = item.button.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Input) {
+                if (&item.input == focusedInput_) {
+                    item.input.SetInteraction(InputInteraction::Focused);
+                } else if (&item.input == hoveredInput_ && item.input.GetInteraction() != InputInteraction::Focused) {
+                    item.input.SetInteraction(InputInteraction::Hovered);
+                } else if (&item.input != focusedInput_) {
+                    item.input.SetInteraction(InputInteraction::Normal);
+                }
+
+                const InputPaintResult painted =
+                    InputPainter::Paint(frame, fonts, item.input, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const InputBounds& bounds = item.input.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Scrollbar) {
+                if (&item.scrollbar == draggingScrollbar_) {
+                    item.scrollbar.SetInteraction(ScrollbarInteraction::Dragging);
+                } else if (&item.scrollbar == hoveredScrollbar_) {
+                    item.scrollbar.SetInteraction(ScrollbarInteraction::Hovered);
+                } else {
+                    item.scrollbar.SetInteraction(ScrollbarInteraction::Normal);
+                }
+
+                const ScrollbarPaintResult painted =
+                    ScrollbarPainter::Paint(frame, item.scrollbar, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const ScrollbarBounds& bounds = item.scrollbar.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Container) {
+                const ContainerPaintResult painted =
+                    ContainerPainter::Paint(frame, fonts, *item.container, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const InputBounds& bounds = item.container->GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Flexbox) {
+                const FlexboxPaintResult painted =
+                    FlexboxPainter::Paint(frame, fonts, item.flexbox, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const FlexboxBounds& bounds = item.flexbox.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Grid) {
+                const GridPaintResult painted =
+                    GridPainter::Paint(frame, fonts, item.grid, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const GridBounds& bounds = item.grid.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Position) {
+                const PositionPaintResult painted =
+                    PositionPainter::Paint(frame, fonts, item.position, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const InputBounds& bounds = item.position.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             }
-
-            const InputPaintResult painted =
-                InputPainter::Paint(frame, fonts, item.input, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
-        } else if (item.kind == SceneItemKind::Scrollbar) {
-            if (&item.scrollbar == draggingScrollbar_) {
-                item.scrollbar.SetInteraction(ScrollbarInteraction::Dragging);
-            } else if (&item.scrollbar == hoveredScrollbar_) {
-                item.scrollbar.SetInteraction(ScrollbarInteraction::Hovered);
-            } else {
-                item.scrollbar.SetInteraction(ScrollbarInteraction::Normal);
-            }
-
-            const ScrollbarPaintResult painted =
-                ScrollbarPainter::Paint(frame, item.scrollbar, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
-        } else if (item.kind == SceneItemKind::Container) {
-            const ContainerPaintResult painted =
-                ContainerPainter::Paint(frame, fonts, *item.container, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
-        } else if (item.kind == SceneItemKind::Flexbox) {
-            const FlexboxPaintResult painted =
-                FlexboxPainter::Paint(frame, fonts, item.flexbox, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
-        } else if (item.kind == SceneItemKind::Grid) {
-            const GridPaintResult painted =
-                GridPainter::Paint(frame, fonts, item.grid, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
-        } else if (item.kind == SceneItemKind::Position) {
-            const PositionPaintResult painted =
-                PositionPainter::Paint(frame, fonts, item.position, pad, cursorY, contentWidth, paintScale);
-            cursorY += painted.advanceY;
         }
+
+        const float contentHeight = cursorY + scrollY_ + pad;
+        const float viewportHeight = std::max(1.0f, static_cast<float>(height) - horizontalReserve);
+        const float viewportWidth = std::max(1.0f, static_cast<float>(width) - verticalReserve);
+        const float nextMaxY = std::max(0.0f, contentHeight - viewportHeight);
+        const float nextMaxX = std::max(0.0f, contentRight + pad - viewportWidth);
+        const float nextVertical = nextMaxY > 1.0f ? barThickness : 0.0f;
+        const float nextHorizontal = nextMaxX > 1.0f ? barThickness : 0.0f;
+        const bool scrollClamped = scrollY_ > nextMaxY + 0.5f || scrollX_ > nextMaxX + 0.5f;
+        maxScrollY_ = nextMaxY;
+        maxScrollX_ = nextMaxX;
+        scrollY_ = std::max(0.0f, std::min(scrollY_, maxScrollY_));
+        scrollX_ = std::max(0.0f, std::min(scrollX_, maxScrollX_));
+        if (pass < 2 && (nextVertical != verticalReserve || nextHorizontal != horizontalReserve || scrollClamped)) {
+            verticalReserve = nextVertical;
+            horizontalReserve = nextHorizontal;
+            continue;
+        }
+        verticalReserve = nextVertical;
+        horizontalReserve = nextHorizontal;
+        break;
     }
 
-    const float contentHeight = cursorY + scrollY_ + pad;
-    maxScrollY_ = std::max(0.0f, contentHeight - static_cast<float>(height));
-    if (scrollY_ > maxScrollY_) {
-        scrollY_ = maxScrollY_;
+    const auto syncBar = [](Scrollbar& bar, float scroll, float maxScroll, float viewport) {
+        bar.SetContentSize(static_cast<double>(maxScroll + viewport));
+        bar.SetViewportSize(static_cast<double>(viewport));
+        if (!bar.IsDragging() && !bar.NeedsAnimation() && bar.GetPressedArrow() == ScrollbarArrow::None) {
+            bar.SetValue(maxScroll > 0.0f ? static_cast<double>(scroll / maxScroll) : 0.0);
+        }
+    };
+    syncBar(pageVertical_, scrollY_, maxScrollY_, static_cast<float>(height));
+    syncBar(pageHorizontal_, scrollX_, maxScrollX_, static_cast<float>(width));
+
+    const auto paintPageBar = [&](Scrollbar& bar, float x, float y, float barWidth, float barHeight) {
+        if (bar.IsDragging() || draggingScrollbar_ == &bar) {
+            bar.SetInteraction(ScrollbarInteraction::Dragging);
+        } else if (hoveredScrollbar_ == &bar) {
+            bar.SetInteraction(ScrollbarInteraction::Hovered);
+        } else {
+            bar.SetInteraction(ScrollbarInteraction::Normal);
+        }
+        ScrollbarPainter::Paint(frame, bar, x, y, barWidth, paintScale, barWidth, barHeight);
+    };
+
+    if (maxScrollY_ > 1.0f) {
+        paintPageBar(pageVertical_,
+                     static_cast<float>(width) - barThickness,
+                     edge,
+                     barThickness,
+                     std::max(0.0f, static_cast<float>(height) - edge * 2.0f - horizontalReserve));
+    } else {
+        pageVertical_.SetBounds({});
+    }
+    if (maxScrollX_ > 1.0f) {
+        paintPageBar(pageHorizontal_,
+                     edge,
+                     static_cast<float>(height) - barThickness,
+                     std::max(0.0f, static_cast<float>(width) - edge * 2.0f - verticalReserve),
+                     barThickness);
+    } else {
+        pageHorizontal_.SetBounds({});
     }
 
+    TextSelection::EndFrame();
     platform.Present(frame);
 }
 
 bool RoboScene::ScrollBy(float deltaY) {
-    if (!hasRenderContext_ || deltaY == 0.0f) {
+    if (!hasRenderContext_ || deltaY == 0.0f || maxScrollY_ <= 0.0f) {
         return false;
     }
-    const float next = std::max(0.0f, std::min(maxScrollY_, scrollY_ + deltaY));
-    if (next == scrollY_) {
+    if (!pageVertical_.ScrollByPixels(static_cast<double>(deltaY))) {
         return false;
     }
-    scrollY_ = next;
+    RerenderIfPossible();
+    return true;
+}
+
+bool RoboScene::ZoomTo(float zoom, float anchorX, float anchorY) {
+    constexpr float MIN_ZOOM = 0.5f;
+    constexpr float MAX_ZOOM = 3.0f;
+    if (!std::isfinite(zoom) || !std::isfinite(anchorX) || !std::isfinite(anchorY)) {
+        return false;
+    }
+    const float next = std::max(MIN_ZOOM, std::min(MAX_ZOOM, zoom));
+    if (std::fabs(next - appZoom_) < 0.0005f) {
+        return false;
+    }
+    const float ratio = next / std::max(MIN_ZOOM, appZoom_);
+    scrollX_ = (scrollX_ + anchorX) * ratio - anchorX;
+    scrollY_ = (scrollY_ + anchorY) * ratio - anchorY;
+    if (scrollX_ < 0.0f) {
+        scrollX_ = 0.0f;
+    }
+    if (scrollY_ < 0.0f) {
+        scrollY_ = 0.0f;
+    }
+    maxScrollX_ *= ratio;
+    maxScrollY_ *= ratio;
+    appZoom_ = next;
+    RerenderIfPossible();
+    return true;
+}
+
+bool RoboScene::ZoomBy(float factor, float anchorX, float anchorY) {
+    if (!(factor > 0.0f)) {
+        return false;
+    }
+    return ZoomTo(appZoom_ * factor, anchorX, anchorY);
+}
+
+float RoboScene::GetZoom() const {
+    return appZoom_;
+}
+
+bool RoboScene::ScrollByX(float deltaX) {
+    if (!hasRenderContext_ || deltaX == 0.0f || maxScrollX_ <= 0.0f) {
+        return false;
+    }
+    if (!pageHorizontal_.ScrollByPixels(static_cast<double>(deltaX))) {
+        return false;
+    }
     RerenderIfPossible();
     return true;
 }
@@ -1308,7 +1465,30 @@ Input* RoboScene::FindInputAt(float x, float y) {
     return nullptr;
 }
 
+Scrollbar* RoboScene::PageScrollbarAt(float x, float y) {
+    if (pageVertical_.IsVisible() && pageVertical_.GetBounds().Contains(x, y)) {
+        return &pageVertical_;
+    }
+    if (pageHorizontal_.IsVisible() && pageHorizontal_.GetBounds().Contains(x, y)) {
+        return &pageHorizontal_;
+    }
+    return nullptr;
+}
+
+const Scrollbar* RoboScene::PageScrollbarAt(float x, float y) const {
+    if (pageVertical_.IsVisible() && pageVertical_.GetBounds().Contains(x, y)) {
+        return &pageVertical_;
+    }
+    if (pageHorizontal_.IsVisible() && pageHorizontal_.GetBounds().Contains(x, y)) {
+        return &pageHorizontal_;
+    }
+    return nullptr;
+}
+
 Scrollbar* RoboScene::FindScrollbarAt(float x, float y) {
+    if (Scrollbar* pageBar = PageScrollbarAt(x, y)) {
+        return pageBar;
+    }
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
         SceneItem& item = items_[static_cast<std::size_t>(i)];
         if (item.kind == SceneItemKind::Scrollbar) {
@@ -1405,6 +1585,9 @@ const Input* RoboScene::FindInputAt(float x, float y) const {
 }
 
 const Scrollbar* RoboScene::FindScrollbarAt(float x, float y) const {
+    if (const Scrollbar* pageBar = PageScrollbarAt(x, y)) {
+        return pageBar;
+    }
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
         const SceneItem& item = items_[static_cast<std::size_t>(i)];
         if (item.kind == SceneItemKind::Scrollbar) {
@@ -1521,6 +1704,8 @@ Scrollbar* RoboScene::FindScrollbarNear(float x, float y, float tolerance) {
         }
     };
     VisitSceneScrollbars(items_, visit);
+    visit(pageVertical_);
+    visit(pageHorizontal_);
     return best;
 }
 
@@ -1545,7 +1730,17 @@ bool RoboScene::Wheel(float x, float y, float deltaX, float deltaY) {
         target = ScrollTargetAt(x, y);
     }
     if (!target) {
-        return false;
+        bool moved = false;
+        if (maxScrollY_ > 0.0f && deltaY != 0.0f) {
+            moved = pageVertical_.ScrollByPixels(static_cast<double>(deltaY)) || moved;
+        }
+        if (maxScrollX_ > 0.0f && deltaX != 0.0f) {
+            moved = pageHorizontal_.ScrollByPixels(static_cast<double>(deltaX)) || moved;
+        }
+        if (moved) {
+            RerenderIfPossible();
+        }
+        return moved;
     }
 
     SetHoveredScrollbar(target);
@@ -1743,8 +1938,18 @@ bool RoboScene::SetFocusedInput(Input* input) {
 }
 
 bool RoboScene::PointerMove(float x, float y) {
+    if (TextSelection::IsDragging()) {
+        const int hit = TextSelection::Hit(x, y);
+        TextSelection::MoveFocus(hit);
+        RerenderIfPossible();
+        return true;
+    }
+
     if (draggingScrollbar_) {
         draggingScrollbar_->UpdateDrag(x, y);
+        if (draggingScrollbar_ == &pageVertical_ || draggingScrollbar_ == &pageHorizontal_) {
+            PullPageScroll();
+        }
         RerenderIfPossible();
         return true;
     }
@@ -1808,6 +2013,20 @@ bool RoboScene::PointerMove(float x, float y) {
 
 bool RoboScene::PointerDown(float x, float y, bool fromTouch) {
     panningContainer_ = nullptr;
+    const int textHit = TextSelection::Hit(x, y);
+    if (textHit >= 0) {
+        TextSelection::BeginDrag(textHit);
+        SetPressedButton(nullptr);
+        SetFocusedInput(nullptr);
+        SetFocusedScrollbar(nullptr);
+        RerenderIfPossible();
+        return true;
+    }
+    bool changed = false;
+    if (TextSelection::HasSelection() || TextSelection::IsDragging()) {
+        TextSelection::Clear();
+        changed = true;
+    }
     Scrollbar* scrollbar = FindScrollbarAt(x, y);
     Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
     Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
@@ -1815,7 +2034,6 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch) {
     // keyboard and wheel scrolling land on that region without jumping it.
     Container* container = (scrollbar || button || input) ? nullptr : FindContainerAt(x, y);
 
-    bool changed = false;
     if (scrollbar) {
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
@@ -1833,6 +2051,9 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch) {
             draggingScrollbar_ = scrollbar;
         }
         changed = SetHoveredScrollbar(scrollbar) || changed;
+        if (scrollbar == &pageVertical_ || scrollbar == &pageHorizontal_) {
+            PullPageScroll();
+        }
         changed = true;
     } else if (button) {
         changed = SetHoveredScrollbar(nullptr) || changed;
@@ -1875,6 +2096,10 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch) {
 
 bool RoboScene::PointerUp(float x, float y) {
     bool changed = false;
+    if (TextSelection::IsDragging()) {
+        TextSelection::EndDrag();
+        changed = true;
+    }
     if (draggingScrollbar_) {
         draggingScrollbar_->EndDrag();
         hoveredScrollbar_ = nullptr;
@@ -1893,6 +2118,8 @@ bool RoboScene::PointerUp(float x, float y) {
         }
     };
     VisitSceneScrollbars(items_, releaseArrows);
+    releaseArrows(pageVertical_);
+    releaseArrows(pageHorizontal_);
 
     changed = SetPressedButton(nullptr) || changed;
     Scrollbar* scrollbar = FindScrollbarAt(x, y);
@@ -1940,6 +2167,17 @@ bool RoboScene::Tick(double deltaMs) {
         }
     };
     VisitSceneScrollbars(items_, visit);
+    bool pageChanged = false;
+    if (pageVertical_.Tick(deltaMs)) {
+        pageChanged = true;
+    }
+    if (pageHorizontal_.Tick(deltaMs)) {
+        pageChanged = true;
+    }
+    if (pageChanged) {
+        PullPageScroll();
+        changed = true;
+    }
     if (changed) {
         RerenderIfPossible();
     }
@@ -1954,11 +2192,35 @@ bool RoboScene::NeedsTick() {
         }
     };
     VisitSceneScrollbars(items_, visit);
+    if (pageVertical_.NeedsAnimation() || pageHorizontal_.NeedsAnimation()) {
+        needsTick = true;
+    }
     return needsTick;
 }
 
 bool RoboScene::HasFocusedInput() const {
     return focusedInput_ != nullptr;
+}
+
+bool RoboScene::SelectableAt(float x, float y) const {
+    return TextSelection::Hit(x, y) >= 0;
+}
+
+bool RoboScene::CopySelection() {
+    const std::string text = TextSelection::SelectedText();
+    if (text.empty() || !platform_) {
+        return false;
+    }
+    platform_->CopyText(text);
+    return true;
+}
+
+bool RoboScene::SelectAllText() {
+    if (!TextSelection::SelectAll()) {
+        return false;
+    }
+    RerenderIfPossible();
+    return true;
 }
 
 bool RoboScene::KeyInsert(const std::string& utf8) {

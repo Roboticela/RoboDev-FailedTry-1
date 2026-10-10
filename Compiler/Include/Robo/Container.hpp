@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Color.hpp"
+#include "Selectable.hpp"
 #include "Flexbox.hpp"
 #include "Grid.hpp"
 #include "Position.hpp"
@@ -50,6 +51,7 @@ struct ContainerStyle {
     float borderWidth = 0.0f;
     float cornerRadius = 0.0f;
     float opacity = 1.0f;
+    SelectableMode selectable = SelectableMode::Inherit;
 
     // Clip the content to the body rect. Only scrolling regions need this off.
     bool clipToBounds = true;

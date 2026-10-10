@@ -2,6 +2,7 @@
 
 #include "Color.hpp"
 #include "FontStyle.hpp"
+#include "Selectable.hpp"
 #include "TextAlign.hpp"
 
 #include <cstddef>
@@ -39,6 +40,7 @@ struct InputStyle {
     double focusBorderWidth = 2.0;
     double letterSpacing = 0.0;
     double opacity = 1.0;
+    SelectableMode selectable = SelectableMode::Inherit;
     double minWidth = 200.0;
     std::string width = "100%";
     TextAlign align = TextAlign::Left;

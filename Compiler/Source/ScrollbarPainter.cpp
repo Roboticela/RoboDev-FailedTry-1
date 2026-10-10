@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace Robo {
 
@@ -151,19 +152,17 @@ float SnapCoordinate(float value, float step) {
     return std::round(value / step) * step;
 }
 
-float DistanceToSegment(float px, float py, float ax, float ay, float bx, float by) {
+float SignedDistanceToLine(float px, float py, float ax, float ay, float bx, float by) {
     const float vx = bx - ax;
     const float vy = by - ay;
-    const float lengthSq = vx * vx + vy * vy;
-    const float t = lengthSq <= 0.0001f
-                        ? 0.0f
-                        : std::max(0.0f, std::min(1.0f, ((px - ax) * vx + (py - ay) * vy) / lengthSq));
-    const float dx = px - (ax + t * vx);
-    const float dy = py - (ay + t * vy);
-    return std::sqrt(dx * dx + dy * dy);
+    const float length = std::sqrt(vx * vx + vy * vy);
+    if (length <= 0.001f) {
+        return 0.0f;
+    }
+    return ((px - ax) * vy - (py - ay) * vx) / length;
 }
 
-// A hairline chevron, the same mark macOS uses on a thin scroller.
+// A solid triangle. Start points backward along the track; End points forward.
 void PaintArrowHead(FrameBuffer& buffer,
                     const ScrollbarBounds& cap,
                     ScrollbarOrientation orientation,
@@ -171,6 +170,7 @@ void PaintArrowHead(FrameBuffer& buffer,
                     const Color& color,
                     float opacity,
                     float scale) {
+    (void)scale;
     if (cap.width <= 0.0f || cap.height <= 0.0f) {
         return;
     }
@@ -184,12 +184,12 @@ void PaintArrowHead(FrameBuffer& buffer,
 
     const float alongCenter = (vertical ? cap.y : cap.x) + along * 0.5f;
     const float crossCenter = (vertical ? cap.x : cap.y) + cross * 0.5f;
-    const float reach = std::min(along, cross) * 0.22f;
-    const float wing = std::min(along, cross) * 0.24f;
+    const float mark = std::min(along, cross) * 0.42f;
+    const float halfBase = mark * 0.72f;
+    const float halfHeight = mark * 0.58f;
     const bool pointsForward = arrow == ScrollbarArrow::End;
-    const float tipAlong = pointsForward ? alongCenter + reach : alongCenter - reach;
-    const float baseAlong = pointsForward ? alongCenter - reach * 0.15f : alongCenter + reach * 0.15f;
-    const float stroke = std::max(1.35f * scale, std::min(cross, along) * 0.11f);
+    const float tipAlong = pointsForward ? alongCenter + halfHeight : alongCenter - halfHeight;
+    const float baseAlong = pointsForward ? alongCenter - halfHeight : alongCenter + halfHeight;
 
     const auto toX = [vertical](float crossCoord, float alongCoord) {
         return vertical ? crossCoord : alongCoord;
@@ -198,25 +198,31 @@ void PaintArrowHead(FrameBuffer& buffer,
         return vertical ? alongCoord : crossCoord;
     };
 
-    const float tipX = toX(crossCenter, tipAlong);
-    const float tipY = toY(crossCenter, tipAlong);
-    const float leftX = toX(crossCenter - wing, baseAlong);
-    const float leftY = toY(crossCenter - wing, baseAlong);
-    const float rightX = toX(crossCenter + wing, baseAlong);
-    const float rightY = toY(crossCenter + wing, baseAlong);
+    float ax = toX(crossCenter, tipAlong);
+    float ay = toY(crossCenter, tipAlong);
+    float bx = toX(crossCenter + halfBase, baseAlong);
+    float by = toY(crossCenter + halfBase, baseAlong);
+    float cx = toX(crossCenter - halfBase, baseAlong);
+    float cy = toY(crossCenter - halfBase, baseAlong);
+    const float winding = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    if (winding < 0.0f) {
+        std::swap(bx, cx);
+        std::swap(by, cy);
+    }
 
-    const int x0 = static_cast<int>(std::floor(std::min({tipX, leftX, rightX}) - stroke));
-    const int y0 = static_cast<int>(std::floor(std::min({tipY, leftY, rightY}) - stroke));
-    const int x1 = static_cast<int>(std::ceil(std::max({tipX, leftX, rightX}) + stroke));
-    const int y1 = static_cast<int>(std::ceil(std::max({tipY, leftY, rightY}) + stroke));
+    const int x0 = static_cast<int>(std::floor(std::min({ax, bx, cx}) - 1.0f));
+    const int y0 = static_cast<int>(std::floor(std::min({ay, by, cy}) - 1.0f));
+    const int x1 = static_cast<int>(std::ceil(std::max({ax, bx, cx}) + 1.0f));
+    const int y1 = static_cast<int>(std::ceil(std::max({ay, by, cy}) + 1.0f));
 
     for (int py = y0; py < y1; ++py) {
         for (int px = x0; px < x1; ++px) {
             const float sampleX = static_cast<float>(px) + 0.5f;
             const float sampleY = static_cast<float>(py) + 0.5f;
-            const float distance = std::min(DistanceToSegment(sampleX, sampleY, leftX, leftY, tipX, tipY),
-                                            DistanceToSegment(sampleX, sampleY, rightX, rightY, tipX, tipY));
-            const float coverage = std::max(0.0f, std::min(1.0f, stroke * 0.5f + 0.65f - distance));
+            const float inside = std::min({SignedDistanceToLine(sampleX, sampleY, ax, ay, bx, by),
+                                           SignedDistanceToLine(sampleX, sampleY, bx, by, cx, cy),
+                                           SignedDistanceToLine(sampleX, sampleY, cx, cy, ax, ay)});
+            const float coverage = std::max(0.0f, std::min(1.0f, inside + 0.5f));
             if (coverage > 0.0f) {
                 buffer.BlendPixel(px, py, color, opacity * coverage);
             }
@@ -310,25 +316,25 @@ ScrollbarPaintResult ScrollbarPainter::Paint(FrameBuffer& buffer,
     const float laneCross = vertical ? bounds.width : bounds.height;
     const bool engaged = scrollbar.GetInteraction() != ScrollbarInteraction::Normal;
     const float visualCross = std::min(laneCross * (engaged ? 0.62f : 0.40f), (engaged ? 7.0f : 4.5f) * scale);
-    const float crossInset = std::max(0.0f, (laneCross - visualCross) * 0.5f);
+    // Pin the drawn bar to the outer edge of its lane so it sits against the container side.
+    const float edgePad = 1.5f * scale;
 
     const Color trackColor = scrollbar.ResolveTrackColor();
     if (bounds.width > 0.0f && bounds.height > 0.0f) {
         const float travelStart = static_cast<float>(scrollbar.ResolveThumbTrackStart());
         const float travelLength = static_cast<float>(scrollbar.ResolveThumbTrackLength());
         const float trackCross = std::min(visualCross, std::max(2.0f * scale, laneCross * 0.28f));
-        const float trackInset = std::max(0.0f, (laneCross - trackCross) * 0.5f);
         float trackX = bounds.x;
         float trackY = bounds.y;
         float trackW = bounds.width;
         float trackH = bounds.height;
         if (vertical) {
-            trackX += trackInset;
+            trackX = bounds.x + bounds.width - trackCross - edgePad;
             trackW = trackCross;
             trackY += travelStart;
             trackH = travelLength;
         } else {
-            trackY += trackInset;
+            trackY = bounds.y + bounds.height - trackCross - edgePad;
             trackH = trackCross;
             trackX += travelStart;
             trackW = travelLength;
@@ -350,16 +356,25 @@ ScrollbarPaintResult ScrollbarPainter::Paint(FrameBuffer& buffer,
 
             const bool pressed = arrow == scrollbar.GetPressedArrow();
             const bool hot = arrow == scrollbar.GetHotArrow();
+            const float markCross = std::min(laneCross, std::max(visualCross * 2.4f, 11.0f * scale));
+            ScrollbarBounds mark = cap;
+            if (vertical) {
+                mark.width = markCross;
+                mark.x = cap.x + cap.width - markCross - edgePad;
+            } else {
+                mark.height = markCross;
+                mark.y = cap.y + cap.height - markCross - edgePad;
+            }
             if (pressed || hot) {
-                const float disk = std::min(cap.width, cap.height) * 0.92f;
-                const float diskX = cap.x + (cap.width - disk) * 0.5f;
-                const float diskY = cap.y + (cap.height - disk) * 0.5f;
+                const float disk = std::min(mark.width, mark.height) * 0.92f;
+                const float diskX = mark.x + (mark.width - disk) * 0.5f;
+                const float diskY = mark.y + (mark.height - disk) * 0.5f;
                 const Color wash = Color::FromRgba(0, 0, 0, pressed ? 40 : 22);
                 FillRoundedRect(buffer, diskX, diskY, disk, disk, disk * 0.5f, wash, opacity);
             }
 
             PaintArrowHead(buffer,
-                           cap,
+                           mark,
                            style.orientation,
                            arrow,
                            scrollbar.ResolveArrowColor(arrow),
@@ -370,10 +385,10 @@ ScrollbarPaintResult ScrollbarPainter::Paint(FrameBuffer& buffer,
 
     ScrollbarBounds thumb = scrollbar.ResolveThumbBounds();
     if (vertical) {
-        thumb.x += crossInset;
+        thumb.x = bounds.x + bounds.width - visualCross - edgePad;
         thumb.width = visualCross;
     } else {
-        thumb.y += crossInset;
+        thumb.y = bounds.y + bounds.height - visualCross - edgePad;
         thumb.height = visualCross;
     }
     const Color thumbColor = scrollbar.ResolveThumbColor();

@@ -1,4 +1,5 @@
 #include "Robo/GridPainter.hpp"
+#include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -632,6 +633,7 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
                                   float pixelScale,
                                   float forcedWidth,
                                   float forcedHeight) {
+    const SelectableScope selection(&grid, grid.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const GridStyle& style = grid.GetStyle();
 

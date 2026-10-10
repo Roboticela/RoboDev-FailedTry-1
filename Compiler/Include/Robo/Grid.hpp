@@ -2,6 +2,7 @@
 
 #include "Button.hpp"
 #include "Color.hpp"
+#include "Selectable.hpp"
 #include "Input.hpp"
 #include "Scrollbar.hpp"
 #include "Text.hpp"
@@ -100,6 +101,7 @@ struct GridStyle {
     float borderWidth = 0.0f;
     float cornerRadius = 0.0f;
     float opacity = 1.0f;
+    SelectableMode selectable = SelectableMode::Inherit;
 };
 
 struct GridItemProps {

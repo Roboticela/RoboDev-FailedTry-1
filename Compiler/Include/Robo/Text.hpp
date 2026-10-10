@@ -2,6 +2,7 @@
 
 #include "Color.hpp"
 #include "FontStyle.hpp"
+#include "Selectable.hpp"
 #include "TextAlign.hpp"
 #include "TextRun.hpp"
 
@@ -21,6 +22,7 @@ struct TextStyle {
     double lineHeight = 1.4;
     double letterSpacing = 0.0;
     double opacity = 1.0;
+    SelectableMode selectable = SelectableMode::Inherit;
     std::string width = "100%";
     std::string maxWidth;
 };

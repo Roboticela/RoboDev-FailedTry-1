@@ -1,4 +1,5 @@
 #include "Robo/InputPainter.hpp"
+#include "Robo/TextSelection.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -194,6 +195,7 @@ InputPaintResult InputPainter::Paint(FrameBuffer& buffer,
                                      float pixelScale,
                                      float forcedWidth,
                                      float forcedHeight) {
+    const SelectableScope selection(&input, input.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
     const InputStyle& style = input.GetStyle();
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);

@@ -1,4 +1,5 @@
 #include "Robo/FontEngine.hpp"
+#include "Robo/TextSelection.hpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "StbTrueType.h"
@@ -285,6 +286,8 @@ void FontEngine::DrawString(FrameBuffer& buffer,
     }
 
     const float scale = stbtt_ScaleForPixelHeight(&face.info, fontSize);
+    const float ascent = GetAscent(fontSize, faceId);
+    const float glyphHeight = std::max(1.0f, ascent + GetDescent(fontSize, faceId));
     const char* cursor = utf8.data();
     const char* end = utf8.data() + utf8.size();
     float penX = x;
@@ -314,6 +317,33 @@ void FontEngine::DrawString(FrameBuffer& buffer,
             penX += scale * stbtt_GetGlyphKernAdvance(&face.info, previousGlyph, glyph);
         }
 
+        int advance = 0;
+        int lsb = 0;
+        stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &lsb);
+        const float glyphWidth = std::max(0.0f, scale * static_cast<float>(advance));
+        if (TextSelection::IsOpen()) {
+            const int index = TextSelection::AddCodepoint(static_cast<char32_t>(codepoint),
+                                                          penX,
+                                                          baselineY - ascent,
+                                                          std::max(1.0f, glyphWidth),
+                                                          glyphHeight);
+            if (TextSelection::Covers(index)) {
+                buffer.FillRect(static_cast<int>(std::floor(penX)),
+                                static_cast<int>(std::floor(baselineY - ascent)),
+                                std::max(1, static_cast<int>(std::ceil(glyphWidth))),
+                                std::max(1, static_cast<int>(std::ceil(glyphHeight))),
+                                Color::FromRgba(0, 122, 255, 255),
+                                0.28f);
+            } else if (TextSelection::IsCaret(index)) {
+                buffer.FillRect(static_cast<int>(std::floor(penX)),
+                                static_cast<int>(std::floor(baselineY - ascent)),
+                                std::max(1, static_cast<int>(std::round(std::max(1.0f, scale)))),
+                                std::max(1, static_cast<int>(std::ceil(glyphHeight))),
+                                Color::FromHex("#007AFF"),
+                                1.0f);
+            }
+        }
+
         const float shiftX = penX - std::floor(penX);
         const float shiftY = baselineY - std::floor(baselineY);
         const bool onScreen = baselineY > -fontSize * 2.0f && baselineY < static_cast<float>(buffer.GetHeight()) + fontSize * 2.0f;
@@ -336,10 +366,7 @@ void FontEngine::DrawString(FrameBuffer& buffer,
             }
         }
 
-        int advance = 0;
-        int lsb = 0;
-        stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &lsb);
-        penX += scale * static_cast<float>(advance);
+        penX += glyphWidth;
         drewGlyph = true;
         previousGlyph = glyph;
     }
