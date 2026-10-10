@@ -1187,9 +1187,21 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
 
     const int width = std::max(1, platform.GetSurfaceWidth());
     const int height = std::max(1, platform.GetSurfaceHeight());
+    surfaceWidth_ = width;
+    surfaceHeight_ = height;
     // The surface is already device pixels and matches the screen. Page overflow
     // scrolls inside this canvas; the canvas itself does not grow.
     const float paintScale = std::max(0.5f, platform.GetPixelScale() * appZoom_);
+    if (lastPaintScale_ > 0.0f) {
+        const float ratio = paintScale / lastPaintScale_;
+        if (std::fabs(ratio - 1.0f) > 0.001f) {
+            scrollX_ *= ratio;
+            scrollY_ *= ratio;
+            maxScrollX_ *= ratio;
+            maxScrollY_ *= ratio;
+        }
+    }
+    lastPaintScale_ = paintScale;
     const float pad = padding * paintScale;
     const float barThickness = 14.0f * paintScale;
     const float edge = 3.0f * paintScale;
@@ -1339,6 +1351,21 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     }
 
     TextSelection::EndFrame();
+    if (TextSelection::ShowsHandles()) {
+        float startX = 0.0f;
+        float startY = 0.0f;
+        float endX = 0.0f;
+        float endY = 0.0f;
+        float lineHeight = 0.0f;
+        if (TextSelection::HandleGeometry(startX, startY, endX, endY, lineHeight)) {
+            const float radius = std::max(5.0f, lineHeight * 0.22f);
+            const Color handle = Color::FromHex("#007AFF");
+            frame.FillRoundedRect(startX - radius, startY + lineHeight - radius * 0.15f, radius * 2.0f, radius * 2.0f,
+                                  radius, handle, 1.0f);
+            frame.FillRoundedRect(endX - radius, endY + lineHeight - radius * 0.15f, radius * 2.0f, radius * 2.0f,
+                                  radius, handle, 1.0f);
+        }
+    }
     platform.Present(frame);
 }
 
@@ -1938,9 +1965,10 @@ bool RoboScene::SetFocusedInput(Input* input) {
 }
 
 bool RoboScene::PointerMove(float x, float y) {
+    selectX_ = x;
+    selectY_ = y;
     if (TextSelection::IsDragging()) {
-        const int hit = TextSelection::Hit(x, y);
-        TextSelection::MoveFocus(hit);
+        TextSelection::MovePointer(x, y);
         RerenderIfPossible();
         return true;
     }
@@ -2011,11 +2039,33 @@ bool RoboScene::PointerMove(float x, float y) {
     return changed;
 }
 
-bool RoboScene::PointerDown(float x, float y, bool fromTouch) {
+bool RoboScene::LongPressSelect(float x, float y) {
+    selectX_ = x;
+    selectY_ = y;
+    TextSelection::LongPress(x, y);
+    if (!TextSelection::IsDragging() && !TextSelection::HasSelection()) {
+        return false;
+    }
+    SetPressedButton(nullptr);
+    SetFocusedInput(nullptr);
+    SetFocusedScrollbar(nullptr);
+    RerenderIfPossible();
+    return true;
+}
+
+bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
     panningContainer_ = nullptr;
-    const int textHit = TextSelection::Hit(x, y);
-    if (textHit >= 0) {
-        TextSelection::BeginDrag(textHit);
+    selectX_ = x;
+    selectY_ = y;
+    if (!fromTouch && TextSelection::BeginHandleDrag(x, y)) {
+        SetPressedButton(nullptr);
+        SetFocusedInput(nullptr);
+        SetFocusedScrollbar(nullptr);
+        RerenderIfPossible();
+        return true;
+    }
+    if (!fromTouch && TextSelection::Hit(x, y) >= 0) {
+        TextSelection::BeginClick(x, y, clicks > 0 ? clicks : 1);
         SetPressedButton(nullptr);
         SetFocusedInput(nullptr);
         SetFocusedScrollbar(nullptr);
@@ -2023,7 +2073,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch) {
         return true;
     }
     bool changed = false;
-    if (TextSelection::HasSelection() || TextSelection::IsDragging()) {
+    if (TextSelection::HasCaret()) {
         TextSelection::Clear();
         changed = true;
     }
@@ -2167,6 +2217,40 @@ bool RoboScene::Tick(double deltaMs) {
         }
     };
     VisitSceneScrollbars(items_, visit);
+    if (TextSelection::IsDragging()) {
+        const float margin = 24.0f;
+        float dx = 0.0f;
+        float dy = 0.0f;
+        if (selectY_ < margin) {
+            dy = -std::min(28.0f, margin - selectY_);
+        } else if (selectY_ > static_cast<float>(surfaceHeight_) - margin) {
+            dy = std::min(28.0f, selectY_ - (static_cast<float>(surfaceHeight_) - margin));
+        }
+        if (selectX_ < margin) {
+            dx = -std::min(28.0f, margin - selectX_);
+        } else if (selectX_ > static_cast<float>(surfaceWidth_) - margin) {
+            dx = std::min(28.0f, selectX_ - (static_cast<float>(surfaceWidth_) - margin));
+        }
+        if (dy != 0.0f && maxScrollY_ > 0.0f) {
+            const float next = std::max(0.0f, std::min(maxScrollY_, scrollY_ + dy));
+            if (next != scrollY_) {
+                scrollY_ = next;
+                pageVertical_.SetValue(scrollY_ / maxScrollY_);
+                changed = true;
+            }
+        }
+        if (dx != 0.0f && maxScrollX_ > 0.0f) {
+            const float next = std::max(0.0f, std::min(maxScrollX_, scrollX_ + dx));
+            if (next != scrollX_) {
+                scrollX_ = next;
+                pageHorizontal_.SetValue(scrollX_ / maxScrollX_);
+                changed = true;
+            }
+        }
+        if (changed) {
+            TextSelection::MovePointer(selectX_, selectY_);
+        }
+    }
     bool pageChanged = false;
     if (pageVertical_.Tick(deltaMs)) {
         pageChanged = true;
@@ -2195,6 +2279,13 @@ bool RoboScene::NeedsTick() {
     if (pageVertical_.NeedsAnimation() || pageHorizontal_.NeedsAnimation()) {
         needsTick = true;
     }
+    if (TextSelection::IsDragging()) {
+        const float margin = 24.0f;
+        if (selectY_ < margin || selectY_ > static_cast<float>(surfaceHeight_) - margin || selectX_ < margin ||
+            selectX_ > static_cast<float>(surfaceWidth_) - margin) {
+            needsTick = true;
+        }
+    }
     return needsTick;
 }
 
@@ -2204,6 +2295,21 @@ bool RoboScene::HasFocusedInput() const {
 
 bool RoboScene::SelectableAt(float x, float y) const {
     return TextSelection::Hit(x, y) >= 0;
+}
+
+bool RoboScene::HasCaret() const {
+    return TextSelection::HasCaret();
+}
+
+bool RoboScene::MoveSelection(int command, bool extend) {
+    if (focusedInput_) {
+        return false;
+    }
+    if (!TextSelection::Move(command, extend)) {
+        return false;
+    }
+    RerenderIfPossible();
+    return true;
 }
 
 bool RoboScene::CopySelection() {

@@ -9,6 +9,19 @@ namespace Robo {
 
 namespace {
 
+enum class Unit {
+    Character,
+    Word,
+    Line,
+    Document
+};
+
+enum class Cluster {
+    Word,
+    Space,
+    Other
+};
+
 struct Glyph {
     const void* root = nullptr;
     char32_t codepoint = 0;
@@ -24,9 +37,17 @@ struct Scope {
 
 std::vector<Glyph> glyphs;
 std::vector<Scope> scopes;
-int anchor = -1;
-int focus = -1;
+const void* selectionRoot = nullptr;
+int anchor = 0;
+int focus = 0;
 bool dragging = false;
+bool handleDragging = false;
+bool showHandles = false;
+Unit dragUnit = Unit::Character;
+int dragOrigin = 0;
+int dragStart = 0;
+int dragEnd = 0;
+float affinityX = 0.0f;
 
 void AppendUtf8(std::string& out, char32_t codepoint) {
     const auto value = static_cast<std::uint32_t>(codepoint);
@@ -47,27 +68,370 @@ void AppendUtf8(std::string& out, char32_t codepoint) {
     }
 }
 
-int RangeStart() {
-    return std::min(anchor, focus);
+int RootCount(const void* root) {
+    int count = 0;
+    for (const Glyph& glyph : glyphs) {
+        if (glyph.root == root) {
+            ++count;
+        }
+    }
+    return count;
 }
 
-int RangeEnd() {
-    return std::max(anchor, focus);
+int GlobalAt(const void* root, int ordinal) {
+    int seen = 0;
+    for (int i = 0; i < static_cast<int>(glyphs.size()); ++i) {
+        if (glyphs[static_cast<std::size_t>(i)].root != root) {
+            continue;
+        }
+        if (seen == ordinal) {
+            return i;
+        }
+        ++seen;
+    }
+    return -1;
 }
 
-const void* AnchorRoot() {
-    if (anchor < 0 || anchor >= static_cast<int>(glyphs.size())) {
+int OrdinalOf(int global) {
+    if (global < 0 || global >= static_cast<int>(glyphs.size())) {
+        return 0;
+    }
+    const void* root = glyphs[static_cast<std::size_t>(global)].root;
+    int ordinal = 0;
+    for (int i = 0; i < global; ++i) {
+        if (glyphs[static_cast<std::size_t>(i)].root == root) {
+            ++ordinal;
+        }
+    }
+    return ordinal;
+}
+
+const Glyph* GlyphAt(const void* root, int ordinal) {
+    const int global = GlobalAt(root, ordinal);
+    if (global < 0) {
         return nullptr;
     }
-    return glyphs[static_cast<std::size_t>(anchor)].root;
+    return &glyphs[static_cast<std::size_t>(global)];
 }
 
-bool SameRoot(int index) {
-    const void* root = AnchorRoot();
-    if (!root || index < 0 || index >= static_cast<int>(glyphs.size())) {
-        return false;
+bool SameLine(const Glyph& a, const Glyph& b) {
+    const float band = std::max(a.height, b.height) * 0.5f;
+    return std::fabs(a.y - b.y) <= band;
+}
+
+Cluster ClassOf(char32_t codepoint) {
+    if (codepoint == ' ' || codepoint == '\t' || codepoint == '\n' || codepoint == '\r' || codepoint == 0x00A0) {
+        return Cluster::Space;
     }
-    return glyphs[static_cast<std::size_t>(index)].root == root;
+    if (codepoint == '\'' || codepoint == 0x2019) {
+        return Cluster::Word;
+    }
+    if ((codepoint >= '0' && codepoint <= '9') || (codepoint >= 'A' && codepoint <= 'Z') ||
+        (codepoint >= 'a' && codepoint <= 'z') || codepoint > 0xA0) {
+        return Cluster::Word;
+    }
+    return Cluster::Other;
+}
+
+int ClampBoundary(int boundary) {
+    const int count = RootCount(selectionRoot);
+    return std::max(0, std::min(boundary, count));
+}
+
+void UnitBounds(int ordinal, Unit unit, int& start, int& end) {
+    const int count = RootCount(selectionRoot);
+    ordinal = std::max(0, std::min(ordinal, std::max(0, count - 1)));
+    if (unit == Unit::Document || count <= 0) {
+        start = 0;
+        end = count;
+        return;
+    }
+    const Glyph* seed = GlyphAt(selectionRoot, ordinal);
+    if (!seed) {
+        start = 0;
+        end = count;
+        return;
+    }
+    if (unit == Unit::Character) {
+        start = ordinal;
+        end = std::min(count, ordinal + 1);
+        return;
+    }
+    const Cluster kind = ClassOf(seed->codepoint);
+    start = ordinal;
+    end = ordinal + 1;
+    if (unit == Unit::Word) {
+        while (start > 0) {
+            const Glyph* previous = GlyphAt(selectionRoot, start - 1);
+            if (!previous || ClassOf(previous->codepoint) != kind) {
+                break;
+            }
+            if (kind != Cluster::Word && !SameLine(*previous, *seed)) {
+                break;
+            }
+            --start;
+        }
+        while (end < count) {
+            const Glyph* next = GlyphAt(selectionRoot, end);
+            if (!next || ClassOf(next->codepoint) != kind) {
+                break;
+            }
+            if (kind != Cluster::Word && !SameLine(*seed, *next)) {
+                break;
+            }
+            ++end;
+        }
+        return;
+    }
+    while (start > 0) {
+        const Glyph* previous = GlyphAt(selectionRoot, start - 1);
+        if (!previous || !SameLine(*previous, *seed)) {
+            break;
+        }
+        --start;
+    }
+    while (end < count) {
+        const Glyph* next = GlyphAt(selectionRoot, end);
+        if (!next || !SameLine(*seed, *next)) {
+            break;
+        }
+        ++end;
+    }
+}
+
+float BoundaryX(int boundary) {
+    const int count = RootCount(selectionRoot);
+    boundary = ClampBoundary(boundary);
+    if (count <= 0) {
+        return 0.0f;
+    }
+    if (boundary >= count) {
+        const Glyph* last = GlyphAt(selectionRoot, count - 1);
+        return last ? last->x + last->width : 0.0f;
+    }
+    const Glyph* glyph = GlyphAt(selectionRoot, boundary);
+    return glyph ? glyph->x : 0.0f;
+}
+
+float BoundaryY(int boundary) {
+    const int count = RootCount(selectionRoot);
+    if (count <= 0) {
+        return 0.0f;
+    }
+    const int ordinal = std::min(ClampBoundary(boundary), count - 1);
+    const Glyph* glyph = GlyphAt(selectionRoot, ordinal);
+    return glyph ? glyph->y : 0.0f;
+}
+
+int BoundaryAt(float x, float y, const void* onlyRoot) {
+    int found = -1;
+    for (int i = 0; i < static_cast<int>(glyphs.size()); ++i) {
+        const Glyph& glyph = glyphs[static_cast<std::size_t>(i)];
+        if (onlyRoot && glyph.root != onlyRoot) {
+            continue;
+        }
+        if (x >= glyph.x && x < glyph.x + glyph.width && y >= glyph.y && y < glyph.y + glyph.height) {
+            found = i;
+        }
+    }
+    if (found < 0) {
+        return -1;
+    }
+    const Glyph& glyph = glyphs[static_cast<std::size_t>(found)];
+    const int ordinal = OrdinalOf(found);
+    return x >= glyph.x + glyph.width * 0.5f ? ordinal + 1 : ordinal;
+}
+
+int NearestBoundary(float x, float y) {
+    if (!selectionRoot) {
+        return -1;
+    }
+    const int direct = BoundaryAt(x, y, selectionRoot);
+    if (direct >= 0) {
+        return direct;
+    }
+    const int count = RootCount(selectionRoot);
+    if (count <= 0) {
+        return 0;
+    }
+    int bestOrdinal = 0;
+    float bestLine = 1.0e9f;
+    const Glyph* first = GlyphAt(selectionRoot, 0);
+    float lineY = first ? first->y : 0.0f;
+    for (int i = 0; i < count; ++i) {
+        const Glyph* glyph = GlyphAt(selectionRoot, i);
+        if (!glyph) {
+            continue;
+        }
+        if (i == 0 || !SameLine(*glyph, *GlyphAt(selectionRoot, bestOrdinal))) {
+            const float distance = std::fabs((glyph->y + glyph->height * 0.5f) - y);
+            if (distance < bestLine) {
+                bestLine = distance;
+                bestOrdinal = i;
+                lineY = glyph->y;
+            }
+        }
+    }
+    int bestBoundary = 0;
+    float bestX = 1.0e9f;
+    for (int i = 0; i <= count; ++i) {
+        const Glyph* glyph = GlyphAt(selectionRoot, std::min(i, count - 1));
+        if (!glyph || std::fabs(glyph->y - lineY) > glyph->height * 0.5f) {
+            continue;
+        }
+        const float edge = i >= count ? glyph->x + glyph->width : GlyphAt(selectionRoot, i)->x;
+        const float distance = std::fabs(edge - x);
+        if (distance < bestX) {
+            bestX = distance;
+            bestBoundary = i;
+        }
+    }
+    return bestBoundary;
+}
+
+void ApplyDrag(int boundary) {
+    boundary = ClampBoundary(boundary);
+    if (dragUnit == Unit::Character) {
+        focus = boundary;
+        return;
+    }
+    const int count = RootCount(selectionRoot);
+    if (count <= 0) {
+        return;
+    }
+    if (boundary > dragOrigin) {
+        int start = 0;
+        int end = 0;
+        UnitBounds(std::min(boundary, count - 1), dragUnit, start, end);
+        anchor = dragStart;
+        focus = end;
+    } else if (boundary < dragOrigin) {
+        int start = 0;
+        int end = 0;
+        UnitBounds(std::max(0, boundary - 1), dragUnit, start, end);
+        anchor = dragEnd;
+        focus = start;
+    } else {
+        anchor = dragStart;
+        focus = dragEnd;
+    }
+}
+
+int StepHorizontal(int boundary, int direction, bool word) {
+    const int count = RootCount(selectionRoot);
+    if (word) {
+        if (direction < 0) {
+            if (boundary <= 0) {
+                return 0;
+            }
+            int index = boundary - 1;
+            while (index > 0) {
+                const Glyph* glyph = GlyphAt(selectionRoot, index);
+                if (!glyph || ClassOf(glyph->codepoint) != Cluster::Space) {
+                    break;
+                }
+                --index;
+            }
+            int start = 0;
+            int end = 0;
+            UnitBounds(index, Unit::Word, start, end);
+            if (boundary > start) {
+                return start;
+            }
+            if (start <= 0) {
+                return 0;
+            }
+            index = start - 1;
+            while (index > 0) {
+                const Glyph* glyph = GlyphAt(selectionRoot, index);
+                if (!glyph || ClassOf(glyph->codepoint) != Cluster::Space) {
+                    break;
+                }
+                --index;
+            }
+            UnitBounds(index, Unit::Word, start, end);
+            return start;
+        }
+        int index = boundary;
+        while (index < count) {
+            const Glyph* glyph = GlyphAt(selectionRoot, index);
+            if (!glyph || ClassOf(glyph->codepoint) != Cluster::Space) {
+                break;
+            }
+            ++index;
+        }
+        if (index >= count) {
+            return count;
+        }
+        int start = 0;
+        int end = 0;
+        UnitBounds(index, Unit::Word, start, end);
+        return end;
+    }
+    return ClampBoundary(boundary + direction);
+}
+
+int LineEdge(int boundary, bool start) {
+    const int count = RootCount(selectionRoot);
+    if (count <= 0) {
+        return 0;
+    }
+    const int ordinal = std::min(std::max(0, boundary == count ? count - 1 : boundary), count - 1);
+    int unitStart = 0;
+    int unitEnd = 0;
+    UnitBounds(ordinal, Unit::Line, unitStart, unitEnd);
+    return start ? unitStart : unitEnd;
+}
+
+int VerticalBoundary(int boundary, int direction) {
+    const int count = RootCount(selectionRoot);
+    if (count <= 0) {
+        return 0;
+    }
+    const float x = affinityX;
+    const int ordinal = std::min(std::max(0, boundary == count ? count - 1 : boundary), count - 1);
+    const Glyph* current = GlyphAt(selectionRoot, ordinal);
+    if (!current) {
+        return boundary;
+    }
+    float targetY = direction < 0 ? -1.0e9f : 1.0e9f;
+    bool found = false;
+    for (int i = 0; i < count; ++i) {
+        const Glyph* glyph = GlyphAt(selectionRoot, i);
+        if (!glyph || SameLine(*glyph, *current)) {
+            continue;
+        }
+        if (direction < 0 && glyph->y < current->y && glyph->y > targetY) {
+            targetY = glyph->y;
+            found = true;
+        }
+        if (direction > 0 && glyph->y > current->y && glyph->y < targetY) {
+            targetY = glyph->y;
+            found = true;
+        }
+    }
+    if (!found) {
+        return direction < 0 ? 0 : count;
+    }
+    int best = 0;
+    float bestDistance = 1.0e9f;
+    for (int i = 0; i <= count; ++i) {
+        const Glyph* glyph = GlyphAt(selectionRoot, std::min(i, count - 1));
+        if (!glyph || std::fabs(glyph->y - targetY) > glyph->height * 0.5f) {
+            continue;
+        }
+        const float edge = BoundaryX(i);
+        const float distance = std::fabs(edge - x);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = i;
+        }
+    }
+    return best;
+}
+
+void RememberAffinity(int boundary) {
+    affinityX = BoundaryX(boundary);
 }
 
 }  // namespace
@@ -88,19 +452,18 @@ void TextSelection::BeginFrame() {
 }
 
 void TextSelection::EndFrame() {
-    if (glyphs.empty()) {
-        anchor = -1;
-        focus = -1;
-        dragging = false;
+    if (!selectionRoot || RootCount(selectionRoot) <= 0) {
+        if (glyphs.empty()) {
+            selectionRoot = nullptr;
+            anchor = 0;
+            focus = 0;
+            dragging = false;
+        }
         return;
     }
-    const int last = static_cast<int>(glyphs.size()) - 1;
-    if (anchor > last) {
-        anchor = last;
-    }
-    if (focus > last) {
-        focus = last;
-    }
+    const int count = RootCount(selectionRoot);
+    anchor = std::max(0, std::min(anchor, count));
+    focus = std::max(0, std::min(focus, count));
 }
 
 void TextSelection::Push(const void* host, SelectableMode mode) {
@@ -140,14 +503,36 @@ int TextSelection::AddCodepoint(char32_t codepoint, float x, float y, float widt
 }
 
 bool TextSelection::Covers(int index) {
-    if (anchor < 0 || focus < 0 || anchor == focus || !SameRoot(index)) {
+    if (!selectionRoot || anchor == focus || index < 0 || index >= static_cast<int>(glyphs.size())) {
         return false;
     }
-    return index >= RangeStart() && index <= RangeEnd();
+    if (glyphs[static_cast<std::size_t>(index)].root != selectionRoot) {
+        return false;
+    }
+    const int ordinal = OrdinalOf(index);
+    return ordinal >= std::min(anchor, focus) && ordinal < std::max(anchor, focus);
 }
 
-bool TextSelection::IsCaret(int index) {
-    return anchor >= 0 && anchor == focus && index == anchor && SameRoot(index);
+bool TextSelection::IsCaretBefore(int index) {
+    if (!selectionRoot || anchor != focus || index < 0 || index >= static_cast<int>(glyphs.size())) {
+        return false;
+    }
+    if (glyphs[static_cast<std::size_t>(index)].root != selectionRoot) {
+        return false;
+    }
+    return OrdinalOf(index) == anchor && anchor < RootCount(selectionRoot);
+}
+
+bool TextSelection::IsCaretAfter(int index) {
+    if (!selectionRoot || anchor != focus || index < 0 || index >= static_cast<int>(glyphs.size())) {
+        return false;
+    }
+    const Glyph& glyph = glyphs[static_cast<std::size_t>(index)];
+    if (glyph.root != selectionRoot) {
+        return false;
+    }
+    const int count = RootCount(selectionRoot);
+    return anchor == count && OrdinalOf(index) == count - 1;
 }
 
 int TextSelection::Hit(float x, float y) {
@@ -161,86 +546,278 @@ int TextSelection::Hit(float x, float y) {
     return found;
 }
 
-void TextSelection::BeginDrag(int index) {
-    if (index < 0 || index >= static_cast<int>(glyphs.size())) {
+void TextSelection::BeginClick(float x, float y, int clicks) {
+    const int global = Hit(x, y);
+    if (global < 0) {
         return;
     }
-    anchor = index;
-    focus = index;
+    showHandles = false;
+    handleDragging = false;
+    selectionRoot = glyphs[static_cast<std::size_t>(global)].root;
+    const int boundary = BoundaryAt(x, y, selectionRoot);
+    const int ordinal = OrdinalOf(global);
+    const int count = std::max(1, clicks);
+    dragUnit = Unit::Character;
+    if (count >= 4) {
+        dragUnit = Unit::Document;
+    } else if (count == 3) {
+        dragUnit = Unit::Line;
+    } else if (count == 2) {
+        dragUnit = Unit::Word;
+    }
+    int start = boundary;
+    int end = boundary;
+    if (dragUnit == Unit::Character) {
+        anchor = boundary;
+        focus = boundary;
+    } else {
+        UnitBounds(ordinal, dragUnit, start, end);
+        anchor = start;
+        focus = end;
+    }
+    dragOrigin = boundary;
+    dragStart = anchor;
+    dragEnd = focus;
     dragging = true;
+    RememberAffinity(focus);
 }
 
-void TextSelection::MoveFocus(int index) {
-    if (!dragging || index < 0 || !SameRoot(index)) {
+void TextSelection::LongPress(float x, float y) {
+    const int global = Hit(x, y);
+    if (global < 0) {
         return;
     }
-    focus = index;
+    selectionRoot = glyphs[static_cast<std::size_t>(global)].root;
+    int start = 0;
+    int end = 0;
+    UnitBounds(OrdinalOf(global), Unit::Word, start, end);
+    anchor = start;
+    focus = end;
+    dragUnit = Unit::Word;
+    dragOrigin = BoundaryAt(x, y, selectionRoot);
+    if (dragOrigin < 0) {
+        dragOrigin = start;
+    }
+    dragStart = start;
+    dragEnd = end;
+    dragging = true;
+    handleDragging = false;
+    showHandles = true;
+    RememberAffinity(focus);
+}
+
+bool TextSelection::BeginHandleDrag(float x, float y) {
+    if (!showHandles || !HasSelection()) {
+        return false;
+    }
+    float startX = 0.0f;
+    float startY = 0.0f;
+    float endX = 0.0f;
+    float endY = 0.0f;
+    float height = 0.0f;
+    if (!HandleGeometry(startX, startY, endX, endY, height)) {
+        return false;
+    }
+    const float radius = std::max(14.0f, height * 0.7f);
+    const auto nearHandle = [&](float handleX, float handleY) {
+        const float dx = x - handleX;
+        const float dy = y - (handleY + height);
+        return dx * dx + dy * dy <= radius * radius;
+    };
+    const bool onStart = nearHandle(startX, startY);
+    const bool onEnd = nearHandle(endX, endY);
+    if (!onStart && !onEnd) {
+        return false;
+    }
+    const bool grabStart = onStart && (!onEnd || std::fabs(x - startX) <= std::fabs(x - endX));
+    anchor = grabStart ? std::max(anchor, focus) : std::min(anchor, focus);
+    focus = NearestBoundary(x, y);
+    if (focus < 0) {
+        focus = anchor;
+    }
+    dragUnit = Unit::Character;
+    dragging = true;
+    handleDragging = true;
+    return true;
+}
+
+void TextSelection::MovePointer(float x, float y) {
+    if (!dragging || !selectionRoot) {
+        return;
+    }
+    int boundary = BoundaryAt(x, y, selectionRoot);
+    if (boundary < 0) {
+        boundary = NearestBoundary(x, y);
+    }
+    if (boundary < 0) {
+        return;
+    }
+    if (handleDragging) {
+        focus = ClampBoundary(boundary);
+        RememberAffinity(focus);
+        return;
+    }
+    ApplyDrag(boundary);
+    RememberAffinity(focus);
 }
 
 void TextSelection::EndDrag() {
     dragging = false;
+    handleDragging = false;
 }
 
 void TextSelection::Clear() {
-    anchor = -1;
-    focus = -1;
+    selectionRoot = nullptr;
+    anchor = 0;
+    focus = 0;
     dragging = false;
+    handleDragging = false;
+    showHandles = false;
+    dragUnit = Unit::Character;
 }
 
 bool TextSelection::IsDragging() {
     return dragging;
 }
 
+bool TextSelection::ShowsHandles() {
+    return showHandles && HasSelection();
+}
+
+bool TextSelection::Move(int command, bool extend) {
+    if (!selectionRoot || RootCount(selectionRoot) <= 0) {
+        return false;
+    }
+    showHandles = false;
+    if (!extend && anchor != focus) {
+        if (command == 0) {
+            anchor = focus = std::min(anchor, focus);
+            RememberAffinity(focus);
+            return true;
+        }
+        if (command == 1) {
+            anchor = focus = std::max(anchor, focus);
+            RememberAffinity(focus);
+            return true;
+        }
+        const bool towardStart = command == 2 || command == 4 || command == 6 || command == 8;
+        focus = towardStart ? std::min(anchor, focus) : std::max(anchor, focus);
+        anchor = focus;
+    }
+    int next = focus;
+    switch (command) {
+        case 0:
+            next = StepHorizontal(focus, -1, false);
+            break;
+        case 1:
+            next = StepHorizontal(focus, 1, false);
+            break;
+        case 2:
+            next = VerticalBoundary(focus, -1);
+            break;
+        case 3:
+            next = VerticalBoundary(focus, 1);
+            break;
+        case 4:
+            next = LineEdge(focus, true);
+            break;
+        case 5:
+            next = LineEdge(focus, false);
+            break;
+        case 6:
+            next = StepHorizontal(focus, -1, true);
+            break;
+        case 7:
+            next = StepHorizontal(focus, 1, true);
+            break;
+        case 8:
+            next = 0;
+            break;
+        case 9:
+            next = RootCount(selectionRoot);
+            break;
+        default:
+            return false;
+    }
+    focus = ClampBoundary(next);
+    if (!extend) {
+        anchor = focus;
+    }
+    if (command != 2 && command != 3) {
+        RememberAffinity(focus);
+    }
+    return true;
+}
+
 bool TextSelection::SelectAll() {
-    const void* root = AnchorRoot();
-    if (!root) {
+    if (!selectionRoot) {
+        if (glyphs.empty()) {
+            return false;
+        }
+        selectionRoot = glyphs.front().root;
+    }
+    const int count = RootCount(selectionRoot);
+    if (count <= 0) {
         return false;
     }
-    int first = -1;
-    int last = -1;
-    for (int i = 0; i < static_cast<int>(glyphs.size()); ++i) {
-        if (glyphs[static_cast<std::size_t>(i)].root != root) {
-            continue;
-        }
-        if (first < 0) {
-            first = i;
-        }
-        last = i;
-    }
-    if (first < 0 || first == last) {
-        return false;
-    }
-    anchor = first;
-    focus = last;
+    anchor = 0;
+    focus = count;
     dragging = false;
+    showHandles = false;
+    RememberAffinity(focus);
     return true;
 }
 
 std::string TextSelection::SelectedText() {
-    if (anchor < 0 || focus < 0 || anchor == focus) {
+    if (!HasSelection()) {
         return {};
     }
-    const void* root = AnchorRoot();
     std::string text;
     float previousY = -100000.0f;
     float previousHeight = 0.0f;
-    for (int i = RangeStart(); i <= RangeEnd(); ++i) {
-        const Glyph& glyph = glyphs[static_cast<std::size_t>(i)];
-        if (glyph.root != root) {
+    const int first = std::min(anchor, focus);
+    const int last = std::max(anchor, focus);
+    for (int ordinal = first; ordinal < last; ++ordinal) {
+        const Glyph* glyph = GlyphAt(selectionRoot, ordinal);
+        if (!glyph) {
             continue;
         }
-        if (!text.empty() && glyph.y > previousY + previousHeight * 0.5f) {
+        if (!text.empty() && glyph->y > previousY + previousHeight * 0.5f) {
             text.push_back('\n');
         }
-        AppendUtf8(text, glyph.codepoint);
-        previousY = glyph.y;
-        previousHeight = glyph.height;
+        AppendUtf8(text, glyph->codepoint);
+        previousY = glyph->y;
+        previousHeight = glyph->height;
     }
     return text;
 }
 
 bool TextSelection::HasSelection() {
-    return anchor >= 0 && focus >= 0 && anchor != focus && AnchorRoot() != nullptr;
+    return selectionRoot != nullptr && anchor != focus && RootCount(selectionRoot) > 0;
+}
+
+bool TextSelection::HasCaret() {
+    return selectionRoot != nullptr && RootCount(selectionRoot) > 0 && anchor >= 0;
+}
+
+bool TextSelection::HandleGeometry(float& startX, float& startY, float& endX, float& endY, float& lineHeight) {
+    if (!HasSelection()) {
+        return false;
+    }
+    const int count = RootCount(selectionRoot);
+    const int first = std::min(anchor, focus);
+    const int last = std::max(anchor, focus);
+    const Glyph* startGlyph = GlyphAt(selectionRoot, std::min(first, count - 1));
+    const Glyph* endGlyph = GlyphAt(selectionRoot, std::min(std::max(0, last - 1), count - 1));
+    if (!startGlyph || !endGlyph) {
+        return false;
+    }
+    startX = BoundaryX(first);
+    startY = startGlyph->y;
+    endX = BoundaryX(last);
+    endY = endGlyph->y;
+    lineHeight = std::max(startGlyph->height, endGlyph->height);
+    return true;
 }
 
 }  // namespace Robo

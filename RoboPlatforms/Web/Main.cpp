@@ -84,11 +84,36 @@ bool PointerMove(float x, float y) {
     return changed;
 }
 
-bool PointerDown(float x, float y, bool fromTouch) {
+bool PointerDown(float x, float y, bool fromTouch, int clicks) {
     if (!EnsureApp()) {
         return false;
     }
-    const bool changed = gScene.PointerDown(x, y, fromTouch);
+    const bool changed = gScene.PointerDown(x, y, fromTouch, clicks);
+    SchedulePresent();
+    return changed;
+}
+
+bool LongPressSelect(float x, float y) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.LongPressSelect(x, y);
+    SchedulePresent();
+    return changed;
+}
+
+bool HasCaret() {
+    if (!EnsureApp()) {
+        return false;
+    }
+    return gScene.HasCaret();
+}
+
+bool MoveSelection(int command, bool extend) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.MoveSelection(command, extend);
     SchedulePresent();
     return changed;
 }
@@ -335,6 +360,9 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("Render", &Render);
     emscripten::function("PointerMove", &PointerMove);
     emscripten::function("PointerDown", &PointerDown);
+    emscripten::function("LongPressSelect", &LongPressSelect);
+    emscripten::function("HasCaret", &HasCaret);
+    emscripten::function("MoveSelection", &MoveSelection);
     emscripten::function("PointerUp", &PointerUp);
     emscripten::function("PointerLeave", &PointerLeave);
     emscripten::function("HitTest", &HitTest);

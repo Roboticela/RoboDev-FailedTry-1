@@ -63,7 +63,8 @@ public:
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     bool PointerMove(float x, float y);
-    bool PointerDown(float x, float y, bool fromTouch = false);
+    bool PointerDown(float x, float y, bool fromTouch = false, int clicks = 1);
+    bool LongPressSelect(float x, float y);
     bool PointerUp(float x, float y);
     bool PointerLeave();
 
@@ -103,6 +104,8 @@ public:
     bool KeyEscape();
     bool HasFocusedInput() const;
     bool SelectableAt(float x, float y) const;
+    bool HasCaret() const;
+    bool MoveSelection(int command, bool extend);
     bool CopySelection();
     bool SelectAllText();
 
@@ -148,6 +151,11 @@ private:
     float scrollX_ = 0.0f;
     float scrollY_ = 0.0f;
     float appZoom_ = 1.0f;
+    float lastPaintScale_ = 0.0f;
+    float selectX_ = 0.0f;
+    float selectY_ = 0.0f;
+    int surfaceWidth_ = 1;
+    int surfaceHeight_ = 1;
     float maxScrollX_ = 0.0f;
     float maxScrollY_ = 0.0f;
     Scrollbar pageVertical_;

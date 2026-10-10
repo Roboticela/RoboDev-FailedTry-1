@@ -7,9 +7,10 @@ let lastAnimationTime = 0;
 function PageSize() {
   const cssWidth = Math.max(1, window.innerWidth);
   const cssHeight = Math.max(1, window.innerHeight);
-  // Page zoom already changes devicePixelRatio and the CSS viewport together,
-  // so this buffer stays about one screen of physical pixels and stays sharp.
-  const pixelRatio = Math.min(8, Math.max(1, window.devicePixelRatio || 1));
+  // Pinch changes visualViewport.scale without resizing the layout. Fold that
+  // into the bitmap so the magnified frame still has a pixel per screen pixel.
+  const pinch = window.visualViewport && window.visualViewport.scale ? window.visualViewport.scale : 1;
+  const pixelRatio = Math.min(8, Math.max(1, (window.devicePixelRatio || 1) * pinch));
   return {
     width: Math.max(1, Math.round(cssWidth * pixelRatio)),
     height: Math.max(1, Math.round(cssHeight * pixelRatio)),
@@ -17,18 +18,16 @@ function PageSize() {
   };
 }
 
-let sharpRender = 0;
+let frameRender = 0;
 
-function ScheduleSharpRender() {
-  if (sharpRender) {
-    clearTimeout(sharpRender);
+function ScheduleFrameRender() {
+  if (frameRender) {
+    return;
   }
-  // The browser scales the current frame during the gesture. One sharp paint
-  // lands after the gesture settles, at the browser's zoom level.
-  sharpRender = setTimeout(() => {
-    sharpRender = 0;
+  frameRender = requestAnimationFrame(() => {
+    frameRender = 0;
     RenderPage();
-  }, 80);
+  });
 }
 
 function RenderPage() {
@@ -97,7 +96,16 @@ function WireInteraction() {
   let touchPage = false;
   let touchX = 0;
   let touchY = 0;
+  let longPressTimer = 0;
+  let longSelecting = false;
   const pointers = new Map();
+
+  function ClearLongPress() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = 0;
+    }
+  }
 
   canvas.addEventListener(
     "wheel",
@@ -108,6 +116,7 @@ function WireInteraction() {
       // Ctrl/Cmd + wheel and trackpad pinch belong to the browser so its zoom
       // control stays in the address bar and the gesture stays on the GPU.
       if (event.ctrlKey || event.metaKey) {
+        ScheduleFrameRender();
         return;
       }
       const point = CanvasPoint(event);
@@ -134,6 +143,15 @@ function WireInteraction() {
       pointers.set(event.pointerId, point);
     }
     if (pointers.size >= 2) {
+      ClearLongPress();
+      longSelecting = false;
+      return;
+    }
+    if (longPressTimer && Math.hypot(event.clientX - touchX, event.clientY - touchY) > 8) {
+      ClearLongPress();
+    }
+    if (longSelecting) {
+      roboModule.PointerMove(point.x, point.y);
       return;
     }
     if (touchPage) {
@@ -162,6 +180,24 @@ function WireInteraction() {
     canvas.focus();
     const point = CanvasPoint(event);
     pointers.set(event.pointerId, point);
+    ClearLongPress();
+    longSelecting = false;
+    if (IsTouch(event) && roboModule.SelectableAt(point.x, point.y)) {
+      touchPage = false;
+      touchX = event.clientX;
+      touchY = event.clientY;
+      if (canvas.setPointerCapture) {
+        canvas.setPointerCapture(event.pointerId);
+      }
+      const pressX = point.x;
+      const pressY = point.y;
+      longPressTimer = setTimeout(() => {
+        longPressTimer = 0;
+        longSelecting = true;
+        roboModule.LongPressSelect(pressX, pressY);
+      }, 480);
+      return;
+    }
     if (pointers.size >= 2) {
       touchPage = false;
       return;
@@ -173,7 +209,7 @@ function WireInteraction() {
     if (canvas.setPointerCapture) {
       canvas.setPointerCapture(event.pointerId);
     }
-    roboModule.PointerDown(point.x, point.y, touch && !touchPage);
+    roboModule.PointerDown(point.x, point.y, touch && !touchPage, event.detail || 1);
     canvas.style.cursor = "default";
     StartAnimationLoop();
   });
@@ -183,6 +219,8 @@ function WireInteraction() {
       return;
     }
     pointers.delete(event.pointerId);
+    ClearLongPress();
+    longSelecting = false;
     touchPage = false;
     const point = CanvasPoint(event);
     roboModule.PointerUp(point.x, point.y);
@@ -199,6 +237,8 @@ function WireInteraction() {
 
   canvas.addEventListener("pointercancel", (event) => {
     pointers.delete(event.pointerId);
+    ClearLongPress();
+    longSelecting = false;
     touchPage = false;
     if (roboModule) {
       roboModule.PointerUp(CanvasPoint(event).x, CanvasPoint(event).y);
@@ -218,6 +258,30 @@ function WireInteraction() {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
       if (roboModule.SelectAllText()) {
         event.preventDefault();
+        return;
+      }
+    }
+    if (!roboModule.HasFocusedInput() && roboModule.HasCaret()) {
+      const extend = event.shiftKey;
+      const command = event.metaKey;
+      const word = event.altKey || (event.ctrlKey && !event.metaKey);
+      let move = -1;
+      if (event.key === "ArrowLeft") {
+        move = word ? 6 : command ? 4 : 0;
+      } else if (event.key === "ArrowRight") {
+        move = word ? 7 : command ? 5 : 1;
+      } else if (event.key === "ArrowUp") {
+        move = command ? 8 : 2;
+      } else if (event.key === "ArrowDown") {
+        move = command ? 9 : 3;
+      } else if (event.key === "Home") {
+        move = event.ctrlKey || event.metaKey ? 8 : 4;
+      } else if (event.key === "End") {
+        move = event.ctrlKey || event.metaKey ? 9 : 5;
+      }
+      if (move >= 0) {
+        event.preventDefault();
+        roboModule.MoveSelection(move, extend);
         return;
       }
     }
@@ -310,19 +374,8 @@ function WireInteraction() {
     roboModule.KeyInsert(event.key);
   });
 
-  let lastRatio = window.devicePixelRatio || 1;
-  let lastScale = window.visualViewport ? window.visualViewport.scale : 1;
   function OnViewportChange() {
-    const ratio = window.devicePixelRatio || 1;
-    const scale = window.visualViewport ? window.visualViewport.scale : 1;
-    const zoomChanged = ratio !== lastRatio || scale !== lastScale;
-    lastRatio = ratio;
-    lastScale = scale;
-    if (zoomChanged) {
-      ScheduleSharpRender();
-    } else {
-      RenderPage();
-    }
+    ScheduleFrameRender();
   }
   window.addEventListener("resize", OnViewportChange);
   if (window.visualViewport) {

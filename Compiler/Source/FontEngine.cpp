@@ -334,8 +334,10 @@ void FontEngine::DrawString(FrameBuffer& buffer,
                                 std::max(1, static_cast<int>(std::ceil(glyphHeight))),
                                 Color::FromRgba(0, 122, 255, 255),
                                 0.28f);
-            } else if (TextSelection::IsCaret(index)) {
-                buffer.FillRect(static_cast<int>(std::floor(penX)),
+            }
+            if (TextSelection::IsCaretBefore(index) || TextSelection::IsCaretAfter(index)) {
+                const float caretX = TextSelection::IsCaretAfter(index) ? penX + glyphWidth : penX;
+                buffer.FillRect(static_cast<int>(std::floor(caretX)),
                                 static_cast<int>(std::floor(baselineY - ascent)),
                                 std::max(1, static_cast<int>(std::round(std::max(1.0f, scale)))),
                                 std::max(1, static_cast<int>(std::ceil(glyphHeight))),
