@@ -256,7 +256,8 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
             childW = ParseDimension(item.props.width, innerAvailW, childW, scale);
         }
         if (!item.props.height.empty() && item.props.height != "auto") {
-            childH = ParseDimension(item.props.height, 0.0f, childH, scale);
+            const float specifiedH = ParseDimension(item.props.height, 0.0f, childH, scale);
+            childH = std::max(specifiedH, childH);
         }
         if (!item.props.minWidth.empty()) {
             childW = std::max(childW, ParseDimension(item.props.minWidth, innerAvailW, 0.0f, scale));
@@ -308,9 +309,9 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
     const float naturalH = maxExtentY + padT + padB;
     float resolvedH = naturalH;
     if (forcedHeight > 0.0f) {
-        resolvedH = forcedHeight;
+        resolvedH = std::max(forcedHeight, naturalH);
     } else if (!style.height.empty() && style.height != "auto") {
-        resolvedH = ParseDimension(style.height, availableWidth, naturalH, scale);
+        resolvedH = std::max(ParseDimension(style.height, availableWidth, naturalH, scale), naturalH);
     }
     if (style.minHeight > 0.0f) {
         resolvedH = std::max(resolvedH, style.minHeight * scale);
@@ -436,7 +437,8 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             lc.width = ParseDimension(item.props.width, innerAvailW, lc.width, scale);
         }
         if (!item.props.height.empty() && item.props.height != "auto") {
-            lc.height = ParseDimension(item.props.height, 0.0f, lc.height, scale);
+            const float specifiedH = ParseDimension(item.props.height, 0.0f, lc.height, scale);
+            lc.height = std::max(specifiedH, lc.height);
         }
         if (!item.props.minWidth.empty()) {
             lc.width = std::max(lc.width, ParseDimension(item.props.minWidth, innerAvailW, 0.0f, scale));
@@ -493,9 +495,9 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
     const float naturalH = maxExtentY + padT + padB;
     float resolvedH = naturalH;
     if (forcedHeight > 0.0f) {
-        resolvedH = forcedHeight;
+        resolvedH = std::max(forcedHeight, naturalH);
     } else if (!style.height.empty() && style.height != "auto") {
-        resolvedH = ParseDimension(style.height, containerWidth, naturalH, scale);
+        resolvedH = std::max(ParseDimension(style.height, containerWidth, naturalH, scale), naturalH);
     }
     if (style.minHeight > 0.0f) {
         resolvedH = std::max(resolvedH, style.minHeight * scale);

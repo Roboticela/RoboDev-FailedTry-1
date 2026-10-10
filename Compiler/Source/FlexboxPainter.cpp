@@ -276,7 +276,8 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             child.baseWidth = ParseDimension(item.props.width, innerW, child.baseWidth, scale);
         }
         if (hasExplicitHeight) {
-            child.baseHeight = ParseDimension(item.props.height, 0.0f, child.baseHeight, scale);
+            const float specifiedH = ParseDimension(item.props.height, 0.0f, child.baseHeight, scale);
+            child.baseHeight = std::max(specifiedH, child.baseHeight);
         }
 
         if (!item.props.minWidth.empty()) {
@@ -489,9 +490,9 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
 
     const float naturalContentHeight = resolvedH;
     if (forcedHeight > 0.0f) {
-        resolvedH = forcedHeight;
+        resolvedH = std::max(forcedHeight, naturalContentHeight);
     } else if (!style.height.empty() && style.height != "auto") {
-        resolvedH = ParseDimension(style.height, 0.0f, naturalContentHeight, scale);
+        resolvedH = std::max(ParseDimension(style.height, 0.0f, naturalContentHeight, scale), naturalContentHeight);
     }
     resolvedH = std::max(style.minHeight * scale, std::min(resolvedH, style.maxHeight * scale));
 
