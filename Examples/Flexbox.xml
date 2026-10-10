@@ -50,18 +50,20 @@
     <Button variant="tinted" background="#F3E8FF" color="#7C3AED">Tasks: 18</Button>
   </Flexbox>
 
-  <H2>3. Flex-Grow &amp; Responsive Search Bar</H2>
-  <Paragraph>The Input has flex="1" so it dynamically grows to occupy all remaining width alongside the button:</Paragraph>
+  <H2>3. Flex-Grow Fitted Inside Container (No Overflow)</H2>
+  <Paragraph>The Input has flex="1" and expands to consume all available space between fixed buttons without overflowing or pushing any sibling controls out of the container:</Paragraph>
   <Flexbox direction="row" align="center" gap="12" padding="14" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
-    <Input flex="1" variant="bordered" placeholder="Search components, tokens, or layouts…" />
+    <Button variant="gray">Filter</Button>
+    <Input flex="1" variant="bordered" placeholder="Search components, tokens, or layouts...">Flexbox engine</Input>
     <Button variant="filled">Search</Button>
+    <Button variant="plain">Clear</Button>
   </Flexbox>
 
   <H2>4. Align-Items (Cross-Axis Centering)</H2>
   <Paragraph>Heading, Input field, and Button vertically centered on the cross axis (align="center"):</Paragraph>
   <Flexbox direction="row" align="center" gap="16" padding="16" background="#F2F2F7" cornerRadius="14">
     <H4>Quick Filter:</H4>
-    <Input flex="1" variant="filled" placeholder="Enter keywords…" />
+    <Input flex="1" variant="filled" placeholder="Enter keywords..." />
     <Button variant="filled">Apply</Button>
     <Button variant="gray">Reset</Button>
   </Flexbox>
@@ -83,7 +85,16 @@
     <Button variant="tinted">SEO HTML</Button>
   </Flexbox>
 
-  <H2>6. Nested Flexboxes: Complete Card UI</H2>
+  <H2>6. Flex-Grow with Wrap Content (Responsive Form Grid)</H2>
+  <Paragraph>When wrap="wrap" is combined with flex="1" and minWidth, items wrap onto subsequent lines when space is tight, and then expand to completely fill each line without any overflow:</Paragraph>
+  <Flexbox direction="row" wrap="wrap" gap="12" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1">
+    <Input flex="1" minWidth="150" variant="bordered" placeholder="First Name">Alexander</Input>
+    <Input flex="1" minWidth="150" variant="bordered" placeholder="Last Name">Hamilton</Input>
+    <Input flex="1" minWidth="220" variant="bordered" placeholder="Work Email">alexander@robodev.io</Input>
+    <Button flex="1" minWidth="140" variant="filled">Confirm &amp; Proceed</Button>
+  </Flexbox>
+
+  <H2>7. Nested Flexboxes: Complete Card UI</H2>
   <Paragraph>Vertical column container with nested flexbox rows, rich typography, interactive inputs, and action buttons:</Paragraph>
   <Flexbox direction="column" gap="16" padding="22" background="#FFFFFF" cornerRadius="18" borderColor="#E2E8F0" borderWidth="1">
     <Flexbox direction="row" justify="space-between" align="center">

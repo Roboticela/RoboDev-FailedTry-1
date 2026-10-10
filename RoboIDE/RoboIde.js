@@ -273,7 +273,7 @@ async function LoadXmlFile(filename) {
 async function LoadInitialXml() {
   const urlParams = new URLSearchParams(window.location.search);
   const requested = urlParams.get("example");
-  let filename = "Flebbox.xml";
+  let filename = "Position.xml";
   if (requested) {
     filename = requested.endsWith(".xml") ? requested : `${requested}.xml`;
   }
@@ -288,7 +288,7 @@ async function LoadInitialXml() {
   try {
     return await LoadXmlFile(filename);
   } catch (_) {
-    return await LoadXmlFile("Flebbox.xml");
+    return await LoadXmlFile("Position.xml");
   }
 }
 

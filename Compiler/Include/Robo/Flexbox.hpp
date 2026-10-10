@@ -52,12 +52,16 @@ enum class FlexItemKind {
 
 struct FlexItemProps {
     float flexGrow = 0.0f;
-    float flexShrink = 0.0f;
+    float flexShrink = 1.0f;
     float flexBasis = -1.0f;
     std::string flexBasisString;
     FlexAlign alignSelf = FlexAlign::Auto;
     std::string width;
     std::string height;
+    std::string minWidth;
+    std::string maxWidth;
+    std::string minHeight;
+    std::string maxHeight;
     float marginTop = 0.0f;
     float marginBottom = 0.0f;
     float marginLeft = 0.0f;
@@ -93,7 +97,7 @@ struct FlexboxStyle {
     float rowGap = -1.0f;
     float columnGap = -1.0f;
 
-    std::string width = "100%";
+    std::string width = "auto";
     std::string height = "auto";
     float minWidth = 0.0f;
     float maxWidth = 100000.0f;
@@ -151,9 +155,5 @@ FlexJustify ParseFlexJustify(const std::string& value);
 FlexAlign ParseFlexAlign(const std::string& value);
 FlexWrap ParseFlexWrap(const std::string& value);
 
-std::string FlexDirectionToCss(FlexDirection direction);
-std::string FlexJustifyToCss(FlexJustify justify);
-std::string FlexAlignToCss(FlexAlign align);
-std::string FlexWrapToCss(FlexWrap wrap);
-
 }  // namespace Robo
+

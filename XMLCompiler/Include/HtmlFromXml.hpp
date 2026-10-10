@@ -18,6 +18,8 @@ private:
     std::string BuildButtonHtml(const XmlNode& node) const;
     std::string BuildInputHtml(const XmlNode& node) const;
     std::string BuildFlexboxHtml(const XmlNode& node) const;
+    std::string BuildGridHtml(const XmlNode& node) const;
+    std::string BuildPositionHtml(const XmlNode& node) const;
     std::string StyleFromAttributes(const XmlNode& node, bool isBlock) const;
     int ParseHeadingLevel(const XmlNode& node) const;
 };

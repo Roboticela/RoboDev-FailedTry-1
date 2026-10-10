@@ -20,8 +20,8 @@ Rectangle
 Polygon
 Star
 ✅ - Flexbox
-Grid
-Position
+✅ - Grid
+✅ - Position
 Checkbox
 Radio
 Toggle

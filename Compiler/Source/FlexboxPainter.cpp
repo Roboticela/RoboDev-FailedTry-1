@@ -12,7 +12,7 @@ namespace Robo {
 
 namespace {
 
-float ParseDimension(const std::string& value, float parentSize, float fallback) {
+float ParseDimension(const std::string& value, float parentSize, float fallback, float scale = 1.0f) {
     if (value.empty() || value == "auto") {
         return fallback;
     }
@@ -21,12 +21,12 @@ float ParseDimension(const std::string& value, float parentSize, float fallback)
         return parentSize * (percent / 100.0f);
     }
     if (value.size() > 3 && value.compare(value.size() - 3, 3, "rem") == 0) {
-        return static_cast<float>(std::atof(value.c_str()) * 16.0);
+        return static_cast<float>(std::atof(value.c_str()) * 16.0f) * scale;
     }
     if (value.size() > 2 && value.compare(value.size() - 2, 2, "px") == 0) {
-        return static_cast<float>(std::atof(value.c_str()));
+        return static_cast<float>(std::atof(value.c_str())) * scale;
     }
-    return static_cast<float>(std::atof(value.c_str()));
+    return static_cast<float>(std::atof(value.c_str())) * scale;
 }
 
 void FillRoundedRect(FrameBuffer& buffer,
@@ -202,7 +202,7 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
     if (forcedWidth > 0.0f) {
         resolvedW = forcedWidth;
     } else if (!style.width.empty()) {
-        resolvedW = ParseDimension(style.width, containerWidth, containerWidth);
+        resolvedW = ParseDimension(style.width, containerWidth, containerWidth, scale);
     }
     resolvedW = std::max(style.minWidth * scale, std::min(resolvedW, style.maxWidth * scale));
 
@@ -226,14 +226,15 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
         MeasuredFlexChild child;
         child.itemIndex = i;
 
-        float itemAvailableW = innerW;
-        if (!item.props.width.empty()) {
-            itemAvailableW = ParseDimension(item.props.width, innerW, innerW);
-        }
+        const bool hasExplicitWidth = !item.props.width.empty();
+        const bool hasExplicitHeight = !item.props.height.empty();
 
         switch (item.kind) {
             case FlexItemKind::Text: {
-                TextMeasureResult measured = TextPainter::Measure(fonts, item.text, itemAvailableW, scale);
+                const float availW = hasExplicitWidth
+                    ? ParseDimension(item.props.width, innerW, innerW, scale)
+                    : (isRow ? 100000.0f : innerW);
+                TextMeasureResult measured = TextPainter::Measure(fonts, item.text, availW, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
                 break;
@@ -245,15 +246,25 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 break;
             }
             case FlexItemKind::Input: {
-                InputMeasureResult measured = InputPainter::Measure(fonts, item.input, itemAvailableW, scale);
-                child.baseWidth = measured.width;
+                const InputStyle& inputStyle = item.input.GetStyle();
+                float intrinsicWidth = static_cast<float>(inputStyle.minWidth) * scale;
+                if (hasExplicitWidth) {
+                    intrinsicWidth = ParseDimension(item.props.width, innerW, intrinsicWidth, scale);
+                } else if (item.props.flexGrow > 0.0f) {
+                    intrinsicWidth = std::min(intrinsicWidth, 120.0f * scale);
+                }
+                InputMeasureResult measured = InputPainter::Measure(fonts, item.input, intrinsicWidth, scale);
+                child.baseWidth = intrinsicWidth;
                 child.baseHeight = measured.height;
                 break;
             }
             case FlexItemKind::Flexbox: {
                 if (item.flexbox) {
+                    const float availW = hasExplicitWidth
+                        ? ParseDimension(item.props.width, innerW, innerW, scale)
+                        : innerW;
                     FlexboxMeasureResult measured =
-                        FlexboxPainter::Measure(fonts, *item.flexbox, itemAvailableW, scale);
+                        FlexboxPainter::Measure(fonts, *item.flexbox, availW, scale);
                     child.baseWidth = measured.width;
                     child.baseHeight = measured.height;
                 }
@@ -261,11 +272,24 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             }
         }
 
-        if (!item.props.width.empty()) {
-            child.baseWidth = ParseDimension(item.props.width, innerW, child.baseWidth);
+        if (hasExplicitWidth) {
+            child.baseWidth = ParseDimension(item.props.width, innerW, child.baseWidth, scale);
         }
-        if (!item.props.height.empty()) {
-            child.baseHeight = ParseDimension(item.props.height, 0.0f, child.baseHeight);
+        if (hasExplicitHeight) {
+            child.baseHeight = ParseDimension(item.props.height, 0.0f, child.baseHeight, scale);
+        }
+
+        if (!item.props.minWidth.empty()) {
+            child.baseWidth = std::max(child.baseWidth, ParseDimension(item.props.minWidth, innerW, 0.0f, scale));
+        }
+        if (!item.props.maxWidth.empty()) {
+            child.baseWidth = std::min(child.baseWidth, ParseDimension(item.props.maxWidth, innerW, 100000.0f, scale));
+        }
+        if (!item.props.minHeight.empty()) {
+            child.baseHeight = std::max(child.baseHeight, ParseDimension(item.props.minHeight, 0.0f, 0.0f, scale));
+        }
+        if (!item.props.maxHeight.empty()) {
+            child.baseHeight = std::min(child.baseHeight, ParseDimension(item.props.maxHeight, 0.0f, 100000.0f, scale));
         }
 
         if (isRow) {
@@ -274,7 +298,7 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             if (item.props.flexBasis >= 0.0f) {
                 child.baseMain = item.props.flexBasis * scale;
             } else if (!item.props.flexBasisString.empty()) {
-                child.baseMain = ParseDimension(item.props.flexBasisString, innerW, child.baseMain);
+                child.baseMain = ParseDimension(item.props.flexBasisString, innerW, child.baseMain, scale);
             }
         } else {
             child.baseMain = child.baseHeight;
@@ -282,7 +306,7 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             if (item.props.flexBasis >= 0.0f) {
                 child.baseMain = item.props.flexBasis * scale;
             } else if (!item.props.flexBasisString.empty()) {
-                child.baseMain = ParseDimension(item.props.flexBasisString, 0.0f, child.baseMain);
+                child.baseMain = ParseDimension(item.props.flexBasisString, 0.0f, child.baseMain, scale);
             }
         }
 
@@ -342,33 +366,53 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             for (MeasuredFlexChild& child : line.children) {
                 const FlexItemProps& props = items[child.itemIndex].props;
                 if (props.flexGrow > 0.0f) {
-                    child.allocatedMain = child.baseMain + freeMain * (props.flexGrow / totalGrow);
+                    const float growAmount = freeMain * (props.flexGrow / totalGrow);
+                    child.allocatedMain = child.baseMain + growAmount;
+                    if (!props.maxWidth.empty()) {
+                        const float maxW = ParseDimension(props.maxWidth, innerW, 100000.0f, scale);
+                        child.allocatedMain = std::min(child.allocatedMain, maxW);
+                    }
                 }
             }
-            freeMain = 0.0f;
         } else if (freeMain < 0.0f && totalShrink > 0.0f) {
             for (MeasuredFlexChild& child : line.children) {
                 const FlexItemProps& props = items[child.itemIndex].props;
                 if (props.flexShrink > 0.0f) {
                     const float shrinkAmount =
                         (-freeMain) * (props.flexShrink * child.baseMain / totalShrink);
-                    child.allocatedMain = std::max(10.0f * scale, child.baseMain - shrinkAmount);
+                    float minLimit = 20.0f * scale;
+                    if (!props.minWidth.empty()) {
+                        minLimit = ParseDimension(props.minWidth, innerW, minLimit, scale);
+                    }
+                    child.allocatedMain = std::max(minLimit, child.baseMain - shrinkAmount);
                 }
             }
-            freeMain = 0.0f;
         }
 
         float maxCross = 0.0f;
         for (MeasuredFlexChild& child : line.children) {
             maxCross = std::max(maxCross, child.baseCross);
         }
-        line.lineCrossSize = maxCross;
+        if (!isRow && style.wrap == FlexWrap::NoWrap) {
+            line.lineCrossSize = innerW;
+        } else {
+            line.lineCrossSize = maxCross;
+        }
 
         for (MeasuredFlexChild& child : line.children) {
             const FlexItemProps& props = items[child.itemIndex].props;
             FlexAlign align = props.alignSelf != FlexAlign::Auto ? props.alignSelf : style.align;
             if (align == FlexAlign::Stretch) {
-                child.allocatedCross = line.lineCrossSize;
+                if (items[child.itemIndex].kind == FlexItemKind::Button &&
+                    props.alignSelf != FlexAlign::Stretch &&
+                    props.width.empty()) {
+                    child.allocatedCross = child.baseCross;
+                } else {
+                    child.allocatedCross = line.lineCrossSize;
+                }
+            }
+            if (!isRow) {
+                child.allocatedCross = std::min(child.allocatedCross, innerW);
             }
         }
     }
@@ -385,15 +429,73 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
         totalLinesCross += lines[lineIdx].lineCrossSize;
     }
 
-    float resolvedH = padT + padB + totalLinesCross;
+    float maxLineW = 0.0f;
+    for (const FlexLine& line : lines) {
+        float lineW = 0.0f;
+        for (std::size_t c = 0; c < line.children.size(); ++c) {
+            if (c > 0) lineW += mainGap;
+            lineW += line.children[c].allocatedMain;
+        }
+        maxLineW = std::max(maxLineW, lineW);
+    }
+    const float naturalContentWidth = isRow ? (padL + padR + maxLineW) : (padL + padR + totalLinesCross);
+
+    if (forcedWidth > 0.0f) {
+        resolvedW = forcedWidth;
+    } else if (!style.width.empty() && style.width != "auto") {
+        resolvedW = ParseDimension(style.width, containerWidth, naturalContentWidth, scale);
+    } else {
+        resolvedW = std::min(containerWidth, naturalContentWidth);
+    }
+    resolvedW = std::max(style.minWidth * scale, std::min(resolvedW, style.maxWidth * scale));
+
+    const float finalInnerW = std::max(0.0f, resolvedW - padL - padR);
+
+    if (!isRow && style.wrap == FlexWrap::NoWrap) {
+        for (FlexLine& line : lines) {
+            line.lineCrossSize = finalInnerW;
+            for (MeasuredFlexChild& child : line.children) {
+                const FlexItemProps& props = items[child.itemIndex].props;
+                FlexAlign align = props.alignSelf != FlexAlign::Auto ? props.alignSelf : style.align;
+                if (align == FlexAlign::Stretch) {
+                    if (items[child.itemIndex].kind == FlexItemKind::Button &&
+                        props.alignSelf != FlexAlign::Stretch &&
+                        props.width.empty()) {
+                        child.allocatedCross = child.baseCross;
+                    } else {
+                        child.allocatedCross = finalInnerW;
+                    }
+                }
+                child.allocatedCross = std::min(child.allocatedCross, finalInnerW);
+            }
+        }
+    }
+
+    float resolvedH = padT + padB + (isRow ? totalLinesCross : 0.0f);
+    if (!isRow) {
+        float maxColH = 0.0f;
+        for (const FlexLine& line : lines) {
+            float colH = 0.0f;
+            for (std::size_t c = 0; c < line.children.size(); ++c) {
+                if (c > 0) {
+                    colH += mainGap;
+                }
+                colH += line.children[c].allocatedMain;
+            }
+            maxColH = std::max(maxColH, colH);
+        }
+        resolvedH = padT + padB + maxColH;
+    }
+
+    const float naturalContentHeight = resolvedH;
     if (forcedHeight > 0.0f) {
         resolvedH = forcedHeight;
     } else if (!style.height.empty() && style.height != "auto") {
-        resolvedH = ParseDimension(style.height, 0.0f, resolvedH);
+        resolvedH = ParseDimension(style.height, 0.0f, naturalContentHeight, scale);
     }
     resolvedH = std::max(style.minHeight * scale, std::min(resolvedH, style.maxHeight * scale));
 
-    float currentCrossOffset = padT;
+    float currentCrossOffset = isRow ? padT : padL;
 
     for (FlexLine& line : lines) {
         float sumAllocatedMain = 0.0f;
@@ -403,12 +505,13 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
 
         const std::size_t childCount = line.children.size();
         const float totalGaps = childCount > 1 ? static_cast<float>(childCount - 1) * mainGap : 0.0f;
-        const float remainingMain = std::max(0.0f, (isRow ? innerW : sumAllocatedMain) - sumAllocatedMain - totalGaps);
+        const float mainCapacity = isRow ? innerW : std::max(0.0f, resolvedH - padT - padB);
+        const float remainingMain = std::max(0.0f, mainCapacity - sumAllocatedMain - totalGaps);
 
-        float mainCursor = padL;
+        float mainCursor = isRow ? padL : padT;
         float actualGap = mainGap;
 
-        if (isRow && remainingMain > 0.0f) {
+        if (remainingMain > 0.0f) {
             switch (style.justify) {
                 case FlexJustify::Center:
                     mainCursor += remainingMain * 0.5f;
@@ -480,6 +583,7 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
     layout.containerHeight = resolvedH;
     layout.lines = std::move(lines);
     return layout;
+
 }
 
 }  // namespace
@@ -582,6 +686,8 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                 }
                 case FlexItemKind::Flexbox: {
                     if (item.flexbox) {
+                        const float fw = (!item.props.width.empty() && item.props.width != "auto") ? childW : -1.0f;
+                        const float fh = (!item.props.height.empty() && item.props.height != "auto") ? childH : -1.0f;
                         FlexboxPainter::Paint(buffer,
                                               fonts,
                                               *item.flexbox,
@@ -589,8 +695,8 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                                               childY,
                                               childW,
                                               scale,
-                                              childW,
-                                              childH);
+                                              fw,
+                                              fh);
                     }
                     break;
                 }

@@ -4,8 +4,10 @@
 #include "Flexbox.hpp"
 #include "FontEngine.hpp"
 #include "FrameBuffer.hpp"
+#include "Grid.hpp"
 #include "IPlatform.hpp"
 #include "Input.hpp"
+#include "Position.hpp"
 #include "Text.hpp"
 
 #include <string>
@@ -17,7 +19,9 @@ enum class SceneItemKind {
     Text,
     Button,
     Input,
-    Flexbox
+    Flexbox,
+    Grid,
+    Position
 };
 
 enum class HitKind {
@@ -32,6 +36,8 @@ struct SceneItem {
     Button button;
     Input input;
     Flexbox flexbox;
+    Grid grid;
+    Position position;
 };
 
 class RoboScene {
@@ -41,6 +47,8 @@ public:
     void AddButton(Button button);
     void AddInput(Input input);
     void AddFlexbox(Flexbox flexbox);
+    void AddGrid(Grid grid);
+    void AddPosition(Position position);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     bool PointerMove(float x, float y);

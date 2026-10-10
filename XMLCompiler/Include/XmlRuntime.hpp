@@ -4,6 +4,7 @@
 #include "Robo/Button.hpp"
 #include "Robo/Flexbox.hpp"
 #include "Robo/FontEngine.hpp"
+#include "Robo/Grid.hpp"
 #include "Robo/Heading.hpp"
 #include "Robo/IPlatform.hpp"
 #include "Robo/Input.hpp"
@@ -44,6 +45,8 @@ private:
     Button BuildButton(const XmlNode& node);
     Input BuildInput(const XmlNode& node);
     Flexbox BuildFlexbox(const XmlNode& node);
+    Grid BuildGrid(const XmlNode& node);
+    Position BuildPosition(const XmlNode& node);
 
     void FillTextContent(Text& text, const XmlNode& node, TextStyle style);
     void ApplyTextAttributes(const XmlNode& node, TextStyle& style) const;
@@ -51,6 +54,10 @@ private:
     void ApplyInputAttributes(const XmlNode& node, InputStyle& style) const;
     void ApplyFlexboxAttributes(const XmlNode& node, FlexboxStyle& style) const;
     void ApplyFlexItemAttributes(const XmlNode& node, FlexItemProps& props) const;
+    void ApplyGridAttributes(const XmlNode& node, GridStyle& style) const;
+    void ApplyGridItemAttributes(const XmlNode& node, GridItemProps& props) const;
+    void ApplyPositionAttributes(const XmlNode& node, PositionStyle& style) const;
+    void ApplyPositionItemAttributes(const XmlNode& node, PositionItemProps& props) const;
     void ApplyRunAttributes(const XmlNode& node, TextRun& run) const;
     void CollectRuns(const XmlNode& node, const TextStyle& baseStyle, std::vector<TextRun>& runs);
     std::string CollectPlainText(const XmlNode& node) const;

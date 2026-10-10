@@ -23,6 +23,18 @@ bool GetAttribute(const XmlNode& node, const std::string& key, std::string& valu
     return true;
 }
 
+std::string FormatDimensionCss(const std::string& value) {
+    if (value.empty() || value == "auto") {
+        return "auto";
+    }
+    if (value.find('%') != std::string::npos || value.find("px") != std::string::npos ||
+        value.find("rem") != std::string::npos || value.find("em") != std::string::npos ||
+        value.find("vw") != std::string::npos || value.find("vh") != std::string::npos) {
+        return value;
+    }
+    return value + "px";
+}
+
 }  // namespace
 
 std::string HtmlFromXml::EscapeHtml(const std::string& value) const {
@@ -373,6 +385,14 @@ std::string HtmlFromXml::ConvertNode(const XmlNode& node) const {
         return BuildFlexboxHtml(node);
     }
 
+    if (node.name == "Grid" || node.name == "grid") {
+        return BuildGridHtml(node);
+    }
+
+    if (node.name == "Position" || node.name == "position" || node.name == "Positioned" || node.name == "positioned") {
+        return BuildPositionHtml(node);
+    }
+
     return "";
 }
 
@@ -440,16 +460,22 @@ std::string HtmlFromXml::BuildFlexboxHtml(const XmlNode& node) const {
         style << "row-gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
     }
     if (GetAttribute(node, "width", value)) {
-        style << "width:" << value << (value.find('%') == std::string::npos && value.find("px") == std::string::npos ? "px;" : ";");
+        style << "width:" << FormatDimensionCss(value) << ";";
     }
     if (GetAttribute(node, "height", value)) {
-        style << "height:" << value << (value.find('%') == std::string::npos && value.find("px") == std::string::npos ? "px;" : ";");
+        style << "height:" << FormatDimensionCss(value) << ";";
     }
     if (GetAttribute(node, "minWidth", value)) {
-        style << "min-width:" << value << "px;";
+        style << "min-width:" << FormatDimensionCss(value) << ";";
     }
     if (GetAttribute(node, "maxWidth", value)) {
-        style << "max-width:" << value << "px;";
+        style << "max-width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        style << "min-height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        style << "max-height:" << FormatDimensionCss(value) << ";";
     }
     if (GetAttribute(node, "padding", value)) {
         style << "padding:" << value << "px;";
@@ -492,11 +518,19 @@ std::string HtmlFromXml::BuildFlexboxHtml(const XmlNode& node) const {
         std::string alignSelf;
         std::string childWidth;
         std::string childHeight;
+        std::string childMinWidth;
+        std::string childMaxWidth;
+        std::string childMinHeight;
+        std::string childMaxHeight;
         const bool hasFlex = GetAttribute(child, "flex", flex) || GetAttribute(child, "flexGrow", flex);
         const bool hasAlign = GetAttribute(child, "alignSelf", alignSelf);
         const bool hasW = GetAttribute(child, "width", childWidth);
         const bool hasH = GetAttribute(child, "height", childHeight);
-        if (hasFlex || hasAlign || hasW || hasH) {
+        const bool hasMinW = GetAttribute(child, "minWidth", childMinWidth);
+        const bool hasMaxW = GetAttribute(child, "maxWidth", childMaxWidth);
+        const bool hasMinH = GetAttribute(child, "minHeight", childMinHeight);
+        const bool hasMaxH = GetAttribute(child, "maxHeight", childMaxHeight);
+        if (hasFlex || hasAlign || hasW || hasH || hasMinW || hasMaxW || hasMinH || hasMaxH) {
             std::ostringstream wrapStyle;
             wrapStyle << "box-sizing:border-box;";
             if (hasFlex) {
@@ -506,16 +540,314 @@ std::string HtmlFromXml::BuildFlexboxHtml(const XmlNode& node) const {
                 wrapStyle << "align-self:" << alignSelf << ";";
             }
             if (hasW) {
-                wrapStyle << "width:" << childWidth << ";";
+                wrapStyle << "width:" << FormatDimensionCss(childWidth) << ";";
             }
             if (hasH) {
-                wrapStyle << "height:" << childHeight << ";";
+                wrapStyle << "height:" << FormatDimensionCss(childHeight) << ";";
+            }
+            if (hasMinW) {
+                wrapStyle << "min-width:" << FormatDimensionCss(childMinWidth) << ";";
+            }
+            if (hasMaxW) {
+                wrapStyle << "max-width:" << FormatDimensionCss(childMaxWidth) << ";";
+            }
+            if (hasMinH) {
+                wrapStyle << "min-height:" << FormatDimensionCss(childMinHeight) << ";";
+            }
+            if (hasMaxH) {
+                wrapStyle << "max-height:" << FormatDimensionCss(childMaxHeight) << ";";
             }
             html << "<div style=\"" << wrapStyle.str() << "\">" << ConvertNode(child) << "</div>";
         } else {
             html << ConvertNode(child);
         }
     }
+    html << "</div>";
+    return html.str();
+}
+
+std::string HtmlFromXml::BuildGridHtml(const XmlNode& node) const {
+    std::ostringstream style;
+    style << "display:grid;box-sizing:border-box;";
+
+    std::string value;
+    if (GetAttribute(node, "columns", value) || GetAttribute(node, "templateColumns", value) ||
+        GetAttribute(node, "gridTemplateColumns", value)) {
+        bool isNumber = true;
+        for (char c : value) {
+            if (!std::isdigit(static_cast<unsigned char>(c))) {
+                isNumber = false;
+                break;
+            }
+        }
+        if (isNumber && !value.empty()) {
+            style << "grid-template-columns:repeat(" << value << ", 1fr);";
+        } else {
+            style << "grid-template-columns:" << value << ";";
+        }
+    } else if (GetAttribute(node, "columnCount", value)) {
+        style << "grid-template-columns:repeat(" << value << ", 1fr);";
+    }
+
+    if (GetAttribute(node, "rows", value) || GetAttribute(node, "templateRows", value) ||
+        GetAttribute(node, "gridTemplateRows", value)) {
+        style << "grid-template-rows:" << value << ";";
+    }
+
+    if (GetAttribute(node, "gap", value)) {
+        style << "gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "gapX", value) || GetAttribute(node, "columnGap", value)) {
+        style << "column-gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "gapY", value) || GetAttribute(node, "rowGap", value)) {
+        style << "row-gap:" << value << (value.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "autoFlow", value)) {
+        style << "grid-auto-flow:" << value << ";";
+    }
+    if (GetAttribute(node, "justifyItems", value) || GetAttribute(node, "justify", value)) {
+        style << "justify-items:" << value << ";";
+    }
+    if (GetAttribute(node, "alignItems", value) || GetAttribute(node, "align", value)) {
+        style << "align-items:" << value << ";";
+    }
+    if (GetAttribute(node, "width", value)) {
+        style << "width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "height", value)) {
+        style << "height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style << "min-width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        style << "max-width:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        style << "min-height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        style << "max-height:" << FormatDimensionCss(value) << ";";
+    }
+    if (GetAttribute(node, "padding", value)) {
+        style << "padding:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        style << "padding-left:" << value << "px;padding-right:" << value << "px;";
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        style << "padding-top:" << value << "px;padding-bottom:" << value << "px;";
+    }
+    if (GetAttribute(node, "margin", value)) {
+        style << "margin:" << value << "px;";
+    } else {
+        style << "margin:0 0 16px 0;";
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style << "background:" << Color::FromHex(value).ToCss() << ";";
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style << "border:1px solid " << Color::FromHex(value).ToCss() << ";";
+    }
+    if (GetAttribute(node, "borderWidth", value)) {
+        style << "border-width:" << value << "px;";
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "borderRadius", value)) {
+        style << "border-radius:" << value << "px;";
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style << "opacity:" << value << ";";
+    }
+
+    std::ostringstream html;
+    html << "<div style=\"" << style.str() << "\">";
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            html << EscapeHtml(child.text);
+            continue;
+        }
+
+        std::string col;
+        std::string row;
+        std::string colSpan;
+        std::string rowSpan;
+        std::string justifySelf;
+        std::string alignSelf;
+        std::string childWidth;
+        std::string childHeight;
+        std::string childMinWidth;
+        std::string childMaxWidth;
+        std::string childMinHeight;
+        std::string childMaxHeight;
+        const bool hasCol = GetAttribute(child, "column", col) || GetAttribute(child, "gridColumn", col) || GetAttribute(child, "col", col);
+        const bool hasRow = GetAttribute(child, "row", row) || GetAttribute(child, "gridRow", row);
+        const bool hasColSpan = GetAttribute(child, "columnSpan", colSpan) || GetAttribute(child, "colSpan", colSpan);
+        const bool hasRowSpan = GetAttribute(child, "rowSpan", rowSpan);
+        const bool hasJustify = GetAttribute(child, "justifySelf", justifySelf);
+        const bool hasAlign = GetAttribute(child, "alignSelf", alignSelf);
+        const bool hasW = GetAttribute(child, "width", childWidth);
+        const bool hasH = GetAttribute(child, "height", childHeight);
+        const bool hasMinW = GetAttribute(child, "minWidth", childMinWidth);
+        const bool hasMaxW = GetAttribute(child, "maxWidth", childMaxWidth);
+        const bool hasMinH = GetAttribute(child, "minHeight", childMinHeight);
+        const bool hasMaxH = GetAttribute(child, "maxHeight", childMaxHeight);
+
+        if (hasCol || hasRow || hasColSpan || hasRowSpan || hasJustify || hasAlign || hasW || hasH || hasMinW || hasMaxW || hasMinH || hasMaxH) {
+            std::ostringstream itemStyle;
+            itemStyle << "box-sizing:border-box;";
+            if (hasColSpan && hasCol) {
+                itemStyle << "grid-column:" << col << " / span " << colSpan << ";";
+            } else if (hasColSpan) {
+                itemStyle << "grid-column:span " << colSpan << ";";
+            } else if (hasCol) {
+                itemStyle << "grid-column:" << col << ";";
+            }
+
+            if (hasRowSpan && hasRow) {
+                itemStyle << "grid-row:" << row << " / span " << rowSpan << ";";
+            } else if (hasRowSpan) {
+                itemStyle << "grid-row:span " << rowSpan << ";";
+            } else if (hasRow) {
+                itemStyle << "grid-row:" << row << ";";
+            }
+
+            if (hasJustify) {
+                itemStyle << "justify-self:" << justifySelf << ";";
+            }
+            if (hasAlign) {
+                itemStyle << "align-self:" << alignSelf << ";";
+            }
+            if (hasW) {
+                itemStyle << "width:" << FormatDimensionCss(childWidth) << ";";
+            }
+            if (hasH) {
+                itemStyle << "height:" << FormatDimensionCss(childHeight) << ";";
+            }
+            if (hasMinW) {
+                itemStyle << "min-width:" << FormatDimensionCss(childMinWidth) << ";";
+            }
+            if (hasMaxW) {
+                itemStyle << "max-width:" << FormatDimensionCss(childMaxWidth) << ";";
+            }
+            if (hasMinH) {
+                itemStyle << "min-height:" << FormatDimensionCss(childMinHeight) << ";";
+            }
+            if (hasMaxH) {
+                itemStyle << "max-height:" << FormatDimensionCss(childMaxHeight) << ";";
+            }
+            html << "<div style=\"" << itemStyle.str() << "\">" << ConvertNode(child) << "</div>";
+        } else {
+            html << ConvertNode(child);
+        }
+    }
+    html << "</div>";
+    return html.str();
+}
+
+std::string HtmlFromXml::BuildPositionHtml(const XmlNode& node) const {
+    std::ostringstream style;
+    std::string mode = "relative";
+    std::string attr;
+    if (GetAttribute(node, "mode", attr) || GetAttribute(node, "position", attr)) {
+        mode = attr;
+    }
+    style << "position:" << mode << ";box-sizing:border-box;";
+
+    if (GetAttribute(node, "left", attr) || GetAttribute(node, "x", attr)) {
+        style << "left:" << attr << (attr.find('%') == std::string::npos && attr.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "top", attr) || GetAttribute(node, "y", attr)) {
+        style << "top:" << attr << (attr.find('%') == std::string::npos && attr.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "right", attr)) {
+        style << "right:" << attr << (attr.find('%') == std::string::npos && attr.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "bottom", attr)) {
+        style << "bottom:" << attr << (attr.find('%') == std::string::npos && attr.find("px") == std::string::npos ? "px;" : ";");
+    }
+    if (GetAttribute(node, "width", attr)) {
+        style << "width:" << FormatDimensionCss(attr) << ";";
+    }
+    if (GetAttribute(node, "height", attr)) {
+        style << "height:" << FormatDimensionCss(attr) << ";";
+    }
+    if (GetAttribute(node, "minWidth", attr)) {
+        style << "min-width:" << FormatDimensionCss(attr) << ";";
+    }
+    if (GetAttribute(node, "maxWidth", attr)) {
+        style << "max-width:" << FormatDimensionCss(attr) << ";";
+    }
+    if (GetAttribute(node, "minHeight", attr)) {
+        style << "min-height:" << FormatDimensionCss(attr) << ";";
+    }
+    if (GetAttribute(node, "maxHeight", attr)) {
+        style << "max-height:" << FormatDimensionCss(attr) << ";";
+    }
+    if (GetAttribute(node, "zIndex", attr)) {
+        style << "z-index:" << attr << ";";
+    }
+    if (GetAttribute(node, "padding", attr)) {
+        style << "padding:" << attr << "px;";
+    }
+    if (GetAttribute(node, "background", attr) || GetAttribute(node, "backgroundColor", attr)) {
+        style << "background:" << attr << ";";
+    }
+    if (GetAttribute(node, "borderColor", attr)) {
+        style << "border:" << (GetAttribute(node, "borderWidth", attr) ? attr : "1") << "px solid " << attr << ";";
+    }
+    if (GetAttribute(node, "cornerRadius", attr) || GetAttribute(node, "borderRadius", attr)) {
+        style << "border-radius:" << attr << "px;";
+    }
+
+    std::ostringstream html;
+    html << "<div style=\"" << style.str() << "\">";
+
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            html << EscapeHtml(child.text);
+            continue;
+        }
+
+        std::ostringstream itemStyle;
+        itemStyle << "position:absolute;box-sizing:border-box;";
+        if (GetAttribute(child, "left", attr) || GetAttribute(child, "x", attr)) {
+            itemStyle << "left:" << (attr.find('%') != std::string::npos || attr.find("px") != std::string::npos ? attr : attr + "px") << ";";
+        }
+        if (GetAttribute(child, "top", attr) || GetAttribute(child, "y", attr)) {
+            itemStyle << "top:" << (attr.find('%') != std::string::npos || attr.find("px") != std::string::npos ? attr : attr + "px") << ";";
+        }
+        if (GetAttribute(child, "right", attr)) {
+            itemStyle << "right:" << (attr.find('%') != std::string::npos || attr.find("px") != std::string::npos ? attr : attr + "px") << ";";
+        }
+        if (GetAttribute(child, "bottom", attr)) {
+            itemStyle << "bottom:" << (attr.find('%') != std::string::npos || attr.find("px") != std::string::npos ? attr : attr + "px") << ";";
+        }
+        if (GetAttribute(child, "zIndex", attr)) {
+            itemStyle << "z-index:" << attr << ";";
+        }
+        if (GetAttribute(child, "width", attr)) {
+            itemStyle << "width:" << FormatDimensionCss(attr) << ";";
+        }
+        if (GetAttribute(child, "height", attr)) {
+            itemStyle << "height:" << FormatDimensionCss(attr) << ";";
+        }
+        if (GetAttribute(child, "minWidth", attr)) {
+            itemStyle << "min-width:" << FormatDimensionCss(attr) << ";";
+        }
+        if (GetAttribute(child, "maxWidth", attr)) {
+            itemStyle << "max-width:" << FormatDimensionCss(attr) << ";";
+        }
+        if (GetAttribute(child, "minHeight", attr)) {
+            itemStyle << "min-height:" << FormatDimensionCss(attr) << ";";
+        }
+        if (GetAttribute(child, "maxHeight", attr)) {
+            itemStyle << "max-height:" << FormatDimensionCss(attr) << ";";
+        }
+
+        html << "<div style=\"" << itemStyle.str() << "\">" << ConvertNode(child) << "</div>";
+    }
+
     html << "</div>";
     return html.str();
 }

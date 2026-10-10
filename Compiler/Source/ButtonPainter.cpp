@@ -173,7 +173,11 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
 
     float textX = buttonX + paddingX;
     if (buttonWidth > naturalWidth) {
-        textX = buttonX + (buttonWidth - textWidth) * 0.5f;
+        if (style.align == TextAlign::Center || style.variant != ButtonVariant::Plain) {
+            textX = buttonX + (buttonWidth - textWidth) * 0.5f;
+        } else if (style.align == TextAlign::Right) {
+            textX = buttonX + buttonWidth - paddingX - textWidth;
+        }
     }
     float baseline = buttonY + paddingY + ascent + pressOffset;
     if (buttonHeight > naturalHeight) {

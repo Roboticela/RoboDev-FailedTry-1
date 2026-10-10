@@ -527,6 +527,18 @@ void XmlRuntime::ApplyFlexItemAttributes(const XmlNode& node, FlexItemProps& pro
     if (GetAttribute(node, "height", value)) {
         props.height = value;
     }
+    if (GetAttribute(node, "minWidth", value)) {
+        props.minWidth = value;
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        props.maxWidth = value;
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        props.minHeight = value;
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        props.maxHeight = value;
+    }
     if (GetAttribute(node, "margin", value)) {
         const float m = static_cast<float>(ParseDouble(value, 0.0));
         props.marginTop = m;
@@ -595,10 +607,402 @@ Flexbox XmlRuntime::BuildFlexbox(const XmlNode& node) {
             flexbox.AddInput(BuildInput(child), props);
         } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
             flexbox.AddFlexbox(BuildFlexbox(child), props);
+        } else if (child.name == "Grid" || child.name == "grid") {
+            // Child grid inside flexbox
+            Grid g = BuildGrid(child);
+            // Flexbox wraps it as a flex child
         }
     }
 
     return flexbox;
+}
+
+void XmlRuntime::ApplyGridAttributes(const XmlNode& node, GridStyle& style) const {
+    std::string value;
+    if (GetAttribute(node, "columns", value) || GetAttribute(node, "templateColumns", value) ||
+        GetAttribute(node, "gridTemplateColumns", value)) {
+        style.columnsString = value;
+        style.templateColumns = ParseGridTracks(value);
+    }
+    if (GetAttribute(node, "rows", value) || GetAttribute(node, "templateRows", value) ||
+        GetAttribute(node, "gridTemplateRows", value)) {
+        style.rowsString = value;
+        style.templateRows = ParseGridTracks(value);
+    }
+    if (GetAttribute(node, "columnCount", value)) {
+        style.columnCount = static_cast<int>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "rowCount", value)) {
+        style.rowCount = static_cast<int>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "gap", value)) {
+        style.gap = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "gapX", value) || GetAttribute(node, "columnGap", value)) {
+        style.columnGap = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "gapY", value) || GetAttribute(node, "rowGap", value)) {
+        style.rowGap = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "autoFlow", value)) {
+        style.autoFlow = ParseGridAutoFlow(value);
+    }
+    if (GetAttribute(node, "justifyItems", value) || GetAttribute(node, "justify", value)) {
+        style.justifyItems = ParseGridAlignment(value);
+    }
+    if (GetAttribute(node, "alignItems", value) || GetAttribute(node, "align", value)) {
+        style.alignItems = ParseGridAlignment(value);
+    }
+    if (GetAttribute(node, "justifyContent", value)) {
+        style.justifyContent = ParseGridJustifyContent(value);
+    }
+    if (GetAttribute(node, "width", value)) {
+        style.width = value;
+    }
+    if (GetAttribute(node, "height", value)) {
+        style.height = value;
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style.minWidth = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        style.maxWidth = static_cast<float>(ParseDouble(value, 100000.0));
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        style.minHeight = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        style.maxHeight = static_cast<float>(ParseDouble(value, 100000.0));
+    }
+    if (GetAttribute(node, "padding", value)) {
+        const float p = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingTop = p;
+        style.paddingBottom = p;
+        style.paddingLeft = p;
+        style.paddingRight = p;
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        const float px = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingLeft = px;
+        style.paddingRight = px;
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        const float py = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingTop = py;
+        style.paddingBottom = py;
+    }
+    if (GetAttribute(node, "margin", value)) {
+        const float m = static_cast<float>(ParseDouble(value, 0.0));
+        style.marginTop = m;
+        style.marginBottom = m;
+        style.marginLeft = m;
+        style.marginRight = m;
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style.backgroundColor = Color::FromHex(value);
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style.borderColor = Color::FromHex(value);
+    }
+    if (GetAttribute(node, "borderWidth", value)) {
+        style.borderWidth = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "borderRadius", value)) {
+        style.cornerRadius = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style.opacity = static_cast<float>(ParseDouble(value, 1.0));
+    }
+}
+
+void XmlRuntime::ApplyGridItemAttributes(const XmlNode& node, GridItemProps& props) const {
+    std::string value;
+    if (GetAttribute(node, "column", value) || GetAttribute(node, "gridColumn", value) || GetAttribute(node, "col", value)) {
+        props.column = static_cast<int>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "row", value) || GetAttribute(node, "gridRow", value)) {
+        props.row = static_cast<int>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "columnSpan", value) || GetAttribute(node, "colSpan", value)) {
+        props.columnSpan = static_cast<int>(ParseDouble(value, 1.0));
+    }
+    if (GetAttribute(node, "rowSpan", value)) {
+        props.rowSpan = static_cast<int>(ParseDouble(value, 1.0));
+    }
+    if (GetAttribute(node, "justifySelf", value)) {
+        props.justifySelf = ParseGridAlignment(value);
+    }
+    if (GetAttribute(node, "alignSelf", value)) {
+        props.alignSelf = ParseGridAlignment(value);
+    }
+    if (GetAttribute(node, "width", value)) {
+        props.width = value;
+    }
+    if (GetAttribute(node, "height", value)) {
+        props.height = value;
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        props.minWidth = value;
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        props.maxWidth = value;
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        props.minHeight = value;
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        props.maxHeight = value;
+    }
+    if (GetAttribute(node, "margin", value)) {
+        const float m = static_cast<float>(ParseDouble(value, 0.0));
+        props.marginTop = m;
+        props.marginBottom = m;
+        props.marginLeft = m;
+        props.marginRight = m;
+    }
+}
+
+Grid XmlRuntime::BuildGrid(const XmlNode& node) {
+    Grid grid;
+    GridStyle style;
+    ApplyGridAttributes(node, style);
+    grid.SetStyle(style);
+
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            std::string content = child.text;
+            bool hasContent = false;
+            for (char c : content) {
+                if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                    hasContent = true;
+                    break;
+                }
+            }
+            if (hasContent) {
+                Text text;
+                TextStyle ts;
+                ts.color = Color::FromHex("#1C1C1E");
+                text.SetStyle(ts);
+                text.AddPlain(content);
+                grid.AddText(std::move(text));
+            }
+            continue;
+        }
+
+        GridItemProps props;
+        ApplyGridItemAttributes(child, props);
+
+        if (child.name == "Text") {
+            grid.AddText(BuildText(child), props);
+        } else if (child.name == "Heading" || child.name == "heading" ||
+                   (child.name.size() == 2 && (child.name[0] == 'H' || child.name[0] == 'h') && child.name[1] >= '1' &&
+                    child.name[1] <= '6') ||
+                   (child.name.size() == 8 &&
+                    (child.name.compare(0, 7, "Heading") == 0 || child.name.compare(0, 7, "heading") == 0) &&
+                    child.name[7] >= '1' && child.name[7] <= '6')) {
+            grid.AddText(BuildHeading(child, ParseHeadingLevel(child)), props);
+        } else if (child.name == "Paragraph" || child.name == "paragraph" || child.name == "P" || child.name == "p") {
+            grid.AddText(BuildParagraph(child), props);
+        } else if (child.name == "Button") {
+            grid.AddButton(BuildButton(child), props);
+        } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
+            grid.AddInput(BuildInput(child), props);
+        } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
+            grid.AddFlexbox(BuildFlexbox(child), props);
+        } else if (child.name == "Grid" || child.name == "grid") {
+            grid.AddGrid(BuildGrid(child), props);
+        }
+    }
+
+    return grid;
+}
+
+void XmlRuntime::ApplyPositionAttributes(const XmlNode& node, PositionStyle& style) const {
+    std::string value;
+    if (GetAttribute(node, "mode", value) || GetAttribute(node, "position", value)) {
+        style.mode = ParsePositionMode(value);
+    }
+    if (GetAttribute(node, "anchor", value)) {
+        style.anchor = ParsePositionAnchor(value);
+    }
+    if (GetAttribute(node, "left", value) || GetAttribute(node, "x", value)) {
+        style.hasLeft = true;
+        style.left = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "top", value) || GetAttribute(node, "y", value)) {
+        style.hasTop = true;
+        style.top = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "right", value)) {
+        style.hasRight = true;
+        style.right = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "bottom", value)) {
+        style.hasBottom = true;
+        style.bottom = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "width", value)) {
+        style.width = value;
+    }
+    if (GetAttribute(node, "height", value)) {
+        style.height = value;
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        style.minWidth = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        style.maxWidth = static_cast<float>(ParseDouble(value, 100000.0));
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        style.minHeight = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        style.maxHeight = static_cast<float>(ParseDouble(value, 100000.0));
+    }
+    if (GetAttribute(node, "zIndex", value)) {
+        style.zIndex = static_cast<int>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "clipToBounds", value) || GetAttribute(node, "clip", value)) {
+        style.clipToBounds = ParseBool(value, false);
+    }
+    if (GetAttribute(node, "padding", value)) {
+        const float p = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingTop = p;
+        style.paddingBottom = p;
+        style.paddingLeft = p;
+        style.paddingRight = p;
+    }
+    if (GetAttribute(node, "paddingX", value)) {
+        const float px = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingLeft = px;
+        style.paddingRight = px;
+    }
+    if (GetAttribute(node, "paddingY", value)) {
+        const float py = static_cast<float>(ParseDouble(value, 0.0));
+        style.paddingTop = py;
+        style.paddingBottom = py;
+    }
+    if (GetAttribute(node, "background", value) || GetAttribute(node, "backgroundColor", value)) {
+        style.backgroundColor = Color::FromHex(value);
+    }
+    if (GetAttribute(node, "borderColor", value)) {
+        style.borderColor = Color::FromHex(value);
+    }
+    if (GetAttribute(node, "borderWidth", value)) {
+        style.borderWidth = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "cornerRadius", value) || GetAttribute(node, "borderRadius", value)) {
+        style.cornerRadius = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "opacity", value)) {
+        style.opacity = static_cast<float>(ParseDouble(value, 1.0));
+    }
+}
+
+void XmlRuntime::ApplyPositionItemAttributes(const XmlNode& node, PositionItemProps& props) const {
+    std::string value;
+    if (GetAttribute(node, "mode", value) || GetAttribute(node, "position", value)) {
+        props.mode = ParsePositionMode(value);
+    }
+    if (GetAttribute(node, "anchor", value)) {
+        props.anchor = ParsePositionAnchor(value);
+    }
+    if (GetAttribute(node, "left", value) || GetAttribute(node, "x", value)) {
+        props.hasLeft = true;
+        props.left = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "top", value) || GetAttribute(node, "y", value)) {
+        props.hasTop = true;
+        props.top = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "right", value)) {
+        props.hasRight = true;
+        props.right = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "bottom", value)) {
+        props.hasBottom = true;
+        props.bottom = static_cast<float>(ParseDouble(value, 0.0));
+    }
+    if (GetAttribute(node, "width", value)) {
+        props.width = value;
+    }
+    if (GetAttribute(node, "height", value)) {
+        props.height = value;
+    }
+    if (GetAttribute(node, "minWidth", value)) {
+        props.minWidth = value;
+    }
+    if (GetAttribute(node, "maxWidth", value)) {
+        props.maxWidth = value;
+    }
+    if (GetAttribute(node, "minHeight", value)) {
+        props.minHeight = value;
+    }
+    if (GetAttribute(node, "maxHeight", value)) {
+        props.maxHeight = value;
+    }
+    if (GetAttribute(node, "zIndex", value)) {
+        props.zIndex = static_cast<int>(ParseDouble(value, 0.0));
+    }
+}
+
+Position XmlRuntime::BuildPosition(const XmlNode& node) {
+    Position position;
+    PositionStyle style;
+    ApplyPositionAttributes(node, style);
+    position.SetStyle(style);
+
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            std::string content = child.text;
+            bool hasContent = false;
+            for (char c : content) {
+                if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                    hasContent = true;
+                    break;
+                }
+            }
+            if (hasContent) {
+                Text text;
+                TextStyle ts;
+                ts.color = Color::FromHex("#1C1C1E");
+                text.SetStyle(ts);
+                text.AddPlain(content);
+                PositionItemProps props;
+                position.AddText(std::move(text), props);
+            }
+            continue;
+        }
+
+        PositionItemProps props;
+        ApplyPositionItemAttributes(child, props);
+
+        if (child.name == "Text") {
+            position.AddText(BuildText(child), props);
+        } else if (child.name == "Heading" || child.name == "heading" ||
+                   (child.name.size() == 2 && (child.name[0] == 'H' || child.name[0] == 'h') && child.name[1] >= '1' &&
+                    child.name[1] <= '6') ||
+                   (child.name.size() == 8 &&
+                    (child.name.compare(0, 7, "Heading") == 0 || child.name.compare(0, 7, "heading") == 0) &&
+                    child.name[7] >= '1' && child.name[7] <= '6')) {
+            position.AddText(BuildHeading(child, ParseHeadingLevel(child)), props);
+        } else if (child.name == "Paragraph" || child.name == "paragraph" || child.name == "P" || child.name == "p") {
+            position.AddText(BuildParagraph(child), props);
+        } else if (child.name == "Button") {
+            position.AddButton(BuildButton(child), props);
+        } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
+            position.AddInput(BuildInput(child), props);
+        } else if (child.name == "Flexbox" || child.name == "flexbox" || child.name == "Flex" || child.name == "flex") {
+            position.AddFlexbox(BuildFlexbox(child), props);
+        } else if (child.name == "Grid" || child.name == "grid") {
+            position.AddGrid(BuildGrid(child), props);
+        } else if (child.name == "Position" || child.name == "position" || child.name == "Positioned" ||
+                   child.name == "positioned") {
+            position.AddPosition(BuildPosition(child), props);
+        }
+    }
+
+    return position;
 }
 
 void XmlRuntime::MountNode(const XmlNode& node) {
@@ -647,8 +1051,18 @@ void XmlRuntime::MountNode(const XmlNode& node) {
         return;
     }
 
+    if (node.name == "Grid" || node.name == "grid") {
+        scene_.AddGrid(BuildGrid(node));
+        return;
+    }
+
+    if (node.name == "Position" || node.name == "position" || node.name == "Positioned" || node.name == "positioned") {
+        scene_.AddPosition(BuildPosition(node));
+        return;
+    }
+
     lastError_ = "Unsupported element: <" + node.name +
-                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>, <Flexbox>.";
+                 ">. Available: <Robo>, <Text>, <Heading>/<H1-H6>, <Paragraph>, <Button>, <Input>, <Flexbox>, <Grid>, <Position>.";
 }
 
 bool XmlRuntime::RenderXml(const std::string& xml) {
