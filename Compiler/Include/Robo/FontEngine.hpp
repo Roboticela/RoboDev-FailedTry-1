@@ -19,6 +19,20 @@ enum class FontFaceId {
     Italic
 };
 
+struct TextGlyphDraw {
+    int faceIndex = 0;
+    int glyph = 0;
+    float x = 0.0f;
+    float width = 0.0f;
+    float baseline = 0.0f;
+    float fontSize = 0.0f;
+    float ascent = 0.0f;
+    float lineHeight = 0.0f;
+    Color color;
+    float opacity = 1.0f;
+    int index = -1;
+};
+
 class FontEngine {
 public:
     FontEngine();
@@ -42,6 +56,20 @@ public:
                     const Color& color,
                     float opacity,
                     float letterSpacing) const;
+
+    // Layout one span into a line. The line is highlighted once, then blitted,
+    // so adjacent words do not paint overlapping selection edges.
+    void RecordString(std::vector<TextGlyphDraw>& out,
+                      float x,
+                      float baselineY,
+                      const std::string& utf8,
+                      float fontSize,
+                      FontFaceId faceId,
+                      const Color& color,
+                      float opacity,
+                      float letterSpacing) const;
+    static void PaintSelectionBands(FrameBuffer& buffer, const std::vector<TextGlyphDraw>& draws);
+    void PaintGlyphDraws(FrameBuffer& buffer, const std::vector<TextGlyphDraw>& draws) const;
 
 private:
     struct FaceData;

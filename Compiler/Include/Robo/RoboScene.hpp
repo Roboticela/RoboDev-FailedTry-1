@@ -11,6 +11,7 @@
 #include "Parse.hpp"
 #include "Position.hpp"
 #include "Scrollbar.hpp"
+#include "Svg.hpp"
 #include "Text.hpp"
 
 #include <memory>
@@ -27,7 +28,8 @@ enum class SceneItemKind {
     Container,
     Flexbox,
     Grid,
-    Position
+    Position,
+    Svg
 };
 
 enum class HitKind {
@@ -47,6 +49,7 @@ struct SceneItem {
     Flexbox flexbox;
     Grid grid;
     Position position;
+    Svg svg;
 };
 
 class RoboScene {
@@ -60,6 +63,7 @@ public:
     void AddFlexbox(Flexbox flexbox);
     void AddGrid(Grid grid);
     void AddPosition(Position position);
+    void AddSvg(Svg svg);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     bool PointerMove(float x, float y);

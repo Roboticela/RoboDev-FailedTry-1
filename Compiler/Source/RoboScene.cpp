@@ -7,6 +7,7 @@
 #include "Robo/InputPainter.hpp"
 #include "Robo/PositionPainter.hpp"
 #include "Robo/ScrollbarPainter.hpp"
+#include "Robo/SvgPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -1132,6 +1133,13 @@ void RoboScene::AddPosition(Position position) {
     items_.push_back(std::move(item));
 }
 
+void RoboScene::AddSvg(Svg svg) {
+    SceneItem item;
+    item.kind = SceneItemKind::Svg;
+    item.svg = std::move(svg);
+    items_.push_back(std::move(item));
+}
+
 bool RoboScene::RerenderIfPossible() {
     if (!hasRenderContext_ || !platform_ || !fonts_) {
         return false;
@@ -1387,6 +1395,12 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                     GridPainter::Paint(frame, fonts, item.grid, originX, cursorY, contentWidth, paintScale);
                 cursorY += painted.advanceY;
                 const GridBounds& bounds = item.grid.GetBounds();
+                contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::Svg) {
+                const SvgPaintResult painted =
+                    SvgPainter::Paint(frame, item.svg, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                const SvgBounds& bounds = item.svg.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             } else if (item.kind == SceneItemKind::Position) {
                 const PositionPaintResult painted =

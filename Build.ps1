@@ -36,6 +36,9 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\FrameBuffer.cpp"),
         (Join-Path $Root "Compiler\Source\FontEngine.cpp"),
         (Join-Path $Root "Compiler\Source\TextPainter.cpp"),
+        (Join-Path $Root "Compiler\Source\Svg.cpp"),
+        (Join-Path $Root "Compiler\Source\Icon.cpp"),
+        (Join-Path $Root "Compiler\Source\SvgPainter.cpp"),
         (Join-Path $Root "Compiler\Source\ButtonPainter.cpp"),
         (Join-Path $Root "Compiler\Source\InputPainter.cpp"),
         (Join-Path $Root "Compiler\Source\ScrollbarPainter.cpp"),
@@ -122,7 +125,9 @@ function Invoke-XmlCompile {
     $toolSources = @(
         (Join-Path $Root "XMLCompiler\Source\XmlCompileMain.cpp"),
         (Join-Path $Root "XMLCompiler\Source\XmlParser.cpp"),
-        (Join-Path $Root "XMLCompiler\Source\XmlToCpp.cpp")
+        (Join-Path $Root "XMLCompiler\Source\XmlToCpp.cpp"),
+        (Join-Path $Root "XMLCompiler\Source\SvgPath.cpp"),
+        (Join-Path $Root "XMLCompiler\Source\IconPack.cpp")
     )
     $rspPath = Join-Path $toolDir "Sources.rsp"
     $rspLines = @(

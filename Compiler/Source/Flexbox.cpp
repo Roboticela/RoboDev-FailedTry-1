@@ -31,6 +31,14 @@ void Flexbox::AddText(Text text, const FlexItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Flexbox::AddSvg(Svg svg, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::Svg;
+    item.svg = std::move(svg);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
 void Flexbox::AddButton(Button button, const FlexItemProps& props) {
     FlexboxItem item;
     item.kind = FlexItemKind::Button;

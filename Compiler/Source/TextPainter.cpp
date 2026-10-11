@@ -428,18 +428,30 @@ float TextPainter::Paint(FrameBuffer& buffer,
         float penX = startX;
         const float baseline = cursorY + maxAscent;
         const float opacity = static_cast<float>(style.opacity);
+        std::vector<TextGlyphDraw> draws;
+        draws.reserve(64);
 
         for (const GlyphSpan& span : line.spans) {
-            fonts.DrawString(buffer,
-                             penX,
-                             baseline,
-                             span.text,
-                             span.style.fontSize,
-                             span.style.faceId,
-                             span.style.color,
-                             span.style.opacity * opacity,
-                             span.style.letterSpacing);
+            fonts.RecordString(draws,
+                               penX,
+                               baseline,
+                               span.text,
+                               span.style.fontSize,
+                               span.style.faceId,
+                               span.style.color,
+                               span.style.opacity * opacity,
+                               span.style.letterSpacing);
+            penX += span.width;
+            if (span.isSpace) {
+                penX += extraGap;
+            }
+        }
 
+        FontEngine::PaintSelectionBands(buffer, draws);
+        fonts.PaintGlyphDraws(buffer, draws);
+
+        penX = startX;
+        for (const GlyphSpan& span : line.spans) {
             if (span.style.decoration == TextDecoration::Underline) {
                 const int y = static_cast<int>(std::round(baseline + std::max(1.0f, span.style.fontSize * 0.12f)));
                 buffer.FillRect(static_cast<int>(std::floor(penX)),
@@ -457,7 +469,6 @@ float TextPainter::Paint(FrameBuffer& buffer,
                                 span.style.color,
                                 span.style.opacity * opacity);
             }
-
             penX += span.width;
             if (span.isSpace) {
                 penX += extraGap;

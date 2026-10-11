@@ -95,6 +95,14 @@ void Position::AddText(Text text, const PositionItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Position::AddSvg(Svg svg, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::Svg;
+    item.props = props;
+    item.svg = std::move(svg);
+    items_.push_back(std::move(item));
+}
+
 void Position::AddButton(Button button, const PositionItemProps& props) {
     PositionItem item;
     item.kind = PositionItemKind::Button;

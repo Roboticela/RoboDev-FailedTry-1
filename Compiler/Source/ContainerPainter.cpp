@@ -6,6 +6,7 @@
 #include "Robo/InputPainter.hpp"
 #include "Robo/PositionPainter.hpp"
 #include "Robo/ScrollbarPainter.hpp"
+#include "Robo/SvgPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -170,6 +171,12 @@ void MeasureChild(const FontEngine& fonts,
     switch (item.kind) {
         case PositionItemKind::Text: {
             const TextMeasureResult res = TextPainter::Measure(fonts, item.text, innerAvailW, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::Svg: {
+            const SvgMeasureResult res = SvgPainter::Measure(item.svg, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;

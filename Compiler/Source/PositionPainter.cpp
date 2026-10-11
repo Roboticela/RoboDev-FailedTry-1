@@ -6,6 +6,7 @@
 #include "Robo/GridPainter.hpp"
 #include "Robo/InputPainter.hpp"
 #include "Robo/ScrollbarPainter.hpp"
+#include "Robo/SvgPainter.hpp"
 #include "Robo/TextPainter.hpp"
 
 #include <algorithm>
@@ -186,6 +187,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
         switch (item.kind) {
             case PositionItemKind::Text: {
                 TextMeasureResult res = TextPainter::Measure(fonts, item.text, innerAvailW, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::Svg: {
+                SvgMeasureResult res = SvgPainter::Measure(item.svg, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -391,6 +398,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
         switch (item.kind) {
             case PositionItemKind::Text: {
                 TextMeasureResult res = TextPainter::Measure(fonts, item.text, innerAvailW, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::Svg: {
+                SvgMeasureResult res = SvgPainter::Measure(item.svg, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -666,6 +679,9 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
         switch (item.kind) {
             case PositionItemKind::Text:
                 TextPainter::Paint(buffer, fonts, item.text, lc.x, lc.y, lc.width, scale);
+                break;
+            case PositionItemKind::Svg:
+                SvgPainter::Paint(buffer, item.svg, lc.x, lc.y, lc.width, scale);
                 break;
             case PositionItemKind::Button:
                 ButtonPainter::Paint(buffer, fonts, item.button, lc.x, lc.y, lc.width, scale, lc.width, lc.height);

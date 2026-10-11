@@ -1,4 +1,5 @@
 #include "Robo/FlexboxPainter.hpp"
+#include "Robo/SvgPainter.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -252,6 +253,12 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 TextMeasureResult measured = TextPainter::Measure(fonts, item.text, availW, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::Svg: {
+                SvgMeasureResult measured = SvgPainter::Measure(item.svg, scale);
+                child.baseWidth = hasExplicitWidth ? ParseDimension(item.props.width, innerW, measured.width, scale) : measured.width;
+                child.baseHeight = hasExplicitHeight ? ParseDimension(item.props.height, innerW, measured.height, scale) : measured.height;
                 break;
             }
             case FlexItemKind::Button: {
@@ -697,6 +704,10 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
             switch (item.kind) {
                 case FlexItemKind::Text: {
                     TextPainter::Paint(buffer, fonts, item.text, childX, childY, childW, scale);
+                    break;
+                }
+                case FlexItemKind::Svg: {
+                    SvgPainter::Paint(buffer, item.svg, childX, childY, childW, scale);
                     break;
                 }
                 case FlexItemKind::Button: {

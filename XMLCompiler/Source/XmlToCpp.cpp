@@ -1,7 +1,9 @@
 #include "XmlToCpp.hpp"
+#include "IconPack.hpp"
 #include "XmlParser.hpp"
 
 #include <cstdlib>
+#include <iostream>
 #include <sstream>
 
 namespace Robo {
@@ -392,6 +394,13 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    if (TryEmitGraphic(code, node, indent + 1, "scene", false)) {
+        return code.str();
+    }
+
+    if (!node.name.empty()) {
+        std::cerr << "Skipping unknown XML element <" << node.name << ">\n";
+    }
     return code.str();
 }
 
@@ -960,6 +969,10 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         const std::string childGridVar = "nestedGrid" + std::to_string(indent + 1);
         EmitGrid(code, child, indent + 1, childGridVar);
         code << Indent(indent + 1) << parentVar << ".AddGrid(std::move(childGridVar), props);\n";
+    } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
+        if (!child.name.empty()) {
+            std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
+        }
     }
 
     code << Indent(indent) << "}\n";
@@ -1271,6 +1284,10 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         const std::string childGridVar = "nestedGrid" + std::to_string(indent + 1);
         EmitGrid(code, child, indent + 1, childGridVar);
         code << Indent(indent + 1) << parentVar << ".AddGrid(std::move(childGridVar), props);\n";
+    } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
+        if (!child.name.empty()) {
+            std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
+        }
     }
 
     code << Indent(indent) << "}\n";
@@ -1500,6 +1517,10 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         const std::string childPosVar = "nestedPos" + std::to_string(indent + 1);
         EmitPosition(code, child, indent + 1, childPosVar);
         code << Indent(indent + 1) << parentVar << ".AddPosition(std::move(" << childPosVar << "), props);\n";
+    } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
+        if (!child.name.empty()) {
+            std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
+        }
     }
 
     code << Indent(indent) << "}\n";
@@ -1517,11 +1538,98 @@ void XmlToCpp::EmitSelectable(std::ostringstream& code,
     }
 }
 
-std::string XmlToCpp::Convert(const std::string& xml) const {
+bool XmlToCpp::TryEmitGraphic(std::ostringstream& code,
+                               const XmlNode& node,
+                               int indent,
+                               const std::string& parent,
+                               bool withProps) const {
+    const bool isSvg = node.name == "svg" || node.name == "Svg" || node.name == "SVG";
+    const auto icon = icons_.find(node.name);
+    const bool isIcon = icon != icons_.end();
+    if (!isSvg && !isIcon) {
+        return false;
+    }
+
+    const std::string props = withProps ? ", props" : "";
+    if (!withProps) {
+        code << Indent(indent - 1) << "{\n";
+    }
+
+    auto emitBox = [&](const std::string& styleName) {
+        for (const auto& attribute : node.attributes) {
+            if (attribute.first == "width") {
+                if (attribute.second.find('%') != std::string::npos) {
+                    code << Indent(indent) << styleName << ".widthSpec = \"" << EscapeCpp(attribute.second) << "\";\n";
+                } else {
+                    code << Indent(indent) << styleName << ".width = " << FloatLiteral(attribute.second) << ";\n";
+                }
+            } else if (attribute.first == "height") {
+                if (attribute.second.find('%') != std::string::npos) {
+                    code << Indent(indent) << styleName << ".heightSpec = \"" << EscapeCpp(attribute.second) << "\";\n";
+                } else {
+                    code << Indent(indent) << styleName << ".height = " << FloatLiteral(attribute.second) << ";\n";
+                }
+            } else if (attribute.first == "size") {
+                code << Indent(indent) << styleName << ".width = " << FloatLiteral(attribute.second) << ";\n";
+                code << Indent(indent) << styleName << ".height = " << FloatLiteral(attribute.second) << ";\n";
+            } else if (attribute.first == "color") {
+                code << Indent(indent) << styleName << ".color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+            } else if (attribute.first == "opacity") {
+                code << Indent(indent) << styleName << ".opacity = " << FloatLiteral(attribute.second) << ";\n";
+            } else if (attribute.first == "align") {
+                code << Indent(indent) << styleName << ".align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second) << "\");\n";
+            }
+        }
+    };
+
+    if (isIcon) {
+        code << Indent(indent) << "Robo::Icon icon;\n";
+        code << Indent(indent) << "icon.SetViewBox(" << FloatLiteral(std::to_string(icon->second.viewX)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewY)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewWidth)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewHeight)) << ");\n";
+        code << Indent(indent) << "{\n";
+        code << Indent(indent + 1) << "Robo::SvgStyle packedStyle;\n";
+        emitBox("packedStyle");
+        code << Indent(indent) << "if (packedStyle.width > 0.0f) icon.SetWidth(packedStyle.width);\n";
+        code << Indent(indent) << "if (packedStyle.height > 0.0f) icon.SetHeight(packedStyle.height);\n";
+        code << Indent(indent) << "if (!packedStyle.widthSpec.empty()) icon.SetWidthSpec(packedStyle.widthSpec);\n";
+        code << Indent(indent) << "if (!packedStyle.heightSpec.empty()) icon.SetHeightSpec(packedStyle.heightSpec);\n";
+        code << Indent(indent) << "icon.SetColor(packedStyle.color);\n";
+        code << Indent(indent) << "icon.SetOpacity(packedStyle.opacity);\n";
+        code << Indent(indent) << "icon.SetAlign(packedStyle.align);\n";
+        code << Indent(indent) << "}\n";
+        code << EmitCompiledShapes(icon->second.shapes, indent, "icon", true);
+        code << Indent(indent) << parent << ".AddSvg(icon.Bake()" << props << ");\n";
+    } else {
+        const CompiledSvg graphic = CompileSvgElement(node, false);
+        code << Indent(indent) << "Robo::Svg svg;\n";
+        code << Indent(indent) << "Robo::SvgStyle style;\n";
+        code << Indent(indent) << "style.viewX = " << FloatLiteral(std::to_string(graphic.viewX)) << ";\n";
+        code << Indent(indent) << "style.viewY = " << FloatLiteral(std::to_string(graphic.viewY)) << ";\n";
+        code << Indent(indent) << "style.viewWidth = " << FloatLiteral(std::to_string(graphic.viewWidth)) << ";\n";
+        code << Indent(indent) << "style.viewHeight = " << FloatLiteral(std::to_string(graphic.viewHeight)) << ";\n";
+        emitBox("style");
+        EmitSelectable(code, indent, "style", node);
+        code << Indent(indent) << "svg.SetStyle(style);\n";
+        code << EmitCompiledShapes(graphic.shapes, indent, "svg", false);
+        code << Indent(indent) << parent << ".AddSvg(std::move(svg)" << props << ");\n";
+    }
+
+    if (!withProps) {
+        code << Indent(indent - 1) << "}\n";
+    }
+    return true;
+}
+
+std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDirectory) const {
+    icons_ = LoadIconPacks(assetDirectory);
     XmlParser parser;
     const XmlNode root = parser.Parse(xml);
     std::ostringstream code;
     code << "#include \"Robo/Text.hpp\"\n";
+    code << "#include \"Robo/Svg.hpp\"\n";
+    code << "#include \"Robo/Icon.hpp\"\n";
     code << "#include \"Robo/Heading.hpp\"\n";
     code << "#include \"Robo/Paragraph.hpp\"\n";
     code << "#include \"Robo/Button.hpp\"\n";

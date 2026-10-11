@@ -271,15 +271,15 @@ const FontEngine::CachedGlyph& FontEngine::CachedGlyphFor(int faceIndex,
     return glyphCache_.emplace(key, std::move(cached)).first->second;
 }
 
-void FontEngine::DrawString(FrameBuffer& buffer,
-                            float x,
-                            float baselineY,
-                            const std::string& utf8,
-                            float fontSize,
-                            FontFaceId faceId,
-                            const Color& color,
-                            float opacity,
-                            float letterSpacing) const {
+void FontEngine::RecordString(std::vector<TextGlyphDraw>& out,
+                              float x,
+                              float baselineY,
+                              const std::string& utf8,
+                              float fontSize,
+                              FontFaceId faceId,
+                              const Color& color,
+                              float opacity,
+                              float letterSpacing) const {
     const FaceData& face = *faces_[FaceIndex(faceId)];
     if (!face.ready || utf8.empty() || fontSize <= 0.0f) {
         return;
@@ -293,15 +293,7 @@ void FontEngine::DrawString(FrameBuffer& buffer,
     float penX = x;
     int previousGlyph = -1;
     bool drewGlyph = false;
-
-    struct LaidGlyph {
-        int glyph = 0;
-        float x = 0.0f;
-        float width = 0.0f;
-        int index = -1;
-    };
-    std::vector<LaidGlyph> laid;
-    laid.reserve(utf8.size());
+    const int faceIndex = FaceIndex(faceId);
 
     while (cursor < end) {
         const int codepoint = DecodeUtf8(cursor, end);
@@ -330,10 +322,17 @@ void FontEngine::DrawString(FrameBuffer& buffer,
         int lsb = 0;
         stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &lsb);
         const float glyphWidth = std::max(0.0f, scale * static_cast<float>(advance));
-        LaidGlyph item;
+        TextGlyphDraw item;
+        item.faceIndex = faceIndex;
         item.glyph = glyph;
         item.x = penX;
         item.width = glyphWidth;
+        item.baseline = baselineY;
+        item.fontSize = fontSize;
+        item.ascent = ascent;
+        item.lineHeight = glyphHeight;
+        item.color = color;
+        item.opacity = opacity;
         if (TextSelection::IsOpen()) {
             item.index = TextSelection::AddCodepoint(static_cast<char32_t>(codepoint),
                                                      penX,
@@ -341,31 +340,37 @@ void FontEngine::DrawString(FrameBuffer& buffer,
                                                      std::max(1.0f, glyphWidth),
                                                      glyphHeight);
         }
-        laid.push_back(item);
+        out.push_back(item);
 
         penX += glyphWidth;
         drewGlyph = true;
         previousGlyph = glyph;
     }
+}
 
-    const float bandTop = baselineY - ascent;
+void FontEngine::PaintSelectionBands(FrameBuffer& buffer, const std::vector<TextGlyphDraw>& draws) {
     std::size_t run = 0;
-    while (run < laid.size()) {
-        if (laid[run].index < 0 || !TextSelection::Covers(laid[run].index)) {
+    while (run < draws.size()) {
+        if (draws[run].index < 0 || !TextSelection::Covers(draws[run].index)) {
             ++run;
             continue;
         }
-        const float left = laid[run].x;
-        float right = laid[run].x + laid[run].width;
+        const float left = draws[run].x;
+        float right = draws[run].x + draws[run].width;
+        float top = draws[run].baseline - draws[run].ascent;
+        float bottom = top + draws[run].lineHeight;
         std::size_t next = run + 1;
-        while (next < laid.size() && laid[next].index >= 0 && TextSelection::Covers(laid[next].index)) {
-            right = laid[next].x + laid[next].width;
+        while (next < draws.size() && draws[next].index >= 0 && TextSelection::Covers(draws[next].index)) {
+            right = std::max(right, draws[next].x + draws[next].width);
+            const float nextTop = draws[next].baseline - draws[next].ascent;
+            top = std::min(top, nextTop);
+            bottom = std::max(bottom, nextTop + draws[next].lineHeight);
             ++next;
         }
         const int x0 = static_cast<int>(std::floor(left));
         const int x1 = static_cast<int>(std::ceil(right));
-        const int y0 = static_cast<int>(std::floor(bandTop));
-        const int y1 = static_cast<int>(std::ceil(bandTop + glyphHeight));
+        const int y0 = static_cast<int>(std::floor(top));
+        const int y1 = static_cast<int>(std::ceil(bottom));
         const int bandWidth = std::max(1, x1 - x0);
         const int bandHeight = std::max(1, y1 - y0);
         if (!buffer.MissesClip(x0, y0, bandWidth, bandHeight)) {
@@ -373,29 +378,32 @@ void FontEngine::DrawString(FrameBuffer& buffer,
         }
         run = next;
     }
+}
 
-    const bool onScreen = baselineY > -fontSize * 2.0f && baselineY < static_cast<float>(buffer.GetHeight()) + fontSize * 2.0f;
-    const float shiftY = baselineY - std::floor(baselineY);
-    for (const LaidGlyph& item : laid) {
+void FontEngine::PaintGlyphDraws(FrameBuffer& buffer, const std::vector<TextGlyphDraw>& draws) const {
+    for (const TextGlyphDraw& item : draws) {
+        const bool onScreen = item.baseline > -item.fontSize * 2.0f &&
+                              item.baseline < static_cast<float>(buffer.GetHeight()) + item.fontSize * 2.0f;
         if (onScreen) {
             const float shiftX = item.x - std::floor(item.x);
-            const CachedGlyph& cached = CachedGlyphFor(FaceIndex(faceId), item.glyph, fontSize, shiftX, shiftY);
+            const float shiftY = item.baseline - std::floor(item.baseline);
+            const CachedGlyph& cached = CachedGlyphFor(item.faceIndex, item.glyph, item.fontSize, shiftX, shiftY);
             const int destX = static_cast<int>(std::floor(item.x)) + cached.xOff;
-            const int destY = static_cast<int>(std::floor(baselineY)) + cached.yOff;
+            const int destY = static_cast<int>(std::floor(item.baseline)) + cached.yOff;
             if (!buffer.MissesClip(destX, destY, cached.width, cached.height)) {
-            for (int row = 0; row < cached.height; ++row) {
-                const int py = destY + row;
-                if (py < 0 || py >= buffer.GetHeight()) {
-                    continue;
-                }
-                for (int col = 0; col < cached.width; ++col) {
-                    const unsigned char coverage = cached.coverage[static_cast<std::size_t>(row * cached.width + col)];
-                    if (coverage == 0) {
+                for (int row = 0; row < cached.height; ++row) {
+                    const int py = destY + row;
+                    if (py < 0 || py >= buffer.GetHeight()) {
                         continue;
                     }
-                    buffer.BlendPixel(destX + col, py, color, (coverage / 255.0f) * opacity);
+                    for (int col = 0; col < cached.width; ++col) {
+                        const unsigned char coverage = cached.coverage[static_cast<std::size_t>(row * cached.width + col)];
+                        if (coverage == 0) {
+                            continue;
+                        }
+                        buffer.BlendPixel(destX + col, py, item.color, (coverage / 255.0f) * item.opacity);
+                    }
                 }
-            }
             }
         }
 
@@ -403,16 +411,31 @@ void FontEngine::DrawString(FrameBuffer& buffer,
             const float caretOpacity = TextSelection::CaretOpacity();
             if (caretOpacity > 0.004f) {
                 const float boundary = TextSelection::IsCaretAfter(item.index) ? item.x + item.width : item.x;
-                const float caretWidth = std::max(2.0f, fontSize * 0.085f);
-                const float inset = std::min(glyphHeight * 0.06f, caretWidth);
+                const float caretWidth = std::max(2.0f, item.fontSize * 0.085f);
+                const float inset = std::min(item.lineHeight * 0.06f, caretWidth);
                 const float caretX = boundary - caretWidth * 0.5f;
-                const float caretY = baselineY - ascent + inset;
-                const float caretHeight = std::max(caretWidth, glyphHeight - inset * 2.0f);
+                const float caretY = item.baseline - item.ascent + inset;
+                const float caretHeight = std::max(caretWidth, item.lineHeight - inset * 2.0f);
                 buffer.FillRoundedRect(caretX, caretY, caretWidth, caretHeight, caretWidth * 0.5f,
                                        Color::FromHex("#007AFF"), caretOpacity);
             }
         }
     }
+}
+
+void FontEngine::DrawString(FrameBuffer& buffer,
+                            float x,
+                            float baselineY,
+                            const std::string& utf8,
+                            float fontSize,
+                            FontFaceId faceId,
+                            const Color& color,
+                            float opacity,
+                            float letterSpacing) const {
+    std::vector<TextGlyphDraw> draws;
+    RecordString(draws, x, baselineY, utf8, fontSize, faceId, color, opacity, letterSpacing);
+    PaintSelectionBands(buffer, draws);
+    PaintGlyphDraws(buffer, draws);
 }
 
 }  // namespace Robo

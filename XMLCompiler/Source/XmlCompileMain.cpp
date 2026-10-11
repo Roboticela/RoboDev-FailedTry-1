@@ -19,8 +19,14 @@ int main(int argc, char** argv) {
     const std::string xml((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
 
     try {
+        std::string assetDirectory = "Assets";
+        const std::string inputPath = argv[1];
+        const std::size_t slash = inputPath.find_last_of("/\\");
+        if (slash != std::string::npos) {
+            assetDirectory = inputPath.substr(0, slash) + "/Assets";
+        }
         Robo::XmlToCpp compiler;
-        const std::string cpp = compiler.Convert(xml);
+        const std::string cpp = compiler.Convert(xml, assetDirectory);
         std::ofstream output(argv[2], std::ios::binary);
         if (!output) {
             std::cerr << "Failed to write " << argv[2] << "\n";

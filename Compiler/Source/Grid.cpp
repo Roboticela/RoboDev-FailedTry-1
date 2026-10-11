@@ -89,6 +89,14 @@ void Grid::AddText(Text text, const GridItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Grid::AddSvg(Svg svg, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::Svg;
+    item.props = props;
+    item.svg = std::move(svg);
+    items_.push_back(std::move(item));
+}
+
 void Grid::AddButton(Button button, const GridItemProps& props) {
     GridItem item;
     item.kind = GridItemKind::Button;
