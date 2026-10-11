@@ -29,7 +29,7 @@ Slider
 List
 Table
 ✅ - BrandLogo
-✅ - TitleBar (also Navbar; Apple bar, 57px, background `color.bg.secondary`)
+✅ - TitleBar (also Navbar; Apple bar, 57px, background `color.bg.secondary`, BrandLogo on the left, split ThemeIconToggle on the right)
 ThemeToggle
 ThemeIconToggle
 ✅ - Shape (rect, ellipse, or path). Theme pairs (`darkX`, `darkY`, `darkBottom`, `darkFill`, `darkOpacity`, `darkScale`, `darkRotate`), `transition="0.5s cubic-bezier(0, -0.02, 0.4, 1.25)"`, hover (`hoverX`, `darkHoverX`, `hoverY`, `hoverScale`, `hoverRotate`, `hoverFill`, `hoverWithin`), `clip`, and `toggle="theme"` animate and transition any shape. `animation="name"` plus `animationDelay` plays a Keyframes clip.

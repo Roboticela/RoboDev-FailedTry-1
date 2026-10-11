@@ -84,6 +84,8 @@ void ScaleFlexboxBounds(Flexbox& flexbox, float inv) {
             item.themeToggle.ScaleBounds(inv);
         } else if (item.kind == FlexItemKind::ThemeIconToggle) {
             item.themeIconToggle.ScaleBounds(inv);
+        } else if (item.kind == FlexItemKind::TitleBar) {
+            item.titleBar.ThemeIcon().ScaleBounds(inv);
         } else if (item.kind == FlexItemKind::MotionShape) {
             item.motionShape.ScaleBounds(inv);
         } else if (item.kind == FlexItemKind::Input) {
@@ -129,6 +131,8 @@ void ScaleGridBounds(Grid& grid, float inv) {
             item.themeToggle.ScaleBounds(inv);
         } else if (item.kind == GridItemKind::ThemeIconToggle) {
             item.themeIconToggle.ScaleBounds(inv);
+        } else if (item.kind == GridItemKind::TitleBar) {
+            item.titleBar.ThemeIcon().ScaleBounds(inv);
         } else if (item.kind == GridItemKind::MotionShape) {
             item.motionShape.ScaleBounds(inv);
         } else if (item.kind == GridItemKind::Input) {
@@ -589,6 +593,8 @@ void ScalePositionBounds(Position& position, float inv) {
             item.themeToggle.ScaleBounds(inv);
         } else if (item.kind == PositionItemKind::ThemeIconToggle) {
             item.themeIconToggle.ScaleBounds(inv);
+        } else if (item.kind == PositionItemKind::TitleBar) {
+            item.titleBar.ThemeIcon().ScaleBounds(inv);
         } else if (item.kind == PositionItemKind::MotionShape) {
             item.motionShape.ScaleBounds(inv);
         } else if (item.kind == PositionItemKind::Input) {
@@ -1154,6 +1160,8 @@ void VisitThemeFlex(Flexbox& flexbox, Visit& visit) {
             visit(item.themeToggle);
         } else if (item.kind == FlexItemKind::ThemeIconToggle) {
             visit(item.themeIconToggle);
+        } else if (item.kind == FlexItemKind::TitleBar) {
+            visit(item.titleBar.ThemeIcon());
         } else if (item.kind == FlexItemKind::Container && item.container) {
             VisitThemeContainer(*item.container, visit);
         } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
@@ -1169,6 +1177,8 @@ void VisitThemeGrid(Grid& grid, Visit& visit) {
             visit(item.themeToggle);
         } else if (item.kind == GridItemKind::ThemeIconToggle) {
             visit(item.themeIconToggle);
+        } else if (item.kind == GridItemKind::TitleBar) {
+            visit(item.titleBar.ThemeIcon());
         } else if (item.kind == GridItemKind::Container && item.container) {
             VisitThemeContainer(*item.container, visit);
         } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
@@ -1186,6 +1196,8 @@ void VisitThemePosition(Position& position, Visit& visit) {
             visit(item.themeToggle);
         } else if (item.kind == PositionItemKind::ThemeIconToggle) {
             visit(item.themeIconToggle);
+        } else if (item.kind == PositionItemKind::TitleBar) {
+            visit(item.titleBar.ThemeIcon());
         } else if (item.kind == PositionItemKind::Container && item.container) {
             VisitThemeContainer(*item.container, visit);
         } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
@@ -1205,6 +1217,8 @@ void VisitSceneThemes(std::vector<SceneItem>& items, Visit& visit) {
             visit(item.themeToggle);
         } else if (item.kind == SceneItemKind::ThemeIconToggle) {
             visit(item.themeIconToggle);
+        } else if (item.kind == SceneItemKind::TitleBar) {
+            visit(item.titleBar.ThemeIcon());
         } else if (item.kind == SceneItemKind::Container && item.container) {
             VisitThemeContainer(*item.container, visit);
         } else if (item.kind == SceneItemKind::Flexbox) {
@@ -2029,6 +2043,9 @@ ThemeIconToggle* FindThemeIconInFlexbox(Flexbox& flexbox, float x, float y) {
         if (item.kind == FlexItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
             return &item.themeIconToggle;
         }
+        if (item.kind == FlexItemKind::TitleBar && item.titleBar.ThemeIcon().GetBounds().Contains(x, y)) {
+            return &item.titleBar.ThemeIcon();
+        }
         if (item.kind == FlexItemKind::Container && item.container) {
             if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
                 return found;
@@ -2072,6 +2089,9 @@ ThemeIconToggle* FindThemeIconInGrid(Grid& grid, float x, float y) {
         GridItem& item = items[static_cast<std::size_t>(i)];
         if (item.kind == GridItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
             return &item.themeIconToggle;
+        }
+        if (item.kind == GridItemKind::TitleBar && item.titleBar.ThemeIcon().GetBounds().Contains(x, y)) {
+            return &item.titleBar.ThemeIcon();
         }
         if (item.kind == GridItemKind::Container && item.container) {
             if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
@@ -2120,6 +2140,9 @@ ThemeIconToggle* FindThemeIconInPosition(Position& position, float x, float y) {
     for (PositionItem& item : position.GetItems()) {
         if (item.kind == PositionItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
             return &item.themeIconToggle;
+        }
+        if (item.kind == PositionItemKind::TitleBar && item.titleBar.ThemeIcon().GetBounds().Contains(x, y)) {
+            return &item.titleBar.ThemeIcon();
         }
         if (item.kind == PositionItemKind::Container && item.container) {
             if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
@@ -2198,6 +2221,12 @@ bool SyncHotInFlexbox(Flexbox& flexbox, float x, float y) {
                 item.themeIconToggle.SetHot(next);
                 changed = true;
             }
+        } else if (item.kind == FlexItemKind::TitleBar) {
+            const ThemeIconHot next = HotFor(item.titleBar.ThemeIcon(), x, y);
+            if (item.titleBar.ThemeIcon().GetHot() != next) {
+                item.titleBar.ThemeIcon().SetHot(next);
+                changed = true;
+            }
         } else if (item.kind == FlexItemKind::Container && item.container) {
             changed = SyncHotInContainer(*item.container, x, y) || changed;
         } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
@@ -2214,6 +2243,12 @@ bool SyncHotInGrid(Grid& grid, float x, float y) {
             const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
             if (item.themeIconToggle.GetHot() != next) {
                 item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == GridItemKind::TitleBar) {
+            const ThemeIconHot next = HotFor(item.titleBar.ThemeIcon(), x, y);
+            if (item.titleBar.ThemeIcon().GetHot() != next) {
+                item.titleBar.ThemeIcon().SetHot(next);
                 changed = true;
             }
         } else if (item.kind == GridItemKind::Container && item.container) {
@@ -2234,6 +2269,12 @@ bool SyncHotInPosition(Position& position, float x, float y) {
             const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
             if (item.themeIconToggle.GetHot() != next) {
                 item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == PositionItemKind::TitleBar) {
+            const ThemeIconHot next = HotFor(item.titleBar.ThemeIcon(), x, y);
+            if (item.titleBar.ThemeIcon().GetHot() != next) {
+                item.titleBar.ThemeIcon().SetHot(next);
                 changed = true;
             }
         } else if (item.kind == PositionItemKind::Container && item.container) {
@@ -2292,6 +2333,9 @@ ThemeIconToggle* RoboScene::FindThemeIconToggleAt(float x, float y) {
         if (item.kind == SceneItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
             return &item.themeIconToggle;
         }
+        if (item.kind == SceneItemKind::TitleBar && item.titleBar.ThemeIcon().GetBounds().Contains(x, y)) {
+            return &item.titleBar.ThemeIcon();
+        }
         if (item.kind == SceneItemKind::Container) {
             if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
                 return found;
@@ -2321,6 +2365,12 @@ bool SyncThemeHot(RoboScene& scene, std::vector<SceneItem>& items, float x, floa
             const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
             if (item.themeIconToggle.GetHot() != next) {
                 item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == SceneItemKind::TitleBar) {
+            const ThemeIconHot next = HotFor(item.titleBar.ThemeIcon(), x, y);
+            if (item.titleBar.ThemeIcon().GetHot() != next) {
+                item.titleBar.ThemeIcon().SetHot(next);
                 changed = true;
             }
         } else if (item.kind == SceneItemKind::Container && item.container) {

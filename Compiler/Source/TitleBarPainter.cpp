@@ -1,6 +1,8 @@
 #include "Robo/TitleBarPainter.hpp"
 
+#include "Robo/BrandLogoPainter.hpp"
 #include "Robo/Foundation.hpp"
+#include "Robo/ThemeIconTogglePainter.hpp"
 
 #include <algorithm>
 
@@ -10,6 +12,7 @@ namespace {
 
 const float TITLE_SIZE = 17.0f;
 const float TITLE_TRACKING = -0.022f;
+const float SIDE_INSET = 16.0f;
 
 }  // namespace
 
@@ -29,7 +32,7 @@ TitleBarMeasureResult TitleBarPainter::Measure(const FontEngine& fonts,
 
 TitleBarPaintResult TitleBarPainter::Paint(FrameBuffer& buffer,
                                            const FontEngine& fonts,
-                                           const TitleBar& bar,
+                                           TitleBar& bar,
                                            float originX,
                                            float originY,
                                            float containerWidth,
@@ -51,6 +54,16 @@ TitleBarPaintResult TitleBarPainter::Paint(FrameBuffer& buffer,
                     line,
                     hairline,
                     1.0f);
+
+    const float inset = SIDE_INSET * scale;
+    const BrandLogoMeasureResult logo = BrandLogoPainter::Measure(fonts, bar.Logo(), scale);
+    const float logoY = originY + std::max(0.0f, (measured.height - logo.height) * 0.5f);
+    BrandLogoPainter::Paint(buffer, fonts, bar.Logo(), originX + inset, logoY, scale);
+
+    const ThemeIconToggleMeasureResult icon = ThemeIconTogglePainter::Measure(bar.ThemeIcon(), scale);
+    const float iconX = originX + std::max(inset, measured.width - inset - icon.width);
+    const float iconY = originY + std::max(0.0f, (measured.height - icon.height) * 0.5f);
+    ThemeIconTogglePainter::Paint(buffer, bar.ThemeIcon(), iconX, iconY, scale);
 
     if (!bar.GetTitle().empty()) {
         const float fontSize = TITLE_SIZE * scale;

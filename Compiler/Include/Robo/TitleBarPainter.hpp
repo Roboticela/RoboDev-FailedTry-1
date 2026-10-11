@@ -21,7 +21,7 @@ public:
     static TitleBarMeasureResult Measure(const FontEngine& fonts, const TitleBar& bar, float containerWidth, float pixelScale);
     static TitleBarPaintResult Paint(FrameBuffer& buffer,
                                      const FontEngine& fonts,
-                                     const TitleBar& bar,
+                                     TitleBar& bar,
                                      float originX,
                                      float originY,
                                      float containerWidth,
