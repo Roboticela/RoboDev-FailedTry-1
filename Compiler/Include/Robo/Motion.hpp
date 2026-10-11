@@ -54,6 +54,16 @@ MotionEasing ParseEasing(const std::string& text);
 float Ease(float t, const MotionEasing& easing);
 float ParseDurationMs(const std::string& text);
 
+// Moves a 0..1 theme mix toward the current theme with the Apple ease.
+void AdvanceThemeMix(float deltaMs,
+                     float durationMs,
+                     bool& primed,
+                     bool& mixing,
+                     float& mix,
+                     float& mixFrom,
+                     float& mixTo,
+                     float& mixElapsed);
+
 void RegisterMotion(MotionClip clip);
 const MotionClip* FindMotion(const std::string& name);
 MotionSample SampleMotion(const std::string& name, float elapsedMs, float extraDelayMs);

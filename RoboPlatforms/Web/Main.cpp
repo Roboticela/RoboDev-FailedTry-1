@@ -5,6 +5,17 @@
 #include <emscripten.h>
 #include <emscripten/bind.h>
 
+EM_JS(void, JsSetPageBackground, (int red, int green, int blue), {
+    const color = "rgb(" + red + "," + green + "," + blue + ")";
+    const root = document.documentElement;
+    if (root) {
+        root.style.background = color;
+    }
+    if (document.body) {
+        document.body.style.background = color;
+    }
+});
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -73,6 +84,8 @@ void Render(int width, int height, float pixelScale) {
     gPlatform->SetSurfaceSize(gWidth, gHeight);
     gPlatform->SetPixelScale(gPixelScale);
     gScene.Render(*gPlatform, *gFonts, Robo::Color::FromHex("#F7F3EB"), 28.0f);
+    const Robo::Color page = gScene.GetBackground();
+    JsSetPageBackground(page.red, page.green, page.blue);
 }
 
 bool PointerMove(float x, float y) {

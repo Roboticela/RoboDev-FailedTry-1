@@ -88,6 +88,7 @@ public:
     void SetFoundationForTheme(Theme theme, const std::string& name);
     void SetTheme(Theme theme);
     const Foundation& ActiveFoundation() const;
+    Color GetBackground() const;
 
     bool PointerMove(float x, float y);
     bool PointerDown(float x, float y, bool fromTouch = false, int clicks = 1);
@@ -220,6 +221,12 @@ private:
     std::string lightFoundation_;
     std::string darkFoundation_;
     Theme theme_ = Theme::Light;
+    bool themeMixPrimed_ = false;
+    bool themeMixing_ = false;
+    float themeMix_ = 0.0f;
+    float themeMixFrom_ = 0.0f;
+    float themeMixTo_ = 0.0f;
+    float themeMixElapsed_ = 0.0f;
 };
 
 }  // namespace Robo

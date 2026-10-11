@@ -1,5 +1,10 @@
 #include "Robo/ThemeToggle.hpp"
 
+#include "Robo/Foundation.hpp"
+#include "Robo/Motion.hpp"
+
+#include <cmath>
+
 namespace Robo {
 
 bool ThemeToggleBounds::Contains(float pointX, float pointY) const {
@@ -69,6 +74,19 @@ void ThemeToggle::ScaleBounds(float factor) {
     ScaleOne(light_, factor);
     ScaleOne(dark_, factor);
     ScaleOne(track_, factor);
+}
+
+void ThemeToggle::Tick(float deltaMs) {
+    AdvanceThemeMix(deltaMs, 200.0f, primed_, mixing_, mix_, mixFrom_, mixTo_, mixElapsed_);
+}
+
+bool ThemeToggle::NeedsMotion() const {
+    const float target = CurrentTheme() == Theme::Dark ? 1.0f : 0.0f;
+    return !primed_ || mixing_ || std::fabs(mix_ - target) > 0.001f;
+}
+
+float ThemeToggle::ThemeMix() const {
+    return mix_;
 }
 
 ThemeToggleVariant ParseThemeToggleVariant(const std::string& value) {

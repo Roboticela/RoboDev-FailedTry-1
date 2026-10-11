@@ -1,4 +1,5 @@
 #include "Robo/RoboScene.hpp"
+#include "Robo/Motion.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
@@ -1127,6 +1128,94 @@ void VisitMotionPosition(Position& position, const std::function<void(MotionShap
     }
 }
 
+template <typename Visit>
+void VisitThemeFlex(Flexbox& flexbox, Visit& visit);
+template <typename Visit>
+void VisitThemeGrid(Grid& grid, Visit& visit);
+template <typename Visit>
+void VisitThemePosition(Position& position, Visit& visit);
+
+template <typename Visit>
+void VisitThemeContainer(Container& container, Visit& visit) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        VisitThemeFlex(container.GetFlexbox(), visit);
+    } else if (container.GetStyle().layout == ContainerLayout::Grid) {
+        VisitThemeGrid(container.GetGrid(), visit);
+    } else {
+        VisitThemePosition(container.GetContent(), visit);
+    }
+}
+
+template <typename Visit>
+void VisitThemeFlex(Flexbox& flexbox, Visit& visit) {
+    for (FlexboxItem& item : flexbox.GetItems()) {
+        if (item.kind == FlexItemKind::ThemeToggle) {
+            visit(item.themeToggle);
+        } else if (item.kind == FlexItemKind::ThemeIconToggle) {
+            visit(item.themeIconToggle);
+        } else if (item.kind == FlexItemKind::Container && item.container) {
+            VisitThemeContainer(*item.container, visit);
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            VisitThemeFlex(*item.flexbox, visit);
+        }
+    }
+}
+
+template <typename Visit>
+void VisitThemeGrid(Grid& grid, Visit& visit) {
+    for (GridItem& item : grid.GetItems()) {
+        if (item.kind == GridItemKind::ThemeToggle) {
+            visit(item.themeToggle);
+        } else if (item.kind == GridItemKind::ThemeIconToggle) {
+            visit(item.themeIconToggle);
+        } else if (item.kind == GridItemKind::Container && item.container) {
+            VisitThemeContainer(*item.container, visit);
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            VisitThemeFlex(*item.flexbox, visit);
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            VisitThemeGrid(*item.grid, visit);
+        }
+    }
+}
+
+template <typename Visit>
+void VisitThemePosition(Position& position, Visit& visit) {
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::ThemeToggle) {
+            visit(item.themeToggle);
+        } else if (item.kind == PositionItemKind::ThemeIconToggle) {
+            visit(item.themeIconToggle);
+        } else if (item.kind == PositionItemKind::Container && item.container) {
+            VisitThemeContainer(*item.container, visit);
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            VisitThemeFlex(*item.flexbox, visit);
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            VisitThemeGrid(*item.grid, visit);
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            VisitThemePosition(*item.position, visit);
+        }
+    }
+}
+
+template <typename Visit>
+void VisitSceneThemes(std::vector<SceneItem>& items, Visit& visit) {
+    for (SceneItem& item : items) {
+        if (item.kind == SceneItemKind::ThemeToggle) {
+            visit(item.themeToggle);
+        } else if (item.kind == SceneItemKind::ThemeIconToggle) {
+            visit(item.themeIconToggle);
+        } else if (item.kind == SceneItemKind::Container && item.container) {
+            VisitThemeContainer(*item.container, visit);
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            VisitThemeFlex(item.flexbox, visit);
+        } else if (item.kind == SceneItemKind::Grid) {
+            VisitThemeGrid(item.grid, visit);
+        } else if (item.kind == SceneItemKind::Position) {
+            VisitThemePosition(item.position, visit);
+        }
+    }
+}
+
 void VisitSceneMotion(std::vector<SceneItem>& items, const std::function<void(MotionShape&)>& visit) {
     for (SceneItem& item : items) {
         if (item.kind == SceneItemKind::MotionShape) {
@@ -1543,11 +1632,31 @@ const Foundation& RoboScene::ActiveFoundation() const {
     return *found;
 }
 
+Color RoboScene::GetBackground() const {
+    return background_;
+}
+
+namespace {
+
+Color LerpPageColor(const Color& light, const Color& dark, float mix) {
+    mix = std::max(0.0f, std::min(1.0f, mix));
+    auto channel = [mix](std::uint8_t from, std::uint8_t to) {
+        return static_cast<std::uint8_t>(
+            std::lround(static_cast<float>(from) + (static_cast<float>(to) - static_cast<float>(from)) * mix));
+    };
+    return Color::FromRgba(channel(light.red, dark.red), channel(light.green, dark.green), channel(light.blue, dark.blue),
+                           channel(light.alpha, dark.alpha));
+}
+
+}  // namespace
+
 void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding) {
-    const FoundationScope foundationScope(ActiveFoundation(), theme_);
+    const FoundationScope foundationScope(ActiveFoundation(), theme_, themeMix_);
     platform_ = &platform;
     fonts_ = &fonts;
-    background_ = background;
+    Color darkPage = Color::FromHex("#000000");
+    ActiveFoundation().LookupColor("bg.primary", Theme::Dark, darkPage);
+    background_ = LerpPageColor(background, darkPage, themeMix_);
     padding_ = padding;
     hasRenderContext_ = true;
     needsRender_ = false;
@@ -1592,7 +1701,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
         damageHeight = std::max(0, damageBottom - damageY);
         frame.PushClipRect(static_cast<float>(damageX), static_cast<float>(damageY),
                            static_cast<float>(damageWidth), static_cast<float>(damageHeight));
-        frame.ClearRect(damageX, damageY, damageWidth, damageHeight, background);
+        frame.ClearRect(damageX, damageY, damageWidth, damageHeight, background_);
     }
 
     float verticalReserve = partial ? paintedVerticalReserve_ : 0.0f;
@@ -1602,7 +1711,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
         scrollY_ = std::max(0.0f, std::min(scrollY_, maxScrollY_));
 
         if (!partial) {
-            frame.Clear(background);
+            frame.Clear(background_);
         }
         TextSelection::BeginFrame();
 
@@ -2882,6 +2991,11 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         DirtySelectionVisual();
         return true;
     }
+    if (MotionShape* themeMotion = FindThemeMotionScene(items_, x, y)) {
+        SetTheme(theme_ == Theme::Dark ? Theme::Light : Theme::Dark);
+        MarkFullDirty();
+        return true;
+    }
     if (!fromTouch && TextSelection::Hit(x, y) >= 0) {
         DirtySelectionVisual();
         TextSelection::BeginClick(x, y, clicks > 0 ? clicks : 1);
@@ -3152,13 +3266,32 @@ bool RoboScene::Tick(double deltaMs) {
         changed = true;
     }
     bool motionChanged = false;
-    VisitSceneMotion(items_, [&](MotionShape& shape) {
-        if (!shape.NeedsMotion()) {
-            return;
+    {
+        // Tick runs outside Render, so the theme scope has to be opened here.
+        // Without it every shape reads light and the switch never moves.
+        const FoundationScope foundationScope(ActiveFoundation(), theme_, themeMix_);
+        const float mixBefore = themeMix_;
+        AdvanceThemeMix(static_cast<float>(deltaMs), 200.0f, themeMixPrimed_, themeMixing_, themeMix_, themeMixFrom_,
+                        themeMixTo_, themeMixElapsed_);
+        if (themeMixing_ || std::fabs(themeMix_ - mixBefore) > 0.0001f) {
+            motionChanged = true;
         }
-        shape.Tick(static_cast<float>(deltaMs), false);
-        motionChanged = true;
-    });
+        VisitSceneMotion(items_, [&](MotionShape& shape) {
+            if (!shape.NeedsMotion()) {
+                return;
+            }
+            shape.Tick(static_cast<float>(deltaMs), false);
+            motionChanged = true;
+        });
+        auto themeVisit = [&](auto& control) {
+            if (!control.NeedsMotion()) {
+                return;
+            }
+            control.Tick(static_cast<float>(deltaMs));
+            motionChanged = true;
+        };
+        VisitSceneThemes(items_, themeVisit);
+    }
     if (motionChanged) {
         MarkFullDirty();
         changed = true;
@@ -3190,11 +3323,23 @@ bool RoboScene::NeedsTick() {
     if (TextSelection::NeedsBlink()) {
         needsTick = true;
     }
-    VisitSceneMotion(items_, [&](MotionShape& shape) {
-        if (shape.NeedsMotion()) {
+    {
+        const FoundationScope foundationScope(ActiveFoundation(), theme_, themeMix_);
+        if (themeMixing_ || !themeMixPrimed_) {
             needsTick = true;
         }
-    });
+        VisitSceneMotion(items_, [&](MotionShape& shape) {
+            if (shape.NeedsMotion()) {
+                needsTick = true;
+            }
+        });
+        auto themeVisit = [&](auto& control) {
+            if (control.NeedsMotion()) {
+                needsTick = true;
+            }
+        };
+        VisitSceneThemes(items_, themeVisit);
+    }
     return needsTick;
 }
 

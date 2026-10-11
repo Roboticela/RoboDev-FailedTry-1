@@ -1,5 +1,10 @@
 #include "Robo/ThemeIconToggle.hpp"
 
+#include "Robo/Foundation.hpp"
+#include "Robo/Motion.hpp"
+
+#include <cmath>
+
 namespace Robo {
 
 void ThemeIconToggle::SetVariant(ThemeIconToggleVariant variant) {
@@ -59,6 +64,19 @@ void ThemeIconToggle::SetHot(ThemeIconHot hot) {
 
 ThemeIconHot ThemeIconToggle::GetHot() const {
     return hot_;
+}
+
+void ThemeIconToggle::Tick(float deltaMs) {
+    AdvanceThemeMix(deltaMs, 300.0f, primed_, mixing_, mix_, mixFrom_, mixTo_, mixElapsed_);
+}
+
+bool ThemeIconToggle::NeedsMotion() const {
+    const float target = CurrentTheme() == Theme::Dark ? 1.0f : 0.0f;
+    return !primed_ || mixing_ || std::fabs(mix_ - target) > 0.001f;
+}
+
+float ThemeIconToggle::ThemeMix() const {
+    return mix_;
 }
 
 void ThemeIconToggle::ScaleBounds(float factor) {

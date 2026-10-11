@@ -39,6 +39,7 @@ public:
     void SetWidth(float value);
     void SetHeight(float value);
     void SetRadius(float value);
+    void SetHole(float value);
     void SetFill(const Color& color);
     void SetFillEnd(const Color& color);
     void SetDarkFill(const Color& color);
@@ -79,6 +80,7 @@ public:
     void Paint(FrameBuffer& buffer, float originX, float originY, float parentWidth, float parentHeight, float pixelScale) const;
 
 private:
+    void ShiftBounds(float dx, float dy) const;
     Kind kind_ = Kind::Rect;
     float x_ = 0.0f;
     float y_ = 0.0f;
@@ -89,6 +91,7 @@ private:
     float width_ = 0.0f;
     float height_ = 0.0f;
     float radius_ = 0.0f;
+    float hole_ = 0.0f;
     Color fill_ = Color::FromRgba(0, 0, 0, 0);
     Color fillEnd_ = Color::FromRgba(0, 0, 0, 0);
     Color darkFill_ = Color::FromRgba(0, 0, 0, 0);
@@ -141,7 +144,11 @@ private:
     float mixFrom_ = 0.0f;
     float mixTo_ = 0.0f;
     float mixElapsed_ = 0.0f;
+    bool hoverPrimed_ = false;
     float hover_ = 0.0f;
+    float hoverFrom_ = 0.0f;
+    float hoverTo_ = 0.0f;
+    float hoverElapsed_ = 0.0f;
     float hoverTarget_ = 0.0f;
     float elapsedMs_ = 0.0f;
     bool hot_ = false;

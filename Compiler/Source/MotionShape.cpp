@@ -60,6 +60,33 @@ void FillGradient(FrameBuffer& buffer,
     }
 }
 
+void FillAnnulus(FrameBuffer& buffer, float x, float y, float width, float height, float innerDiameter, const Color& color, float opacity) {
+    if (width <= 0.0f || height <= 0.0f || opacity <= 0.0f || color.alpha == 0) {
+        return;
+    }
+    const float outer = std::min(width, height) * 0.5f;
+    const float inner = std::max(0.0f, std::min(innerDiameter * 0.5f, outer));
+    const float cx = x + width * 0.5f;
+    const float cy = y + height * 0.5f;
+    const int x0 = std::max(0, static_cast<int>(std::floor(x - 1.0f)));
+    const int y0 = std::max(0, static_cast<int>(std::floor(y - 1.0f)));
+    const int x1 = std::min(buffer.GetWidth(), static_cast<int>(std::ceil(x + width + 1.0f)));
+    const int y1 = std::min(buffer.GetHeight(), static_cast<int>(std::ceil(y + height + 1.0f)));
+    for (int py = y0; py < y1; ++py) {
+        for (int px = x0; px < x1; ++px) {
+            const float dx = static_cast<float>(px) + 0.5f - cx;
+            const float dy = static_cast<float>(py) + 0.5f - cy;
+            const float distance = std::sqrt(dx * dx + dy * dy);
+            const float outerCoverage = std::max(0.0f, std::min(1.0f, outer - distance + 0.5f));
+            const float innerCoverage = std::max(0.0f, std::min(1.0f, distance - inner + 0.5f));
+            const float coverage = outerCoverage * innerCoverage;
+            if (coverage > 0.0f) {
+                buffer.BlendPixel(px, py, color, opacity * coverage);
+            }
+        }
+    }
+}
+
 float RoundedCoverage(float px, float py, float width, float height, float radius) {
     radius = std::max(0.0f, std::min(radius, std::min(width, height) * 0.5f));
     const float cx = width * 0.5f;
@@ -92,13 +119,13 @@ void BlitMasked(FrameBuffer& destination,
     const float radians = degrees * 0.0174532925f;
     const float cosine = std::cos(radians);
     const float sine = std::sin(radians);
-    const int x0 = static_cast<int>(std::floor(originX - destW));
-    const int y0 = static_cast<int>(std::floor(originY - destH));
-    const int x1 = static_cast<int>(std::ceil(originX + destW * 2.0f));
-    const int y1 = static_cast<int>(std::ceil(originY + destH * 2.0f));
+    const float centerX = originX + srcW * 0.5f;
+    const float centerY = originY + srcH * 0.5f;
+    const int x0 = static_cast<int>(std::floor(centerX - destW * 0.5f - 2.0f));
+    const int y0 = static_cast<int>(std::floor(centerY - destH * 0.5f - 2.0f));
+    const int x1 = static_cast<int>(std::ceil(centerX + destW * 0.5f + 2.0f));
+    const int y1 = static_cast<int>(std::ceil(centerY + destH * 0.5f + 2.0f));
     const std::uint8_t* pixels = source.GetPixels();
-    const float centerX = originX + destW * 0.5f;
-    const float centerY = originY + destH * 0.5f;
     for (int py = y0; py < y1; ++py) {
         for (int px = x0; px < x1; ++px) {
             const float dx = static_cast<float>(px) + 0.5f - centerX;
@@ -142,6 +169,7 @@ void MotionShape::SetDarkBottom(float value) { darkBottom_ = value; hasDarkBotto
 void MotionShape::SetWidth(float value) { width_ = value; }
 void MotionShape::SetHeight(float value) { height_ = value; }
 void MotionShape::SetRadius(float value) { radius_ = value; }
+void MotionShape::SetHole(float value) { hole_ = value; }
 void MotionShape::SetFill(const Color& color) { fill_ = color; }
 void MotionShape::SetFillEnd(const Color& color) { fillEnd_ = color; }
 void MotionShape::SetDarkFill(const Color& color) { darkFill_ = color; hasDarkFill_ = true; }
@@ -212,12 +240,25 @@ void MotionShape::Tick(float deltaMs, bool parentHot) {
     const bool hot = hoverWithin_ ? parentHot : hot_;
     const float hoverTarget = hot ? 1.0f : 0.0f;
     hoverTarget_ = hoverTarget;
-    if (hoverDurationMs_ <= 0.0f) {
+    if (!hoverPrimed_) {
         hover_ = hoverTarget;
-    } else if (hover_ < hoverTarget) {
-        hover_ = std::min(hoverTarget, hover_ + deltaMs / hoverDurationMs_);
-    } else if (hover_ > hoverTarget) {
-        hover_ = std::max(hoverTarget, hover_ - deltaMs / hoverDurationMs_);
+        hoverFrom_ = hoverTarget;
+        hoverTo_ = hoverTarget;
+        hoverPrimed_ = true;
+    } else if (std::fabs(hoverTo_ - hoverTarget) > 0.0001f) {
+        hoverFrom_ = hover_;
+        hoverTo_ = hoverTarget;
+        hoverElapsed_ = 0.0f;
+    }
+    if (std::fabs(hover_ - hoverTo_) > 0.0001f) {
+        const float duration = transitionMs_ > 0.0f ? transitionMs_ : hoverDurationMs_;
+        const MotionEasing easing = transitionMs_ > 0.0f ? transitionEasing_ : ParseEasing("ease");
+        hoverElapsed_ += deltaMs;
+        const float progress = std::min(1.0f, hoverElapsed_ / std::max(1.0f, duration));
+        hover_ = Lerp(hoverFrom_, hoverTo_, Ease(progress, easing));
+        if (progress >= 1.0f) {
+            hover_ = hoverTo_;
+        }
     }
     elapsedMs_ += deltaMs;
     const bool childHot = hot_ || parentHot;
@@ -264,6 +305,14 @@ bool MotionShape::UpdatePointer(float x, float y) {
     return changed;
 }
 
+void MotionShape::ShiftBounds(float dx, float dy) const {
+    bounds_.x += dx;
+    bounds_.y += dy;
+    for (const MotionShape& child : children_) {
+        child.ShiftBounds(dx, dy);
+    }
+}
+
 void MotionShape::ScaleBounds(float factor) {
     bounds_.x *= factor;
     bounds_.y *= factor;
@@ -277,7 +326,7 @@ void MotionShape::ScaleBounds(float factor) {
 void MotionShape::Paint(FrameBuffer& buffer, float originX, float originY, float parentWidth, float parentHeight, float pixelScale) const {
     const float scale = std::max(0.5f, pixelScale);
     const MotionSample motion = SampleMotion(animation_, elapsedMs_, animationDelayMs_);
-    const float hoverMix = Ease(hover_, ParseEasing("ease"));
+    const float hoverMix = hover_;
     const float theme = mix_;
     const float cssX = MixValue(x_, darkX_, hasDarkX_, theme) + MixValue(hasHoverX_ ? hoverX_ : 0.0f, hasDarkHoverX_ ? darkHoverX_ : hoverX_, hasDarkHoverX_, theme) * hoverMix;
     float cssY = MixValue(y_, darkY_, hasDarkY_, theme);
@@ -320,8 +369,20 @@ void MotionShape::Paint(FrameBuffer& buffer, float originX, float originY, float
         return;
     }
 
-    const bool isolate = clip_ || std::fabs(visualRotate) > 0.1f || std::fabs(visualScale - 1.0f) > 0.001f || opacity < 0.999f;
+    const bool spin = std::fabs(visualRotate) > 0.1f;
+    const bool zoom = std::fabs(visualScale - 1.0f) > 0.001f;
+    const bool fade = opacity < 0.999f;
+    // Scale alone stays on the direct path so a cloud bank can grow without
+    // being cropped to the small element box.
+    const bool isolate = clip_ || spin || fade || (zoom && kind_ == Kind::Path);
     if (!isolate) {
+        const float centerX = drawX + drawW * 0.5f;
+        const float centerY = drawY + drawH * 0.5f;
+        const float paintScale = scale * visualScale;
+        const float paintX = centerX + (drawX - centerX) * visualScale;
+        const float paintY = centerY + (drawY - centerY) * visualScale;
+        const float paintW = drawW * visualScale;
+        const float paintH = drawH * visualScale;
         if (kind_ == Kind::Path && !commands_.empty()) {
             Svg svg;
             SvgStyle style;
@@ -341,39 +402,92 @@ void MotionShape::Paint(FrameBuffer& buffer, float originX, float originY, float
             shape.hasStroke = false;
             shape.fillRule = SvgFillRule::EvenOdd;
             svg.AddShape(std::move(shape));
-            SvgPainter::Paint(buffer, svg, drawX, drawY, drawW, scale);
+            SvgPainter::Paint(buffer, svg, paintX, paintY, paintW, paintScale);
         } else if (fill.alpha > 0 || fillEnd.alpha > 0) {
-            if (kind_ == Kind::Ellipse || radius_ > 0.0f) {
-                const float radius = kind_ == Kind::Ellipse ? std::min(drawW, drawH) * 0.5f : radius_ * scale;
+            if (kind_ == Kind::Ellipse && hole_ > 0.0f) {
+                FillAnnulus(buffer, paintX, paintY, paintW, paintH, hole_ * paintScale, fill, opacity);
+            } else if (kind_ == Kind::Ellipse || radius_ > 0.0f) {
+                const float radius = kind_ == Kind::Ellipse ? std::min(paintW, paintH) * 0.5f : radius_ * paintScale;
                 if (fillEnd.alpha == 0) {
-                    buffer.FillRoundedRect(drawX, drawY, drawW, drawH, radius, fill, opacity);
+                    buffer.FillRoundedRect(paintX, paintY, paintW, paintH, radius, fill, opacity);
                 } else {
-                    FrameBuffer layer(std::max(1, static_cast<int>(std::ceil(drawW))), std::max(1, static_cast<int>(std::ceil(drawH))));
+                    FrameBuffer layer(std::max(1, static_cast<int>(std::ceil(paintW))), std::max(1, static_cast<int>(std::ceil(paintH))));
                     layer.Clear(Color::FromRgba(0, 0, 0, 0));
-                    FillGradient(layer, 0.0f, 0.0f, drawW, drawH, fill, fillEnd, horizontal_, 1.0f);
-                    BlitMasked(buffer, layer, drawX, drawY, radius, 1.0f, 0.0f, opacity);
+                    FillGradient(layer, 0.0f, 0.0f, paintW, paintH, fill, fillEnd, horizontal_, 1.0f);
+                    BlitMasked(buffer, layer, paintX, paintY, radius, 1.0f, 0.0f, opacity);
                 }
             } else {
-                FillGradient(buffer, drawX, drawY, drawW, drawH, fill, fillEnd, horizontal_, opacity);
+                FillGradient(buffer, paintX, paintY, paintW, paintH, fill, fillEnd, horizontal_, opacity);
             }
         }
         for (const MotionShape& child : children_) {
-            child.Paint(buffer, drawX, drawY, drawW, drawH, scale);
+            child.Paint(buffer, paintX, paintY, paintW, paintH, paintScale);
         }
         return;
+    }
+
+    if (clip_ && kind_ == Kind::Rect && radius_ > 0.0f) {
+        const float shadowRadius = std::min(radius_ * scale, std::min(drawW, drawH) * 0.5f);
+        const float lip = 1.0f - theme;
+        if (lip > 0.04f) {
+            buffer.FillRoundedRect(drawX, drawY + 1.4f * scale, drawW, drawH, shadowRadius, Color::FromRgba(255, 255, 255, 255), 0.16f * lip);
+        }
+        buffer.FillRoundedRect(drawX, drawY - 1.2f * scale, drawW, drawH, shadowRadius, Color::FromRgba(0, 0, 0, 255), 0.18f);
     }
 
     const int layerW = std::max(1, static_cast<int>(std::ceil(drawW)));
     const int layerH = std::max(1, static_cast<int>(std::ceil(drawH)));
     FrameBuffer layer(layerW, layerH);
     layer.Clear(Color::FromRgba(0, 0, 0, 0));
-    if (fill.alpha > 0 || fillEnd.alpha > 0) {
-        FillGradient(layer, 0.0f, 0.0f, drawW, drawH, fill, fillEnd, horizontal_, 1.0f);
+    if (kind_ == Kind::Path && !commands_.empty()) {
+        Svg svg;
+        SvgStyle style;
+        style.viewX = viewX_;
+        style.viewY = viewY_;
+        style.viewWidth = viewWidth_ > 0.0f ? viewWidth_ : width_;
+        style.viewHeight = viewHeight_ > 0.0f ? viewHeight_ : height_;
+        style.width = width_;
+        style.height = height_;
+        style.opacity = 1.0f;
+        style.color = fill;
+        svg.SetStyle(style);
+        SvgShape shape;
+        shape.commands = commands_;
+        shape.hasFill = true;
+        shape.currentFill = true;
+        shape.hasStroke = false;
+        shape.fillRule = SvgFillRule::EvenOdd;
+        svg.AddShape(std::move(shape));
+        SvgPainter::Paint(layer, svg, 0.0f, 0.0f, drawW, scale);
+    } else if (fill.alpha > 0 || fillEnd.alpha > 0) {
+        if (kind_ == Kind::Ellipse || radius_ > 0.0f) {
+            const float radius = kind_ == Kind::Ellipse ? std::min(drawW, drawH) * 0.5f : radius_ * scale;
+            if (fillEnd.alpha == 0) {
+                layer.FillRoundedRect(0.0f, 0.0f, drawW, drawH, radius, fill, 1.0f);
+            } else {
+                FillGradient(layer, 0.0f, 0.0f, drawW, drawH, fill, fillEnd, horizontal_, 1.0f);
+            }
+        } else {
+            FillGradient(layer, 0.0f, 0.0f, drawW, drawH, fill, fillEnd, horizontal_, 1.0f);
+        }
     }
     for (const MotionShape& child : children_) {
         child.Paint(layer, 0.0f, 0.0f, drawW, drawH, scale);
+        child.ShiftBounds(drawX, drawY);
     }
-    const float mask = clip_ ? (kind_ == Kind::Ellipse ? std::min(drawW, drawH) * 0.5f : std::max(radius_ * scale, kind_ == Kind::Rect ? radius_ * scale : 0.0f)) : 0.0f;
+    if (clip_ && kind_ == Kind::Rect) {
+        const int shade = std::max(1, static_cast<int>(std::round(7.0f * scale)));
+        for (int row = 0; row < shade; ++row) {
+            const float fade = 1.0f - static_cast<float>(row) / static_cast<float>(shade);
+            layer.FillRect(0, row, layerW, 1, Color::FromRgba(0, 0, 0, 255), 0.34f * fade * fade);
+        }
+    }
+    float mask = 0.0f;
+    if (kind_ == Kind::Ellipse) {
+        mask = std::min(drawW, drawH) * 0.5f;
+    } else if (clip_ || radius_ > 0.0f) {
+        mask = std::min(radius_ * scale, std::min(drawW, drawH) * 0.5f);
+    }
     BlitMasked(buffer, layer, drawX, drawY, mask, visualScale, visualRotate, opacity);
 }
 

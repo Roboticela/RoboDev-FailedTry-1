@@ -2097,6 +2097,8 @@ void XmlToCpp::EmitShape(std::ostringstream& code, const XmlNode& node, int inde
             code << Indent(indent) << variable << ".SetHeight(" << FloatLiteral(value) << ");\n";
         } else if (key == "radius") {
             code << Indent(indent) << variable << ".SetRadius(" << FloatLiteral(value) << ");\n";
+        } else if (key == "hole") {
+            code << Indent(indent) << variable << ".SetHole(" << FloatLiteral(value) << ");\n";
         } else if (key == "fill" || key == "fillEnd" || key == "darkFill" || key == "darkFillEnd" || key == "hoverFill") {
             const char* setter = "SetFill";
             if (key == "fillEnd") {

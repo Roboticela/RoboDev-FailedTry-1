@@ -164,6 +164,19 @@ void DrawCaption(FrameBuffer& buffer,
     fonts.DrawString(buffer, x, baseline, text, fontSize, FontFaceId::Regular, color, opacity, 0.0f);
 }
 
+Color LerpColor(const Color& a, const Color& b, float t) {
+    auto channel = [t](std::uint8_t from, std::uint8_t to) {
+        return static_cast<std::uint8_t>(from + (static_cast<float>(to) - from) * t);
+    };
+    return Color::FromRgba(channel(a.red, b.red), channel(a.green, b.green), channel(a.blue, b.blue), channel(a.alpha, b.alpha));
+}
+
+Color TokenOn(const char* hex, const char* token, Theme theme) {
+    Color color = Color::FromHex(hex);
+    CurrentFoundation().LookupColor(token, theme, color);
+    return color;
+}
+
 void DrawMode(FrameBuffer& buffer,
               const FontEngine& fonts,
               const ModeBox& box,
@@ -172,13 +185,12 @@ void DrawMode(FrameBuffer& buffer,
               bool showIcon,
               bool showLabel,
               float iconCss,
-              bool active,
+              const Color& ink,
               float opacity,
               float scale) {
     if (box.width <= 0.0f) {
         return;
     }
-    const Color ink = ResolveColor(Color::FromHex(active ? "#1D1D1F" : "#86868B"), active ? "color.text.primary" : "color.text.tertiary");
     const float icon = showIcon ? Css(iconCss, scale) : 0.0f;
     const float gap = (showIcon && showLabel) ? Css(4.0f, scale) : 0.0f;
     const char* label = light ? "Light" : "Dark";
@@ -206,12 +218,10 @@ void DrawMode(FrameBuffer& buffer,
     }
 }
 
-void DrawSwitch(FrameBuffer& buffer, const ModeBox& track, bool on, bool compact, float opacity) {
-    const Color off = ResolveColor(Color::FromHex("#D2D2D7"), "color.border.default");
-    const Color darkIdle = ResolveColor(Color::FromHex("#2C2C2E"), "color.bg.tertiary");
-    const Color brand = ResolveColor(Color::FromHex("#0E7AFF"), "color.brand.primary");
-    const bool dark = CurrentTheme() == Theme::Dark;
-    const Color trackColor = on ? brand : (dark ? darkIdle : off);
+void DrawSwitch(FrameBuffer& buffer, const ModeBox& track, float mix, bool compact, float opacity) {
+    const Color off = TokenOn("#D2D2D7", "color.border.default", Theme::Light);
+    const Color brand = TokenOn("#0E7AFF", "color.brand.primary", Theme::Dark);
+    const Color trackColor = LerpColor(off, brand, mix);
     buffer.FillRoundedRect(track.x, track.y, track.width, track.height, track.height * 0.5f, trackColor, opacity);
 
     const float inset = compact ? 3.0f : 4.0f;
@@ -219,7 +229,7 @@ void DrawSwitch(FrameBuffer& buffer, const ModeBox& track, bool on, bool compact
     const float parked = compact ? 25.0f : 30.0f;
     const float scale = track.height / (compact ? 28.0f : 34.0f);
     const float knobSize = knob * scale;
-    const float knobX = track.x + (on ? track.width - parked * scale : inset * scale);
+    const float knobX = track.x + inset * scale + (track.width - parked * scale - inset * scale) * mix;
     const float knobY = track.y + inset * scale;
     const Color knobColor = ResolveColor(Color::FromHex("#FFFFFF"), "color.text.on-brand");
     buffer.FillRoundedRect(knobX, knobY, knobSize, knobSize, knobSize * 0.5f, knobColor, opacity);
@@ -324,12 +334,18 @@ ThemeTogglePaintResult ThemeTogglePainter::Paint(FrameBuffer& buffer,
     const float scale = std::max(0.5f, pixelScale);
     const ToggleLayout layout = LayoutOf(fonts, toggle, availableWidth, scale);
     const float opacity = toggle.IsDisabled() ? 0.55f : 1.0f;
-    const bool dark = CurrentTheme() == Theme::Dark;
+    const float mix = toggle.ThemeMix();
+    const Color lightInk = LerpColor(TokenOn("#1D1D1F", "color.text.primary", Theme::Light),
+                                     TokenOn("#86868B", "color.text.tertiary", Theme::Dark),
+                                     mix);
+    const Color darkInk = LerpColor(TokenOn("#86868B", "color.text.tertiary", Theme::Light),
+                                    TokenOn("#1D1D1F", "color.text.primary", Theme::Dark),
+                                    mix);
     if (layout.light.width > 0.0f) {
-        DrawMode(buffer, fonts, Shift(layout.light, originX, originY), true, layout.stacked, layout.showIcon, layout.showLabel, layout.iconCss, !dark, opacity, scale);
-        DrawMode(buffer, fonts, Shift(layout.dark, originX, originY), false, layout.stacked, layout.showIcon, layout.showLabel, layout.iconCss, dark, opacity, scale);
+        DrawMode(buffer, fonts, Shift(layout.light, originX, originY), true, layout.stacked, layout.showIcon, layout.showLabel, layout.iconCss, lightInk, opacity, scale);
+        DrawMode(buffer, fonts, Shift(layout.dark, originX, originY), false, layout.stacked, layout.showIcon, layout.showLabel, layout.iconCss, darkInk, opacity, scale);
     }
-    DrawSwitch(buffer, Shift(layout.track, originX, originY), dark, layout.compactTrack, opacity);
+    DrawSwitch(buffer, Shift(layout.track, originX, originY), mix, layout.compactTrack, opacity);
 
     ThemeToggleBounds bounds;
     bounds.x = originX;

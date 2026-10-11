@@ -1,5 +1,7 @@
 #include "Robo/Motion.hpp"
 
+#include "Robo/Foundation.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -120,6 +122,50 @@ float ParseDurationMs(const std::string& text) {
         return static_cast<float>(std::atof(text.c_str())) * 1000.0f;
     }
     return static_cast<float>(std::atof(text.c_str()));
+}
+
+void AdvanceThemeMix(float deltaMs,
+                     float durationMs,
+                     bool& primed,
+                     bool& mixing,
+                     float& mix,
+                     float& mixFrom,
+                     float& mixTo,
+                     float& mixElapsed) {
+    const float target = CurrentTheme() == Theme::Dark ? 1.0f : 0.0f;
+    if (!primed) {
+        mix = target;
+        mixTo = target;
+        primed = true;
+        mixing = false;
+        return;
+    }
+    if (std::fabs(mixTo - target) <= 0.0001f && std::fabs(mix - target) <= 0.0001f) {
+        return;
+    }
+    if (!mixing || std::fabs(mixTo - target) > 0.0001f) {
+        mixFrom = mix;
+        mixTo = target;
+        mixElapsed = 0.0f;
+        mixing = durationMs > 0.0f;
+    }
+    if (!mixing) {
+        mix = target;
+        return;
+    }
+    mixElapsed += deltaMs;
+    const float progress = std::min(1.0f, mixElapsed / std::max(1.0f, durationMs));
+    MotionEasing easing;
+    easing.linear = false;
+    easing.x1 = 0.28f;
+    easing.y1 = 0.11f;
+    easing.x2 = 0.32f;
+    easing.y2 = 1.0f;
+    mix = mixFrom + (mixTo - mixFrom) * Ease(progress, easing);
+    if (progress >= 1.0f) {
+        mixing = false;
+        mix = target;
+    }
 }
 
 void RegisterMotion(MotionClip clip) {

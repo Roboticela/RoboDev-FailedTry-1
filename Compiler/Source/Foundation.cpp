@@ -11,6 +11,8 @@
 #include "Robo/Text.hpp"
 #include "Robo/TextRun.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <vector>
 
@@ -26,7 +28,17 @@ std::map<std::string, Foundation>& Registry() {
 struct ScopeFrame {
     const Foundation* foundation = nullptr;
     Theme theme = Theme::Light;
+    float themeMix = 0.0f;
 };
+
+Color LerpThemeColor(const Color& light, const Color& dark, float mix) {
+    mix = std::max(0.0f, std::min(1.0f, mix));
+    auto channel = [mix](std::uint8_t from, std::uint8_t to) {
+        return static_cast<std::uint8_t>(std::lround(static_cast<float>(from) + (static_cast<float>(to) - static_cast<float>(from)) * mix));
+    };
+    return Color::FromRgba(channel(light.red, dark.red), channel(light.green, dark.green), channel(light.blue, dark.blue),
+                           channel(light.alpha, dark.alpha));
+}
 
 std::vector<ScopeFrame>& ScopeStack() {
     static std::vector<ScopeFrame> stack;
@@ -319,8 +331,11 @@ void Foundation::Register(Foundation foundation) {
     Registry()[name] = std::move(foundation);
 }
 
-FoundationScope::FoundationScope(const Foundation& foundation, Theme theme) {
-    ScopeStack().push_back(ScopeFrame{&foundation, theme});
+FoundationScope::FoundationScope(const Foundation& foundation, Theme theme, float themeMix) {
+    if (themeMix < 0.0f) {
+        themeMix = theme == Theme::Dark ? 1.0f : 0.0f;
+    }
+    ScopeStack().push_back(ScopeFrame{&foundation, theme, themeMix});
 }
 
 FoundationScope::~FoundationScope() {
@@ -343,15 +358,31 @@ Theme CurrentTheme() {
     return ScopeStack().back().theme;
 }
 
+float CurrentThemeMix() {
+    if (ScopeStack().empty()) {
+        return 0.0f;
+    }
+    return ScopeStack().back().themeMix;
+}
+
 Color ResolveColor(const Color& literal, const std::string& token) {
     if (token.empty()) {
         return literal;
     }
-    Color resolved;
-    if (!CurrentFoundation().LookupColor(token, CurrentTheme(), resolved)) {
+    Color light = literal;
+    Color dark = literal;
+    const bool hasLight = CurrentFoundation().LookupColor(token, Theme::Light, light);
+    const bool hasDark = CurrentFoundation().LookupColor(token, Theme::Dark, dark);
+    if (!hasLight && !hasDark) {
         return literal;
     }
-    return resolved;
+    if (!hasLight) {
+        light = dark;
+    }
+    if (!hasDark) {
+        dark = light;
+    }
+    return LerpThemeColor(light, dark, CurrentThemeMix());
 }
 
 float ResolveFloat(float literal, const std::string& token) {

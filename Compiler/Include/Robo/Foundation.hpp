@@ -69,7 +69,8 @@ private:
 
 class FoundationScope {
 public:
-    FoundationScope(const Foundation& foundation, Theme theme);
+    // themeMix blends light (0) to dark (1). A negative value snaps to the theme.
+    FoundationScope(const Foundation& foundation, Theme theme, float themeMix = -1.0f);
     ~FoundationScope();
 
     FoundationScope(const FoundationScope&) = delete;
@@ -78,6 +79,7 @@ public:
 
 const Foundation& CurrentFoundation();
 Theme CurrentTheme();
+float CurrentThemeMix();
 
 Color ResolveColor(const Color& literal, const std::string& token);
 float ResolveFloat(float literal, const std::string& token);

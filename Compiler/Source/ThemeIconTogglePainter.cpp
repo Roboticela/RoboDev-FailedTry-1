@@ -15,6 +15,19 @@ float Css(float value, float scale) {
     return value * scale;
 }
 
+Color LerpColor(const Color& a, const Color& b, float t) {
+    auto channel = [t](std::uint8_t from, std::uint8_t to) {
+        return static_cast<std::uint8_t>(from + (static_cast<float>(to) - from) * t);
+    };
+    return Color::FromRgba(channel(a.red, b.red), channel(a.green, b.green), channel(a.blue, b.blue), channel(a.alpha, b.alpha));
+}
+
+Color TokenOn(const char* hex, const char* token, Theme theme) {
+    Color color = Color::FromHex(hex);
+    CurrentFoundation().LookupColor(token, theme, color);
+    return color;
+}
+
 Color Mix(const Color& base, const Color& tint, float tintAmount) {
     const float keep = 1.0f - tintAmount;
     return Color::FromRgba(static_cast<std::uint8_t>(base.red * keep + tint.red * tintAmount),
@@ -96,17 +109,19 @@ ThemeIconTogglePaintResult ThemeIconTogglePainter::Paint(FrameBuffer& buffer,
                                                          float pixelScale) {
     const float scale = std::max(0.5f, pixelScale);
     const float opacity = toggle.IsDisabled() ? 0.55f : 1.0f;
-    const bool dark = CurrentTheme() == Theme::Dark;
+    const float mix = toggle.ThemeMix();
     const ThemeIconToggleMeasureResult measured = Measure(toggle, scale);
-    const Color primary = ResolveColor(Color::FromHex("#1D1D1F"), "color.text.primary");
-    const Color secondary = ResolveColor(Color::FromHex("#6E6E73"), "color.text.secondary");
-    const Color hover = ResolveColor(Color::FromHex("#F5F5F7"), "color.bg.hover");
-    const Color bgSecondary = ResolveColor(Color::FromHex("#F5F5F7"), "color.bg.secondary");
-    const Color tertiary = ResolveColor(Color::FromHex("#EDEDEF"), "color.bg.tertiary");
-    const Color elevated = ResolveColor(Color::FromHex("#FFFFFF"), "color.bg.elevated");
-    const Color border = ResolveColor(Color::FromHex("#D2D2D7"), "color.border.default");
+    const Color primary = LerpColor(TokenOn("#1D1D1F", "color.text.primary", Theme::Light), TokenOn("#1D1D1F", "color.text.primary", Theme::Dark), mix);
+    const Color secondary = LerpColor(TokenOn("#6E6E73", "color.text.secondary", Theme::Light), TokenOn("#6E6E73", "color.text.secondary", Theme::Dark), mix);
+    const Color hover = LerpColor(TokenOn("#F5F5F7", "color.bg.hover", Theme::Light), TokenOn("#F5F5F7", "color.bg.hover", Theme::Dark), mix);
+    const Color bgSecondary = LerpColor(TokenOn("#F5F5F7", "color.bg.secondary", Theme::Light), TokenOn("#F5F5F7", "color.bg.secondary", Theme::Dark), mix);
+    const Color tertiary = LerpColor(TokenOn("#EDEDEF", "color.bg.tertiary", Theme::Light), TokenOn("#EDEDEF", "color.bg.tertiary", Theme::Dark), mix);
+    const Color elevated = LerpColor(TokenOn("#FFFFFF", "color.bg.elevated", Theme::Light), TokenOn("#FFFFFF", "color.bg.elevated", Theme::Dark), mix);
+    const Color border = LerpColor(TokenOn("#D2D2D7", "color.border.default", Theme::Light), TokenOn("#D2D2D7", "color.border.default", Theme::Dark), mix);
     const Color white = Color::FromHex("#FFFFFF");
-    const Color lifted = CurrentTheme() == Theme::Dark ? Mix(tertiary, white, 0.28f) : elevated;
+    const Color lightLifted = TokenOn("#FFFFFF", "color.bg.elevated", Theme::Light);
+    const Color darkLifted = Mix(TokenOn("#EDEDEF", "color.bg.tertiary", Theme::Dark), white, 0.28f);
+    const Color lifted = LerpColor(lightLifted, darkLifted, mix);
 
     if (Single(toggle.GetVariant())) {
         const bool hot = !toggle.IsDisabled() && toggle.GetHot() != ThemeIconHot::None;
@@ -121,15 +136,14 @@ ThemeIconTogglePaintResult ThemeIconTogglePainter::Paint(FrameBuffer& buffer,
         const float iconCss = toggle.GetSize() == ThemeIconToggleSize::Small ? 15.0f : 16.0f;
         const float icon = Css(iconCss, scale);
         const Color ink = hot ? primary : secondary;
-        PaintAppearanceMark(buffer,
-                            dark ? AppearanceMark::Sun : AppearanceMark::Moon,
-                            originX + (measured.width - icon) * 0.5f,
-                            originY + (measured.height - icon) * 0.5f,
-                            iconCss,
-                            1.6f,
-                            ink,
-                            opacity,
-                            scale);
+        const float iconX = originX + (measured.width - icon) * 0.5f;
+        const float iconY = originY + (measured.height - icon) * 0.5f;
+        if (mix < 0.999f) {
+            PaintAppearanceMark(buffer, AppearanceMark::Moon, iconX, iconY, iconCss, 1.6f, ink, opacity * (1.0f - mix), scale);
+        }
+        if (mix > 0.001f) {
+            PaintAppearanceMark(buffer, AppearanceMark::Sun, iconX, iconY, iconCss, 1.6f, ink, opacity * mix, scale);
+        }
         toggle.SetBounds(Box(originX, originY, measured.width, measured.height));
         toggle.SetSegmentBounds({}, {});
     } else {
@@ -141,10 +155,10 @@ ThemeIconTogglePaintResult ThemeIconTogglePainter::Paint(FrameBuffer& buffer,
         Color thumb = lifted;
         if (toggle.GetVariant() == ThemeIconToggleVariant::Segmented) {
             track = Color::FromRgba(0, 0, 0, 0);
-            thumb = CurrentTheme() == Theme::Dark ? Mix(tertiary, white, 0.28f) : bgSecondary;
+            thumb = LerpColor(TokenOn("#F5F5F7", "color.bg.secondary", Theme::Light), darkLifted, mix);
         } else if (toggle.GetVariant() == ThemeIconToggleVariant::Split) {
             track = Color::FromRgba(0, 0, 0, 0);
-            thumb = CurrentTheme() == Theme::Dark ? Mix(tertiary, white, 0.28f) : tertiary;
+            thumb = LerpColor(TokenOn("#EDEDEF", "color.bg.tertiary", Theme::Light), darkLifted, mix);
         }
         if (track.alpha > 0) {
             buffer.FillRoundedRect(originX, originY, measured.width, measured.height, trackRadius, track, opacity);
@@ -154,7 +168,7 @@ ThemeIconTogglePaintResult ThemeIconTogglePainter::Paint(FrameBuffer& buffer,
         }
         const float thumbWidth = (measured.width - pad * 2.0f) * 0.5f;
         const float thumbHeight = measured.height - pad * 2.0f;
-        const float thumbX = originX + pad + (dark ? thumbWidth : 0.0f);
+        const float thumbX = originX + pad + thumbWidth * mix;
         buffer.FillRoundedRect(thumbX, originY + pad, thumbWidth, thumbHeight, thumbRadius, thumb, opacity);
 
         const float iconCss = small ? 15.0f : 16.0f;
@@ -162,8 +176,10 @@ ThemeIconTogglePaintResult ThemeIconTogglePainter::Paint(FrameBuffer& buffer,
         const float segmentWidth = thumbWidth;
         const ThemeIconHot hot = toggle.IsDisabled() ? ThemeIconHot::None : toggle.GetHot();
         const float iconY = originY + (measured.height - icon) * 0.5f;
-        PaintAppearanceMark(buffer, AppearanceMark::Sun, originX + pad + (segmentWidth - icon) * 0.5f, iconY, iconCss, 1.6f, !dark ? primary : (hot == ThemeIconHot::Light ? primary : secondary), opacity, scale);
-        PaintAppearanceMark(buffer, AppearanceMark::Moon, originX + pad + segmentWidth + (segmentWidth - icon) * 0.5f, iconY, iconCss, 1.6f, dark ? primary : (hot == ThemeIconHot::Dark ? primary : secondary), opacity, scale);
+        const Color sunInk = LerpColor(primary, hot == ThemeIconHot::Light ? primary : secondary, mix);
+        const Color moonInk = LerpColor(hot == ThemeIconHot::Dark ? primary : secondary, primary, mix);
+        PaintAppearanceMark(buffer, AppearanceMark::Sun, originX + pad + (segmentWidth - icon) * 0.5f, iconY, iconCss, 1.6f, sunInk, opacity, scale);
+        PaintAppearanceMark(buffer, AppearanceMark::Moon, originX + pad + segmentWidth + (segmentWidth - icon) * 0.5f, iconY, iconCss, 1.6f, moonInk, opacity, scale);
         toggle.SetBounds(Box(originX, originY, measured.width, measured.height));
         toggle.SetSegmentBounds(Box(originX, originY, measured.width * 0.5f, measured.height),
                                 Box(originX + measured.width * 0.5f, originY, measured.width * 0.5f, measured.height));
