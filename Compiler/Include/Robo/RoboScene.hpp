@@ -1,6 +1,9 @@
 #pragma once
 
 #include "BrandLogo.hpp"
+#include "ThemeIconToggle.hpp"
+#include "MotionShape.hpp"
+#include "ThemeToggle.hpp"
 #include "Button.hpp"
 #include "Container.hpp"
 #include "Flexbox.hpp"
@@ -32,14 +35,18 @@ enum class SceneItemKind {
     Grid,
     Position,
     Svg,
-    BrandLogo
+    BrandLogo,
+    ThemeToggle,
+    ThemeIconToggle,
+    MotionShape
 };
 
 enum class HitKind {
     None,
     Button,
     Input,
-    Scrollbar
+    Scrollbar,
+    Theme
 };
 
 struct SceneItem {
@@ -54,6 +61,9 @@ struct SceneItem {
     Position position;
     Svg svg;
     BrandLogo brandLogo;
+    ThemeToggle themeToggle;
+    ThemeIconToggle themeIconToggle;
+    MotionShape motionShape;
 };
 
 class RoboScene {
@@ -69,6 +79,9 @@ public:
     void AddPosition(Position position);
     void AddSvg(Svg svg);
     void AddBrandLogo(BrandLogo logo);
+    void AddThemeToggle(ThemeToggle toggle);
+    void AddThemeIconToggle(ThemeIconToggle toggle);
+    void AddMotionShape(MotionShape shape);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     void SetFoundation(const std::string& name);
@@ -125,6 +138,8 @@ public:
 
 private:
     Button* FindButtonAt(float x, float y);
+    ThemeToggle* FindThemeToggleAt(float x, float y);
+    ThemeIconToggle* FindThemeIconToggleAt(float x, float y);
     Input* FindInputAt(float x, float y);
     Scrollbar* FindScrollbarAt(float x, float y);
     Scrollbar* FindScrollbarNear(float x, float y, float tolerance);

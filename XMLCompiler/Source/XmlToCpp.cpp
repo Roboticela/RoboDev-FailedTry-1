@@ -388,6 +388,10 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
     if (node.name == "FoundationUse") {
         return EmitFoundationUse(node, indent);
     }
+    if (node.name == "Keyframes") {
+        EmitKeyframes(code, node, indent);
+        return code.str();
+    }
 
     if (node.name == "Robo") {
         code << Indent(indent) << "// Generated from Robo XML\n";
@@ -403,7 +407,12 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
             }
         }
         for (const XmlNode& child : node.children) {
-            if (child.name != "Foundation" && child.name != "FoundationUse") {
+            if (child.name == "Keyframes") {
+                code << ConvertNode(child, indent + 1);
+            }
+        }
+        for (const XmlNode& child : node.children) {
+            if (child.name != "Foundation" && child.name != "FoundationUse" && child.name != "Keyframes") {
                 code << ConvertNode(child, indent + 1);
             }
         }
@@ -725,6 +734,31 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         code << Indent(indent) << "{\n";
         EmitBrandLogo(code, node, indent + 1, "brandLogo");
         code << Indent(indent + 1) << "scene.AddBrandLogo(std::move(brandLogo));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
+    if (node.name == "ThemeToggle") {
+        code << Indent(indent) << "{\n";
+        EmitThemeToggle(code, node, indent + 1, "themeToggle");
+        code << Indent(indent + 1) << "scene.AddThemeToggle(std::move(themeToggle));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
+    if (node.name == "ThemeIconToggle") {
+        code << Indent(indent) << "{\n";
+        EmitThemeIconToggle(code, node, indent + 1, "themeIconToggle");
+        code << Indent(indent + 1) << "scene.AddThemeIconToggle(std::move(themeIconToggle));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
+    if (node.name == "Shape" || node.name == "MotionShape") {
+        const std::string shapeName = NextShapeName();
+        code << Indent(indent) << "{\n";
+        EmitShape(code, node, indent + 1, shapeName);
+        code << Indent(indent + 1) << "scene.AddMotionShape(std::move(" << shapeName << "));\n";
         code << Indent(indent) << "}\n";
         return code.str();
     }
@@ -1288,6 +1322,16 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "BrandLogo") {
         EmitBrandLogo(code, child, indent + 1, "brandLogo");
         code << Indent(indent + 1) << parentVar << ".AddBrandLogo(std::move(brandLogo), props);\n";
+    } else if (child.name == "ThemeToggle") {
+        EmitThemeToggle(code, child, indent + 1, "themeToggle");
+        code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
+    } else if (child.name == "ThemeIconToggle") {
+        EmitThemeIconToggle(code, child, indent + 1, "themeIconToggle");
+        code << Indent(indent + 1) << parentVar << ".AddThemeIconToggle(std::move(themeIconToggle), props);\n";
+    } else if (child.name == "Shape" || child.name == "MotionShape") {
+        const std::string shapeName = NextShapeName();
+        EmitShape(code, child, indent + 1, shapeName);
+        code << Indent(indent + 1) << parentVar << ".AddMotionShape(std::move(" << shapeName << "), props);\n";
     } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
         if (!child.name.empty()) {
             std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
@@ -1606,6 +1650,16 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "BrandLogo") {
         EmitBrandLogo(code, child, indent + 1, "brandLogo");
         code << Indent(indent + 1) << parentVar << ".AddBrandLogo(std::move(brandLogo), props);\n";
+    } else if (child.name == "ThemeToggle") {
+        EmitThemeToggle(code, child, indent + 1, "themeToggle");
+        code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
+    } else if (child.name == "ThemeIconToggle") {
+        EmitThemeIconToggle(code, child, indent + 1, "themeIconToggle");
+        code << Indent(indent + 1) << parentVar << ".AddThemeIconToggle(std::move(themeIconToggle), props);\n";
+    } else if (child.name == "Shape" || child.name == "MotionShape") {
+        const std::string shapeName = NextShapeName();
+        EmitShape(code, child, indent + 1, shapeName);
+        code << Indent(indent + 1) << parentVar << ".AddMotionShape(std::move(" << shapeName << "), props);\n";
     } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
         if (!child.name.empty()) {
             std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
@@ -1849,6 +1903,16 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     } else if (child.name == "BrandLogo") {
         EmitBrandLogo(code, child, indent + 1, "brandLogo");
         code << Indent(indent + 1) << parentVar << ".AddBrandLogo(std::move(brandLogo), props);\n";
+    } else if (child.name == "ThemeToggle") {
+        EmitThemeToggle(code, child, indent + 1, "themeToggle");
+        code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
+    } else if (child.name == "ThemeIconToggle") {
+        EmitThemeIconToggle(code, child, indent + 1, "themeIconToggle");
+        code << Indent(indent + 1) << parentVar << ".AddThemeIconToggle(std::move(themeIconToggle), props);\n";
+    } else if (child.name == "Shape" || child.name == "MotionShape") {
+        const std::string shapeName = NextShapeName();
+        EmitShape(code, child, indent + 1, shapeName);
+        code << Indent(indent + 1) << parentVar << ".AddMotionShape(std::move(" << shapeName << "), props);\n";
     } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
         if (!child.name.empty()) {
             std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
@@ -1877,6 +1941,260 @@ void XmlToCpp::EmitBrandLogo(std::ostringstream& code,
             code << Indent(indent) << variable << ".SetPrimary(\"" << EscapeCpp(attribute.second) << "\");\n";
         } else if (attribute.first == "secondary") {
             code << Indent(indent) << variable << ".SetSecondary(\"" << EscapeCpp(attribute.second) << "\");\n";
+        }
+    }
+}
+
+void XmlToCpp::EmitThemeToggle(std::ostringstream& code,
+                                 const XmlNode& node,
+                                 int indent,
+                                 const std::string& variable) const {
+    code << Indent(indent) << "Robo::ThemeToggle " << variable << ";\n";
+    bool compact = false;
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "variant") {
+            code << Indent(indent) << variable << ".SetVariant(Robo::ParseThemeToggleVariant(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "compact") {
+            compact = attribute.second == "true" || attribute.second == "1";
+        } else if (attribute.first == "disabled") {
+            const bool disabled = attribute.second == "true" || attribute.second == "1";
+            code << Indent(indent) << variable << ".SetDisabled(" << (disabled ? "true" : "false") << ");\n";
+        }
+    }
+    if (compact) {
+        code << Indent(indent) << variable << ".SetVariant(Robo::ThemeToggleVariant::Compact);\n";
+    }
+}
+
+void XmlToCpp::EmitThemeIconToggle(std::ostringstream& code,
+                                    const XmlNode& node,
+                                    int indent,
+                                    const std::string& variable) const {
+    code << Indent(indent) << "Robo::ThemeIconToggle " << variable << ";\n";
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "variant") {
+            code << Indent(indent) << variable << ".SetVariant(Robo::ParseThemeIconToggleVariant(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "size") {
+            code << Indent(indent) << variable << ".SetSize(Robo::ParseThemeIconToggleSize(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "disabled") {
+            const bool disabled = attribute.second == "true" || attribute.second == "1";
+            code << Indent(indent) << variable << ".SetDisabled(" << (disabled ? "true" : "false") << ");\n";
+        }
+    }
+}
+
+std::string XmlToCpp::NextShapeName() const {
+    return "motionShape" + std::to_string(shapeSerial_++);
+}
+
+void XmlToCpp::EmitKeyframes(std::ostringstream& code, const XmlNode& node, int indent) const {
+    std::string name = "motion";
+    std::string duration = "1s";
+    std::string easing = "linear";
+    std::string delay = "0s";
+    bool infinite = false;
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "name") {
+            name = attribute.second;
+        } else if (attribute.first == "duration") {
+            duration = attribute.second;
+        } else if (attribute.first == "easing") {
+            easing = attribute.second;
+        } else if (attribute.first == "delay") {
+            delay = attribute.second;
+        } else if (attribute.first == "iteration" && attribute.second == "infinite") {
+            infinite = true;
+        }
+    }
+    code << Indent(indent) << "{\n";
+    code << Indent(indent + 1) << "Robo::MotionClip clip;\n";
+    code << Indent(indent + 1) << "clip.name = \"" << EscapeCpp(name) << "\";\n";
+    code << Indent(indent + 1) << "clip.durationMs = Robo::ParseDurationMs(\"" << EscapeCpp(duration) << "\");\n";
+    code << Indent(indent + 1) << "clip.delayMs = Robo::ParseDurationMs(\"" << EscapeCpp(delay) << "\");\n";
+    code << Indent(indent + 1) << "clip.easing = Robo::ParseEasing(\"" << EscapeCpp(easing) << "\");\n";
+    code << Indent(indent + 1) << "clip.infinite = " << (infinite ? "true" : "false") << ";\n";
+    for (const XmlNode& child : node.children) {
+        if (child.name != "Keyframe") {
+            continue;
+        }
+        code << Indent(indent + 1) << "{\n";
+        code << Indent(indent + 2) << "Robo::MotionKeyframe frame;\n";
+        for (const auto& attribute : child.attributes) {
+            if (attribute.first == "at") {
+                std::string at = attribute.second;
+                const bool percent = !at.empty() && at.back() == '%';
+                if (percent) {
+                    at.pop_back();
+                }
+                code << Indent(indent + 2) << "frame.at = " << FloatLiteral(at);
+                if (percent) {
+                    code << " / 100.0f";
+                }
+                code << ";\n";
+            } else if (attribute.first == "x") {
+                code << Indent(indent + 2) << "frame.x = " << FloatLiteral(attribute.second) << ";\n";
+                code << Indent(indent + 2) << "frame.hasX = true;\n";
+            } else if (attribute.first == "y") {
+                code << Indent(indent + 2) << "frame.y = " << FloatLiteral(attribute.second) << ";\n";
+                code << Indent(indent + 2) << "frame.hasY = true;\n";
+            } else if (attribute.first == "opacity") {
+                code << Indent(indent + 2) << "frame.opacity = " << FloatLiteral(attribute.second) << ";\n";
+                code << Indent(indent + 2) << "frame.hasOpacity = true;\n";
+            } else if (attribute.first == "scale") {
+                code << Indent(indent + 2) << "frame.scale = " << FloatLiteral(attribute.second) << ";\n";
+                code << Indent(indent + 2) << "frame.hasScale = true;\n";
+            } else if (attribute.first == "rotate") {
+                code << Indent(indent + 2) << "frame.rotate = " << FloatLiteral(attribute.second) << ";\n";
+                code << Indent(indent + 2) << "frame.hasRotate = true;\n";
+            }
+        }
+        code << Indent(indent + 2) << "clip.frames.push_back(frame);\n";
+        code << Indent(indent + 1) << "}\n";
+    }
+    code << Indent(indent + 1) << "Robo::RegisterMotion(std::move(clip));\n";
+    code << Indent(indent) << "}\n";
+}
+
+std::string CppFloat(float value) {
+    std::ostringstream out;
+    out.setf(std::ios::fixed);
+    out.precision(4);
+    out << value;
+    return out.str() + "f";
+}
+
+void XmlToCpp::EmitShape(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const {
+    code << Indent(indent) << "Robo::MotionShape " << variable << ";\n";
+    auto flag = [](const std::string& value) {
+        return value == "true" || value == "1" || value == "yes";
+    };
+    for (const auto& attribute : node.attributes) {
+        const std::string& key = attribute.first;
+        const std::string& value = attribute.second;
+        if (key == "kind") {
+            if (value == "ellipse" || value == "circle") {
+                code << Indent(indent) << variable << ".SetKind(Robo::MotionShape::Kind::Ellipse);\n";
+            } else if (value == "path") {
+                code << Indent(indent) << variable << ".SetKind(Robo::MotionShape::Kind::Path);\n";
+            } else {
+                code << Indent(indent) << variable << ".SetKind(Robo::MotionShape::Kind::Rect);\n";
+            }
+        } else if (key == "x") {
+            code << Indent(indent) << variable << ".SetX(" << FloatLiteral(value) << ");\n";
+        } else if (key == "y") {
+            code << Indent(indent) << variable << ".SetY(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkX") {
+            code << Indent(indent) << variable << ".SetDarkX(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkY") {
+            code << Indent(indent) << variable << ".SetDarkY(" << FloatLiteral(value) << ");\n";
+        } else if (key == "bottom") {
+            code << Indent(indent) << variable << ".SetBottom(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkBottom") {
+            code << Indent(indent) << variable << ".SetDarkBottom(" << FloatLiteral(value) << ");\n";
+        } else if (key == "width") {
+            code << Indent(indent) << variable << ".SetWidth(" << FloatLiteral(value) << ");\n";
+        } else if (key == "height") {
+            code << Indent(indent) << variable << ".SetHeight(" << FloatLiteral(value) << ");\n";
+        } else if (key == "radius") {
+            code << Indent(indent) << variable << ".SetRadius(" << FloatLiteral(value) << ");\n";
+        } else if (key == "fill" || key == "fillEnd" || key == "darkFill" || key == "darkFillEnd" || key == "hoverFill") {
+            const char* setter = "SetFill";
+            if (key == "fillEnd") {
+                setter = "SetFillEnd";
+            } else if (key == "darkFill") {
+                setter = "SetDarkFill";
+            } else if (key == "darkFillEnd") {
+                setter = "SetDarkFillEnd";
+            } else if (key == "hoverFill") {
+                setter = "SetHoverFill";
+            }
+            code << Indent(indent) << variable << "." << setter << "(Robo::Color::FromHex(\"" << EscapeCpp(value) << "\"));\n";
+        } else if (key == "opacity") {
+            code << Indent(indent) << variable << ".SetOpacity(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkOpacity") {
+            code << Indent(indent) << variable << ".SetDarkOpacity(" << FloatLiteral(value) << ");\n";
+        } else if (key == "scale") {
+            code << Indent(indent) << variable << ".SetScale(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkScale") {
+            code << Indent(indent) << variable << ".SetDarkScale(" << FloatLiteral(value) << ");\n";
+        } else if (key == "rotate") {
+            code << Indent(indent) << variable << ".SetRotate(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkRotate") {
+            code << Indent(indent) << variable << ".SetDarkRotate(" << FloatLiteral(value) << ");\n";
+        } else if (key == "hoverX") {
+            code << Indent(indent) << variable << ".SetHoverX(" << FloatLiteral(value) << ");\n";
+        } else if (key == "darkHoverX") {
+            code << Indent(indent) << variable << ".SetDarkHoverX(" << FloatLiteral(value) << ");\n";
+        } else if (key == "hoverY") {
+            code << Indent(indent) << variable << ".SetHoverY(" << FloatLiteral(value) << ");\n";
+        } else if (key == "hoverScale") {
+            code << Indent(indent) << variable << ".SetHoverScale(" << FloatLiteral(value) << ");\n";
+        } else if (key == "hoverRotate") {
+            code << Indent(indent) << variable << ".SetHoverRotate(" << FloatLiteral(value) << ");\n";
+        } else if (key == "hoverWithin") {
+            code << Indent(indent) << variable << ".SetHoverWithin(" << (flag(value) ? "true" : "false") << ");\n";
+        } else if (key == "clip") {
+            code << Indent(indent) << variable << ".SetClip(" << (flag(value) ? "true" : "false") << ");\n";
+        } else if (key == "toggle" && value == "theme") {
+            code << Indent(indent) << variable << ".SetToggleTheme(true);\n";
+        } else if (key == "gradient" && value == "horizontal") {
+            code << Indent(indent) << variable << ".SetHorizontal(true);\n";
+        } else if (key == "transition") {
+            const std::size_t space = value.find(' ');
+            const std::string duration = space == std::string::npos ? value : value.substr(0, space);
+            const std::string easing = space == std::string::npos ? "linear" : value.substr(space + 1);
+            code << Indent(indent) << variable << ".SetTransition(Robo::ParseDurationMs(\"" << EscapeCpp(duration)
+                 << "\"), Robo::ParseEasing(\"" << EscapeCpp(easing) << "\"));\n";
+        } else if (key == "animation") {
+            std::string delay = "0s";
+            const auto delayAttribute = node.attributes.find("animationDelay");
+            if (delayAttribute != node.attributes.end()) {
+                delay = delayAttribute->second;
+            }
+            code << Indent(indent) << variable << ".SetAnimation(\"" << EscapeCpp(value) << "\", Robo::ParseDurationMs(\""
+                 << EscapeCpp(delay) << "\"));\n";
+        } else if (key == "viewBox") {
+            float box[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            int count = 0;
+            std::string token;
+            for (std::size_t index = 0; index <= value.size() && count < 4; ++index) {
+                if (index == value.size() || value[index] == ' ' || value[index] == ',') {
+                    if (!token.empty()) {
+                        box[count++] = static_cast<float>(std::atof(token.c_str()));
+                        token.clear();
+                    }
+                } else {
+                    token.push_back(value[index]);
+                }
+            }
+            code << Indent(indent) << variable << ".SetViewBox(" << CppFloat(box[0]) << ", " << CppFloat(box[1]) << ", "
+                 << CppFloat(box[2]) << ", " << CppFloat(box[3]) << ");\n";
+        } else if (key == "path") {
+            const std::vector<CompiledCommand> commands = CompilePathData(value);
+            for (const CompiledCommand& command : commands) {
+                if (command.kind == 0) {
+                    code << Indent(indent) << variable << ".AddCommand(Robo::SvgCommand::Move(" << CppFloat(command.x) << ", "
+                         << CppFloat(command.y) << "));\n";
+                } else if (command.kind == 1) {
+                    code << Indent(indent) << variable << ".AddCommand(Robo::SvgCommand::Line(" << CppFloat(command.x) << ", "
+                         << CppFloat(command.y) << "));\n";
+                } else if (command.kind == 2) {
+                    code << Indent(indent) << variable << ".AddCommand(Robo::SvgCommand::Cubic(" << CppFloat(command.c1x) << ", "
+                         << CppFloat(command.c1y) << ", " << CppFloat(command.c2x) << ", " << CppFloat(command.c2y) << ", "
+                         << CppFloat(command.x) << ", " << CppFloat(command.y) << "));\n";
+                } else {
+                    code << Indent(indent) << variable << ".AddCommand(Robo::SvgCommand::Close());\n";
+                }
+            }
+        }
+    }
+    for (const XmlNode& child : node.children) {
+        if (child.name == "Shape" || child.name == "MotionShape") {
+            const std::string childName = NextShapeName();
+            EmitShape(code, child, indent, childName);
+            code << Indent(indent) << variable << ".AddChild(std::move(" << childName << "));\n";
+        } else if (child.name == "Keyframes") {
+            EmitKeyframes(code, child, indent);
         }
     }
 }
@@ -1980,6 +2298,7 @@ bool XmlToCpp::TryEmitGraphic(std::ostringstream& code,
 
 std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDirectory) const {
     icons_ = LoadIconPacks(assetDirectory);
+    shapeSerial_ = 0;
     foundations_.clear();
     emittedFoundations_.clear();
     foundations_.insert("RoboFoundation");
@@ -1993,6 +2312,10 @@ std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDi
     code << "#include \"Robo/Svg.hpp\"\n";
     code << "#include \"Robo/Icon.hpp\"\n";
     code << "#include \"Robo/BrandLogo.hpp\"\n";
+    code << "#include \"Robo/ThemeToggle.hpp\"\n";
+    code << "#include \"Robo/ThemeIconToggle.hpp\"\n";
+    code << "#include \"Robo/Motion.hpp\"\n";
+    code << "#include \"Robo/MotionShape.hpp\"\n";
     code << "#include \"Robo/Heading.hpp\"\n";
     code << "#include \"Robo/Paragraph.hpp\"\n";
     code << "#include \"Robo/Button.hpp\"\n";

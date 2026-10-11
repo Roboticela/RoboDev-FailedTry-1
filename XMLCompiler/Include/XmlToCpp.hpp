@@ -25,6 +25,11 @@ private:
     void EmitPosition(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const;
     void EmitPositionChild(std::ostringstream& code, const XmlNode& child, int indent, const std::string& parentVar) const;
     void EmitBrandLogo(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
+    void EmitThemeToggle(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
+    void EmitThemeIconToggle(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
+    void EmitKeyframes(std::ostringstream& code, const XmlNode& node, int indent) const;
+    void EmitShape(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
+    std::string NextShapeName() const;
     // Normalises a numeric XML attribute into a valid C++ float literal.
     void EmitSelectable(std::ostringstream& code, int indent, const std::string& styleName, const XmlNode& node) const;
     bool TryEmitGraphic(std::ostringstream& code, const XmlNode& node, int indent, const std::string& parent, bool withProps) const;
@@ -46,6 +51,7 @@ private:
     mutable std::map<std::string, CompiledSvg> icons_;
     mutable std::set<std::string> foundations_;
     mutable std::set<std::string> emittedFoundations_;
+    mutable int shapeSerial_ = 0;
 };
 
 }  // namespace Robo

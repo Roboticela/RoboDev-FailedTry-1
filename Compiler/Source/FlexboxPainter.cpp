@@ -4,6 +4,8 @@
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/ThemeIconTogglePainter.hpp"
+#include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/InputPainter.hpp"
 #include "Robo/ScrollbarPainter.hpp"
@@ -268,6 +270,23 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::ThemeToggle: {
+                ThemeToggleMeasureResult measured = ThemeTogglePainter::Measure(fonts, item.themeToggle, innerW, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::ThemeIconToggle: {
+                ThemeIconToggleMeasureResult measured = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::MotionShape: {
+                child.baseWidth = item.motionShape.Width() * scale;
+                child.baseHeight = item.motionShape.Height() * scale;
                 break;
             }
             case FlexItemKind::Button: {
@@ -722,6 +741,18 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                 }
                 case FlexItemKind::BrandLogo: {
                     BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, childX, childY, scale);
+                    break;
+                }
+                case FlexItemKind::ThemeToggle: {
+                    ThemeTogglePainter::Paint(buffer, fonts, item.themeToggle, childX, childY, childW, scale);
+                    break;
+                }
+                case FlexItemKind::ThemeIconToggle: {
+                    ThemeIconTogglePainter::Paint(buffer, item.themeIconToggle, childX, childY, scale);
+                    break;
+                }
+                case FlexItemKind::MotionShape: {
+                    item.motionShape.Paint(buffer, childX, childY, childW, childH, scale);
                     break;
                 }
                 case FlexItemKind::Button: {

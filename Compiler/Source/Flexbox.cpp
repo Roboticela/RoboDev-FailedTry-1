@@ -47,6 +47,30 @@ void Flexbox::AddBrandLogo(BrandLogo logo, const FlexItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Flexbox::AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::ThemeToggle;
+    item.themeToggle = std::move(toggle);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
+void Flexbox::AddThemeIconToggle(ThemeIconToggle toggle, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::ThemeIconToggle;
+    item.themeIconToggle = std::move(toggle);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
+void Flexbox::AddMotionShape(MotionShape shape, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::MotionShape;
+    item.motionShape = std::move(shape);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
 void Flexbox::AddButton(Button button, const FlexItemProps& props) {
     FlexboxItem item;
     item.kind = FlexItemKind::Button;

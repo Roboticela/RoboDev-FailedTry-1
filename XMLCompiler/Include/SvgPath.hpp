@@ -48,4 +48,6 @@ CompiledSvg CompileSvgElement(const XmlNode& svgNode, bool defaultCurrentFill);
 
 std::string EmitCompiledShapes(const std::vector<CompiledShape>& shapes, int indent, const std::string& target, bool packed);
 
+std::vector<CompiledCommand> CompilePathData(const std::string& data);
+
 }  // namespace Robo

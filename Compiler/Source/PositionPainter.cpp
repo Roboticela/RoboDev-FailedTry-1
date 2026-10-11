@@ -2,6 +2,8 @@
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/ThemeIconTogglePainter.hpp"
+#include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -204,6 +206,23 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
                 BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
                 childW = res.width;
                 childH = res.height;
+                break;
+            }
+            case PositionItemKind::ThemeToggle: {
+                ThemeToggleMeasureResult res = ThemeTogglePainter::Measure(fonts, item.themeToggle, innerAvailW, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::ThemeIconToggle: {
+                ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::MotionShape: {
+                childW = item.motionShape.Width() * scale;
+                childH = item.motionShape.Height() * scale;
                 break;
             }
             case PositionItemKind::Button: {
@@ -422,6 +441,23 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
                 lc.width = res.width;
                 lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::ThemeToggle: {
+                ThemeToggleMeasureResult res = ThemeTogglePainter::Measure(fonts, item.themeToggle, innerAvailW, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::ThemeIconToggle: {
+                ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::MotionShape: {
+                lc.width = item.motionShape.Width() * scale;
+                lc.height = item.motionShape.Height() * scale;
                 break;
             }
             case PositionItemKind::Button: {
@@ -701,6 +737,15 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 break;
             case PositionItemKind::BrandLogo:
                 BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, lc.x, lc.y, scale);
+                break;
+            case PositionItemKind::ThemeToggle:
+                ThemeTogglePainter::Paint(buffer, fonts, item.themeToggle, lc.x, lc.y, lc.width, scale);
+                break;
+            case PositionItemKind::ThemeIconToggle:
+                ThemeIconTogglePainter::Paint(buffer, item.themeIconToggle, lc.x, lc.y, scale);
+                break;
+            case PositionItemKind::MotionShape:
+                item.motionShape.Paint(buffer, lc.x, lc.y, lc.width, lc.height, scale);
                 break;
             case PositionItemKind::Button:
                 ButtonPainter::Paint(buffer, fonts, item.button, lc.x, lc.y, lc.width, scale, lc.width, lc.height);

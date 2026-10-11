@@ -209,6 +209,7 @@ function WireInteraction() {
     }
     roboModule.PointerMove(point.x, point.y);
     canvas.style.cursor = CursorAt(point);
+    StartAnimationLoop();
   });
 
   canvas.addEventListener("pointerdown", (event) => {
@@ -269,6 +270,7 @@ function WireInteraction() {
   canvas.addEventListener("pointerleave", () => {
     if (roboModule) {
       roboModule.PointerLeave();
+      StartAnimationLoop();
     }
   });
 
@@ -437,6 +439,7 @@ async function Boot() {
   });
   WireInteraction();
   RenderPage();
+  StartAnimationLoop();
   canvas.focus();
 }
 

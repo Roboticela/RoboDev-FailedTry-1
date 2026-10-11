@@ -28,9 +28,11 @@ Toggle
 Slider
 List
 Table
-BrandLogo
+✅ - BrandLogo
 ThemeToggle
 ThemeIconToggle
+✅ - Shape (rect, ellipse, or path). Theme pairs (`darkX`, `darkY`, `darkBottom`, `darkFill`, `darkOpacity`, `darkScale`, `darkRotate`), `transition="0.5s cubic-bezier(0, -0.02, 0.4, 1.25)"`, hover (`hoverX`, `darkHoverX`, `hoverY`, `hoverScale`, `hoverRotate`, `hoverFill`, `hoverWithin`), `clip`, and `toggle="theme"` animate and transition any shape. `animation="name"` plus `animationDelay` plays a Keyframes clip.
+✅ - Keyframes (name, duration, easing `linear` / `ease` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier(x1, y1, x2, y2)`, `iteration="infinite"`, optional delay). Each Keyframe has `at` from 0 to 1 and any of `x`, `y`, `opacity`, `scale`, `rotate`. Use these to animate and transition shapes. The day/night switch above Theme icon in Demo.xml is built from Shape and Keyframes.
 
 
 Use the current which already exists as folders to make everything and put everything correctly in these structure. I want to build first for the web so build it for the web platform first but the implementation must be independant of everything so we will just need to put implementation in RoboPlatforms and must not need any other changes to the code. Use the WebAssembly for web and on request of the page the HTMl will be provided too which will be made of the XML so we can get the best SEO.

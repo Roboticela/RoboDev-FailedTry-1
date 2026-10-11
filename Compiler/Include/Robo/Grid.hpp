@@ -6,6 +6,9 @@
 #include "Input.hpp"
 #include "Scrollbar.hpp"
 #include "BrandLogo.hpp"
+#include "ThemeIconToggle.hpp"
+#include "MotionShape.hpp"
+#include "ThemeToggle.hpp"
 #include "Svg.hpp"
 #include "Text.hpp"
 
@@ -63,7 +66,10 @@ enum class GridItemKind {
     Flexbox,
     Grid,
     Svg,
-    BrandLogo
+    BrandLogo,
+    ThemeToggle,
+    ThemeIconToggle,
+    MotionShape
 };
 
 struct GridStyle {
@@ -152,6 +158,9 @@ struct GridItem {
     std::shared_ptr<Grid> grid;
     Svg svg;
     BrandLogo brandLogo;
+    ThemeToggle themeToggle;
+    ThemeIconToggle themeIconToggle;
+    MotionShape motionShape;
 };
 
 class Grid {
@@ -171,6 +180,9 @@ public:
     void AddGrid(Grid grid, const GridItemProps& props = {});
     void AddSvg(Svg svg, const GridItemProps& props = {});
     void AddBrandLogo(BrandLogo logo, const GridItemProps& props = {});
+    void AddThemeToggle(ThemeToggle toggle, const GridItemProps& props = {});
+    void AddThemeIconToggle(ThemeIconToggle toggle, const GridItemProps& props = {});
+    void AddMotionShape(MotionShape shape, const GridItemProps& props = {});
     void AddItem(GridItem item);
 
     const std::vector<GridItem>& GetItems() const;

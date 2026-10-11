@@ -2,6 +2,8 @@
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/ThemeIconTogglePainter.hpp"
+#include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/GridPainter.hpp"
@@ -187,6 +189,23 @@ void MeasureChild(const FontEngine& fonts,
             const BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
             outWidth = res.width;
             outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::ThemeToggle: {
+            const ThemeToggleMeasureResult res = ThemeTogglePainter::Measure(fonts, item.themeToggle, innerAvailW, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::ThemeIconToggle: {
+            const ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::MotionShape: {
+            outWidth = item.motionShape.Width() * scale;
+            outHeight = item.motionShape.Height() * scale;
             break;
         }
         case PositionItemKind::Button: {

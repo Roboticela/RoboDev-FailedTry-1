@@ -6,6 +6,9 @@
 #include "Input.hpp"
 #include "Scrollbar.hpp"
 #include "BrandLogo.hpp"
+#include "ThemeIconToggle.hpp"
+#include "MotionShape.hpp"
+#include "ThemeToggle.hpp"
 #include "Svg.hpp"
 #include "Text.hpp"
 
@@ -47,7 +50,10 @@ enum class PositionItemKind {
     Grid,
     Position,
     Svg,
-    BrandLogo
+    BrandLogo,
+    ThemeToggle,
+    ThemeIconToggle,
+    MotionShape
 };
 
 struct PositionItemProps {
@@ -128,6 +134,9 @@ struct PositionItem {
     std::shared_ptr<Position> position;
     Svg svg;
     BrandLogo brandLogo;
+    ThemeToggle themeToggle;
+    ThemeIconToggle themeIconToggle;
+    MotionShape motionShape;
     InputBounds computedBounds;
 };
 
@@ -156,6 +165,9 @@ public:
     void AddPosition(Position position, const PositionItemProps& props = {});
     void AddSvg(Svg svg, const PositionItemProps& props = {});
     void AddBrandLogo(BrandLogo logo, const PositionItemProps& props = {});
+    void AddThemeToggle(ThemeToggle toggle, const PositionItemProps& props = {});
+    void AddThemeIconToggle(ThemeIconToggle toggle, const PositionItemProps& props = {});
+    void AddMotionShape(MotionShape shape, const PositionItemProps& props = {});
 
     const std::vector<PositionItem>& GetItems() const;
     std::vector<PositionItem>& GetItems();

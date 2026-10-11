@@ -7,6 +7,9 @@
 #include "Input.hpp"
 #include "Scrollbar.hpp"
 #include "BrandLogo.hpp"
+#include "ThemeIconToggle.hpp"
+#include "MotionShape.hpp"
+#include "ThemeToggle.hpp"
 #include "Svg.hpp"
 #include "Text.hpp"
 #include "TextAlign.hpp"
@@ -55,7 +58,10 @@ enum class FlexItemKind {
     Container,
     Flexbox,
     Svg,
-    BrandLogo
+    BrandLogo,
+    ThemeToggle,
+    ThemeIconToggle,
+    MotionShape
 };
 
 struct FlexItemProps {
@@ -90,6 +96,9 @@ struct FlexboxItem {
     std::shared_ptr<Flexbox> flexbox;
     Svg svg;
     BrandLogo brandLogo;
+    ThemeToggle themeToggle;
+    ThemeIconToggle themeIconToggle;
+    MotionShape motionShape;
 };
 
 struct FlexboxBounds {
@@ -152,6 +161,9 @@ public:
     void AddFlexbox(Flexbox flexbox, const FlexItemProps& props = {});
     void AddSvg(Svg svg, const FlexItemProps& props = {});
     void AddBrandLogo(BrandLogo logo, const FlexItemProps& props = {});
+    void AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props = {});
+    void AddThemeIconToggle(ThemeIconToggle toggle, const FlexItemProps& props = {});
+    void AddMotionShape(MotionShape shape, const FlexItemProps& props = {});
     void AddItem(FlexboxItem item);
 
     const std::vector<FlexboxItem>& GetItems() const;

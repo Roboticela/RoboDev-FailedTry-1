@@ -769,6 +769,12 @@ std::string Indent(int level) {
 
 }  // namespace
 
+std::vector<CompiledCommand> CompilePathData(const std::string& data) {
+    std::vector<CompiledCommand> commands;
+    ParsePathData(data, commands);
+    return commands;
+}
+
 CompiledSvg CompileSvgElement(const XmlNode& svgNode, bool defaultCurrentFill) {
     CompiledSvg graphic;
     const std::string viewBox = Attribute(svgNode, "viewBox");

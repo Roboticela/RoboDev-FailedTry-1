@@ -246,6 +246,7 @@ std::string HitTestKind(float x, float y) {
     }
     switch (gScene.HitTestKind(x, y)) {
         case Robo::HitKind::Button:
+        case Robo::HitKind::Theme:
             return "button";
         case Robo::HitKind::Input:
             return "input";

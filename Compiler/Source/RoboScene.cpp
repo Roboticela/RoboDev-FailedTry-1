@@ -1,6 +1,8 @@
 #include "Robo/RoboScene.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/ThemeIconTogglePainter.hpp"
+#include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -13,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 namespace Robo {
 
@@ -75,6 +78,12 @@ void ScaleFlexboxBounds(Flexbox& flexbox, float inv) {
             ButtonBounds bb = item.button.GetBounds();
             ScaleBounds(bb, inv);
             item.button.SetBounds(bb);
+        } else if (item.kind == FlexItemKind::ThemeToggle) {
+            item.themeToggle.ScaleBounds(inv);
+        } else if (item.kind == FlexItemKind::ThemeIconToggle) {
+            item.themeIconToggle.ScaleBounds(inv);
+        } else if (item.kind == FlexItemKind::MotionShape) {
+            item.motionShape.ScaleBounds(inv);
         } else if (item.kind == FlexItemKind::Input) {
             InputBounds ib = item.input.GetBounds();
             ScaleBounds(ib, inv);
@@ -114,6 +123,12 @@ void ScaleGridBounds(Grid& grid, float inv) {
             ButtonBounds bb = item.button.GetBounds();
             ScaleBounds(bb, inv);
             item.button.SetBounds(bb);
+        } else if (item.kind == GridItemKind::ThemeToggle) {
+            item.themeToggle.ScaleBounds(inv);
+        } else if (item.kind == GridItemKind::ThemeIconToggle) {
+            item.themeIconToggle.ScaleBounds(inv);
+        } else if (item.kind == GridItemKind::MotionShape) {
+            item.motionShape.ScaleBounds(inv);
         } else if (item.kind == GridItemKind::Input) {
             InputBounds ib = item.input.GetBounds();
             ScaleBounds(ib, inv);
@@ -568,6 +583,12 @@ void ScalePositionBounds(Position& position, float inv) {
             ButtonBounds bb = item.button.GetBounds();
             ScaleBounds(bb, inv);
             item.button.SetBounds(bb);
+        } else if (item.kind == PositionItemKind::ThemeToggle) {
+            item.themeToggle.ScaleBounds(inv);
+        } else if (item.kind == PositionItemKind::ThemeIconToggle) {
+            item.themeIconToggle.ScaleBounds(inv);
+        } else if (item.kind == PositionItemKind::MotionShape) {
+            item.motionShape.ScaleBounds(inv);
         } else if (item.kind == PositionItemKind::Input) {
             InputBounds ib = item.input.GetBounds();
             ScaleBounds(ib, inv);
@@ -1050,6 +1071,191 @@ void CollectContainersIn(Position& position, float x, float y, std::vector<Conta
     }
 }
 
+void VisitMotionFlex(Flexbox& flexbox, const std::function<void(MotionShape&)>& visit);
+void VisitMotionGrid(Grid& grid, const std::function<void(MotionShape&)>& visit);
+void VisitMotionPosition(Position& position, const std::function<void(MotionShape&)>& visit);
+
+void VisitMotionContainer(Container& container, const std::function<void(MotionShape&)>& visit) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        VisitMotionFlex(container.GetFlexbox(), visit);
+    } else if (container.GetStyle().layout == ContainerLayout::Grid) {
+        VisitMotionGrid(container.GetGrid(), visit);
+    } else {
+        VisitMotionPosition(container.GetContent(), visit);
+    }
+}
+
+void VisitMotionFlex(Flexbox& flexbox, const std::function<void(MotionShape&)>& visit) {
+    for (FlexboxItem& item : flexbox.GetItems()) {
+        if (item.kind == FlexItemKind::MotionShape) {
+            visit(item.motionShape);
+        } else if (item.kind == FlexItemKind::Container && item.container) {
+            VisitMotionContainer(*item.container, visit);
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            VisitMotionFlex(*item.flexbox, visit);
+        }
+    }
+}
+
+void VisitMotionGrid(Grid& grid, const std::function<void(MotionShape&)>& visit) {
+    for (GridItem& item : grid.GetItems()) {
+        if (item.kind == GridItemKind::MotionShape) {
+            visit(item.motionShape);
+        } else if (item.kind == GridItemKind::Container && item.container) {
+            VisitMotionContainer(*item.container, visit);
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            VisitMotionFlex(*item.flexbox, visit);
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            VisitMotionGrid(*item.grid, visit);
+        }
+    }
+}
+
+void VisitMotionPosition(Position& position, const std::function<void(MotionShape&)>& visit) {
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::MotionShape) {
+            visit(item.motionShape);
+        } else if (item.kind == PositionItemKind::Container && item.container) {
+            VisitMotionContainer(*item.container, visit);
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            VisitMotionFlex(*item.flexbox, visit);
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            VisitMotionGrid(*item.grid, visit);
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            VisitMotionPosition(*item.position, visit);
+        }
+    }
+}
+
+void VisitSceneMotion(std::vector<SceneItem>& items, const std::function<void(MotionShape&)>& visit) {
+    for (SceneItem& item : items) {
+        if (item.kind == SceneItemKind::MotionShape) {
+            visit(item.motionShape);
+        } else if (item.kind == SceneItemKind::Container && item.container) {
+            VisitMotionContainer(*item.container, visit);
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            VisitMotionFlex(item.flexbox, visit);
+        } else if (item.kind == SceneItemKind::Grid) {
+            VisitMotionGrid(item.grid, visit);
+        } else if (item.kind == SceneItemKind::Position) {
+            VisitMotionPosition(item.position, visit);
+        }
+    }
+}
+
+MotionShape* FindThemeMotionFlex(Flexbox& flexbox, float x, float y);
+MotionShape* FindThemeMotionGrid(Grid& grid, float x, float y);
+MotionShape* FindThemeMotionPosition(Position& position, float x, float y);
+
+MotionShape* FindThemeMotionContainer(Container& container, float x, float y) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        return FindThemeMotionFlex(container.GetFlexbox(), x, y);
+    }
+    if (container.GetStyle().layout == ContainerLayout::Grid) {
+        return FindThemeMotionGrid(container.GetGrid(), x, y);
+    }
+    return FindThemeMotionPosition(container.GetContent(), x, y);
+}
+
+MotionShape* FindThemeMotionFlex(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int index = static_cast<int>(items.size()) - 1; index >= 0; --index) {
+        FlexboxItem& item = items[static_cast<std::size_t>(index)];
+        if (item.kind == FlexItemKind::Container && item.container) {
+            if (MotionShape* found = FindThemeMotionContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            if (MotionShape* found = FindThemeMotionFlex(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::MotionShape && item.motionShape.TogglesTheme() &&
+                   item.motionShape.Bounds().Contains(x, y)) {
+            return &item.motionShape;
+        }
+    }
+    return nullptr;
+}
+
+MotionShape* FindThemeMotionGrid(Grid& grid, float x, float y) {
+    std::vector<GridItem>& items = grid.GetItems();
+    for (int index = static_cast<int>(items.size()) - 1; index >= 0; --index) {
+        GridItem& item = items[static_cast<std::size_t>(index)];
+        if (item.kind == GridItemKind::Container && item.container) {
+            if (MotionShape* found = FindThemeMotionContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            if (MotionShape* found = FindThemeMotionFlex(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            if (MotionShape* found = FindThemeMotionGrid(*item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::MotionShape && item.motionShape.TogglesTheme() &&
+                   item.motionShape.Bounds().Contains(x, y)) {
+            return &item.motionShape;
+        }
+    }
+    return nullptr;
+}
+
+MotionShape* FindThemeMotionPosition(Position& position, float x, float y) {
+    std::vector<PositionItem>& items = position.GetItems();
+    for (int index = static_cast<int>(items.size()) - 1; index >= 0; --index) {
+        PositionItem& item = items[static_cast<std::size_t>(index)];
+        if (item.kind == PositionItemKind::Container && item.container) {
+            if (MotionShape* found = FindThemeMotionContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            if (MotionShape* found = FindThemeMotionFlex(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            if (MotionShape* found = FindThemeMotionGrid(*item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            if (MotionShape* found = FindThemeMotionPosition(*item.position, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::MotionShape && item.motionShape.TogglesTheme() &&
+                   item.motionShape.Bounds().Contains(x, y)) {
+            return &item.motionShape;
+        }
+    }
+    return nullptr;
+}
+
+MotionShape* FindThemeMotionScene(std::vector<SceneItem>& items, float x, float y) {
+    for (int index = static_cast<int>(items.size()) - 1; index >= 0; --index) {
+        SceneItem& item = items[static_cast<std::size_t>(index)];
+        if (item.kind == SceneItemKind::Container && item.container) {
+            if (MotionShape* found = FindThemeMotionContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            if (MotionShape* found = FindThemeMotionFlex(item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Grid) {
+            if (MotionShape* found = FindThemeMotionGrid(item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Position) {
+            if (MotionShape* found = FindThemeMotionPosition(item.position, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::MotionShape && item.motionShape.TogglesTheme() &&
+                   item.motionShape.Bounds().Contains(x, y)) {
+            return &item.motionShape;
+        }
+    }
+    return nullptr;
+}
+
 void CollectSceneContainers(std::vector<SceneItem>& items, float x, float y, std::vector<Container*>& out) {
     for (SceneItem& item : items) {
         if (item.kind == SceneItemKind::Container) {
@@ -1145,6 +1351,27 @@ void RoboScene::AddBrandLogo(BrandLogo logo) {
     SceneItem item;
     item.kind = SceneItemKind::BrandLogo;
     item.brandLogo = std::move(logo);
+    items_.push_back(std::move(item));
+}
+
+void RoboScene::AddThemeToggle(ThemeToggle toggle) {
+    SceneItem item;
+    item.kind = SceneItemKind::ThemeToggle;
+    item.themeToggle = std::move(toggle);
+    items_.push_back(std::move(item));
+}
+
+void RoboScene::AddThemeIconToggle(ThemeIconToggle toggle) {
+    SceneItem item;
+    item.kind = SceneItemKind::ThemeIconToggle;
+    item.themeIconToggle = std::move(toggle);
+    items_.push_back(std::move(item));
+}
+
+void RoboScene::AddMotionShape(MotionShape shape) {
+    SceneItem item;
+    item.kind = SceneItemKind::MotionShape;
+    item.motionShape = std::move(shape);
     items_.push_back(std::move(item));
 }
 
@@ -1453,6 +1680,21 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 cursorY += painted.advanceY;
                 const BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, paintScale);
                 contentRight = std::max(contentRight, originX + measured.width + scrollX_);
+            } else if (item.kind == SceneItemKind::ThemeToggle) {
+                const ThemeTogglePaintResult painted =
+                    ThemeTogglePainter::Paint(frame, fonts, item.themeToggle, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                contentRight = std::max(contentRight, originX + item.themeToggle.GetBounds().width + scrollX_);
+            } else if (item.kind == SceneItemKind::ThemeIconToggle) {
+                const ThemeIconTogglePaintResult painted =
+                    ThemeIconTogglePainter::Paint(frame, item.themeIconToggle, originX, cursorY, paintScale);
+                cursorY += painted.advanceY;
+                contentRight = std::max(contentRight, originX + item.themeIconToggle.GetBounds().width + scrollX_);
+            } else if (item.kind == SceneItemKind::MotionShape) {
+                item.motionShape.Paint(frame, originX, cursorY, contentWidth, item.motionShape.Height() * paintScale, paintScale);
+                const float advance = item.motionShape.Height() * paintScale + 12.0f * paintScale;
+                cursorY += advance;
+                contentRight = std::max(contentRight, originX + item.motionShape.Width() * paintScale + scrollX_);
             } else if (item.kind == SceneItemKind::Position) {
                 const PositionPaintResult painted =
                     PositionPainter::Paint(frame, fonts, item.position, originX, cursorY, contentWidth, paintScale);
@@ -1620,6 +1862,349 @@ bool RoboScene::ScrollByX(float deltaX) {
     }
     RerenderIfPossible();
     return true;
+}
+
+ThemeToggle* FindThemeToggleInFlexbox(Flexbox& flexbox, float x, float y);
+ThemeToggle* FindThemeToggleInGrid(Grid& grid, float x, float y);
+ThemeToggle* FindThemeToggleInPosition(Position& position, float x, float y);
+ThemeToggle* FindThemeToggleInContainer(Container& container, float x, float y);
+ThemeIconToggle* FindThemeIconInFlexbox(Flexbox& flexbox, float x, float y);
+ThemeIconToggle* FindThemeIconInGrid(Grid& grid, float x, float y);
+ThemeIconToggle* FindThemeIconInPosition(Position& position, float x, float y);
+ThemeIconToggle* FindThemeIconInContainer(Container& container, float x, float y);
+
+ThemeToggle* FindThemeToggleInFlexbox(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::ThemeToggle && item.themeToggle.GetBounds().Contains(x, y)) {
+            return &item.themeToggle;
+        }
+        if (item.kind == FlexItemKind::Container && item.container) {
+            if (ThemeToggle* found = FindThemeToggleInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            if (ThemeToggle* found = FindThemeToggleInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeIconToggle* FindThemeIconInFlexbox(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
+            return &item.themeIconToggle;
+        }
+        if (item.kind == FlexItemKind::Container && item.container) {
+            if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            if (ThemeIconToggle* found = FindThemeIconInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeToggle* FindThemeToggleInGrid(Grid& grid, float x, float y) {
+    std::vector<GridItem>& items = grid.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        GridItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == GridItemKind::ThemeToggle && item.themeToggle.GetBounds().Contains(x, y)) {
+            return &item.themeToggle;
+        }
+        if (item.kind == GridItemKind::Container && item.container) {
+            if (ThemeToggle* found = FindThemeToggleInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            if (ThemeToggle* found = FindThemeToggleInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            if (ThemeToggle* found = FindThemeToggleInGrid(*item.grid, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeIconToggle* FindThemeIconInGrid(Grid& grid, float x, float y) {
+    std::vector<GridItem>& items = grid.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        GridItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == GridItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
+            return &item.themeIconToggle;
+        }
+        if (item.kind == GridItemKind::Container && item.container) {
+            if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            if (ThemeIconToggle* found = FindThemeIconInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            if (ThemeIconToggle* found = FindThemeIconInGrid(*item.grid, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeToggle* FindThemeToggleInPosition(Position& position, float x, float y) {
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::ThemeToggle && item.themeToggle.GetBounds().Contains(x, y)) {
+            return &item.themeToggle;
+        }
+        if (item.kind == PositionItemKind::Container && item.container) {
+            if (ThemeToggle* found = FindThemeToggleInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            if (ThemeToggle* found = FindThemeToggleInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            if (ThemeToggle* found = FindThemeToggleInGrid(*item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            if (ThemeToggle* found = FindThemeToggleInPosition(*item.position, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeIconToggle* FindThemeIconInPosition(Position& position, float x, float y) {
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
+            return &item.themeIconToggle;
+        }
+        if (item.kind == PositionItemKind::Container && item.container) {
+            if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            if (ThemeIconToggle* found = FindThemeIconInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            if (ThemeIconToggle* found = FindThemeIconInGrid(*item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            if (ThemeIconToggle* found = FindThemeIconInPosition(*item.position, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeToggle* FindThemeToggleInContainer(Container& container, float x, float y) {
+    if (!container.GetBounds().Contains(x, y)) {
+        return nullptr;
+    }
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        return FindThemeToggleInFlexbox(container.GetFlexbox(), x, y);
+    }
+    if (container.GetStyle().layout == ContainerLayout::Grid) {
+        return FindThemeToggleInGrid(container.GetGrid(), x, y);
+    }
+    return FindThemeToggleInPosition(container.GetContent(), x, y);
+}
+
+ThemeIconToggle* FindThemeIconInContainer(Container& container, float x, float y) {
+    if (!container.GetBounds().Contains(x, y)) {
+        return nullptr;
+    }
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        return FindThemeIconInFlexbox(container.GetFlexbox(), x, y);
+    }
+    if (container.GetStyle().layout == ContainerLayout::Grid) {
+        return FindThemeIconInGrid(container.GetGrid(), x, y);
+    }
+    return FindThemeIconInPosition(container.GetContent(), x, y);
+}
+
+ThemeIconHot HotFor(const ThemeIconToggle& toggle, float x, float y) {
+    if (toggle.IsDisabled() || !toggle.GetBounds().Contains(x, y)) {
+        return ThemeIconHot::None;
+    }
+    const ThemeTogglePart part = toggle.HitPart(x, y);
+    if (part == ThemeTogglePart::Light) {
+        return ThemeIconHot::Light;
+    }
+    if (part == ThemeTogglePart::Dark) {
+        return ThemeIconHot::Dark;
+    }
+    if (part == ThemeTogglePart::Switch) {
+        return ThemeIconHot::Button;
+    }
+    return ThemeIconHot::None;
+}
+
+bool SyncHotInGrid(Grid& grid, float x, float y);
+bool SyncHotInPosition(Position& position, float x, float y);
+bool SyncHotInContainer(Container& container, float x, float y);
+
+bool SyncHotInFlexbox(Flexbox& flexbox, float x, float y) {
+    bool changed = false;
+    for (FlexboxItem& item : flexbox.GetItems()) {
+        if (item.kind == FlexItemKind::ThemeIconToggle) {
+            const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
+            if (item.themeIconToggle.GetHot() != next) {
+                item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == FlexItemKind::Container && item.container) {
+            changed = SyncHotInContainer(*item.container, x, y) || changed;
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            changed = SyncHotInFlexbox(*item.flexbox, x, y) || changed;
+        }
+    }
+    return changed;
+}
+
+bool SyncHotInGrid(Grid& grid, float x, float y) {
+    bool changed = false;
+    for (GridItem& item : grid.GetItems()) {
+        if (item.kind == GridItemKind::ThemeIconToggle) {
+            const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
+            if (item.themeIconToggle.GetHot() != next) {
+                item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == GridItemKind::Container && item.container) {
+            changed = SyncHotInContainer(*item.container, x, y) || changed;
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            changed = SyncHotInFlexbox(*item.flexbox, x, y) || changed;
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            changed = SyncHotInGrid(*item.grid, x, y) || changed;
+        }
+    }
+    return changed;
+}
+
+bool SyncHotInPosition(Position& position, float x, float y) {
+    bool changed = false;
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::ThemeIconToggle) {
+            const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
+            if (item.themeIconToggle.GetHot() != next) {
+                item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == PositionItemKind::Container && item.container) {
+            changed = SyncHotInContainer(*item.container, x, y) || changed;
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            changed = SyncHotInFlexbox(*item.flexbox, x, y) || changed;
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            changed = SyncHotInGrid(*item.grid, x, y) || changed;
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            changed = SyncHotInPosition(*item.position, x, y) || changed;
+        }
+    }
+    return changed;
+}
+
+bool SyncHotInContainer(Container& container, float x, float y) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        return SyncHotInFlexbox(container.GetFlexbox(), x, y);
+    }
+    if (container.GetStyle().layout == ContainerLayout::Grid) {
+        return SyncHotInGrid(container.GetGrid(), x, y);
+    }
+    return SyncHotInPosition(container.GetContent(), x, y);
+}
+
+ThemeToggle* RoboScene::FindThemeToggleAt(float x, float y) {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::ThemeToggle && item.themeToggle.GetBounds().Contains(x, y)) {
+            return &item.themeToggle;
+        }
+        if (item.kind == SceneItemKind::Container) {
+            if (ThemeToggle* found = FindThemeToggleInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            if (ThemeToggle* found = FindThemeToggleInFlexbox(item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Grid) {
+            if (ThemeToggle* found = FindThemeToggleInGrid(item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Position) {
+            if (ThemeToggle* found = FindThemeToggleInPosition(item.position, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+ThemeIconToggle* RoboScene::FindThemeIconToggleAt(float x, float y) {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::ThemeIconToggle && item.themeIconToggle.GetBounds().Contains(x, y)) {
+            return &item.themeIconToggle;
+        }
+        if (item.kind == SceneItemKind::Container) {
+            if (ThemeIconToggle* found = FindThemeIconInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            if (ThemeIconToggle* found = FindThemeIconInFlexbox(item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Grid) {
+            if (ThemeIconToggle* found = FindThemeIconInGrid(item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Position) {
+            if (ThemeIconToggle* found = FindThemeIconInPosition(item.position, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool SyncThemeHot(RoboScene& scene, std::vector<SceneItem>& items, float x, float y) {
+    (void)scene;
+    bool changed = false;
+    for (SceneItem& item : items) {
+        if (item.kind == SceneItemKind::ThemeIconToggle) {
+            const ThemeIconHot next = HotFor(item.themeIconToggle, x, y);
+            if (item.themeIconToggle.GetHot() != next) {
+                item.themeIconToggle.SetHot(next);
+                changed = true;
+            }
+        } else if (item.kind == SceneItemKind::Container && item.container) {
+            changed = SyncHotInContainer(*item.container, x, y) || changed;
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            changed = SyncHotInFlexbox(item.flexbox, x, y) || changed;
+        } else if (item.kind == SceneItemKind::Grid) {
+            changed = SyncHotInGrid(item.grid, x, y) || changed;
+        } else if (item.kind == SceneItemKind::Position) {
+            changed = SyncHotInPosition(item.position, x, y) || changed;
+        }
+    }
+    return changed;
 }
 
 Button* RoboScene::FindButtonAt(float x, float y) {
@@ -2060,6 +2645,10 @@ HitKind RoboScene::HitTestKind(float x, float y) const {
     if (FindScrollbarAt(x, y)) {
         return HitKind::Scrollbar;
     }
+    if (const_cast<RoboScene*>(this)->FindThemeToggleAt(x, y) || const_cast<RoboScene*>(this)->FindThemeIconToggleAt(x, y) ||
+        FindThemeMotionScene(const_cast<RoboScene*>(this)->items_, x, y)) {
+        return HitKind::Theme;
+    }
     if (FindButtonAt(x, y)) {
         return HitKind::Button;
     }
@@ -2235,6 +2824,18 @@ bool RoboScene::PointerMove(float x, float y) {
     bool changed = SetHoveredScrollbar(scrollbar);
     changed = SetHoveredButton(button) || changed;
     changed = SetHoveredInput(input) || changed;
+    VisitSceneMotion(items_, [&](MotionShape& shape) {
+        if (shape.UpdatePointer(x, y)) {
+            changed = true;
+        }
+    });
+    if (changed) {
+        MarkFullDirty();
+    }
+    if (SyncThemeHot(*this, items_, x, y)) {
+        MarkFullDirty();
+        changed = true;
+    }
     if (scrollbar) {
         // Track the arrowhead under the pointer so it can show its hover state.
         const ScrollbarArrow arrow = scrollbar->FindArrowAt(x, y);
@@ -2297,11 +2898,14 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         changed = true;
     }
     Scrollbar* scrollbar = FindScrollbarAt(x, y);
-    Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
-    Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
+    ThemeToggle* themeToggle = scrollbar ? nullptr : FindThemeToggleAt(x, y);
+    ThemeIconToggle* themeIcon = (scrollbar || themeToggle) ? nullptr : FindThemeIconToggleAt(x, y);
+    MotionShape* themeMotion = (scrollbar || themeToggle || themeIcon) ? nullptr : FindThemeMotionScene(items_, x, y);
+    Button* button = (scrollbar || themeToggle || themeIcon || themeMotion) ? nullptr : FindButtonAt(x, y);
+    Input* input = (scrollbar || themeToggle || themeIcon || themeMotion || button) ? nullptr : FindInputAt(x, y);
     // Clicking inside a container (not on its track) focuses its scrollbar so
     // keyboard and wheel scrolling land on that region without jumping it.
-    Container* container = (scrollbar || button || input) ? nullptr : FindContainerAt(x, y);
+    Container* container = (scrollbar || themeToggle || themeIcon || themeMotion || button || input) ? nullptr : FindContainerAt(x, y);
 
     if (scrollbar) {
         changed = SetFocusedInput(nullptr) || changed;
@@ -2323,6 +2927,36 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         if (scrollbar == &pageVertical_ || scrollbar == &pageHorizontal_) {
             PullPageScroll();
         }
+        MarkFullDirty();
+        changed = true;
+    } else if (themeToggle || themeIcon) {
+        changed = SetHoveredScrollbar(nullptr) || changed;
+        changed = SetFocusedScrollbar(nullptr) || changed;
+        changed = SetFocusedInput(nullptr) || changed;
+        changed = SetPressedButton(nullptr) || changed;
+        changed = SetHoveredButton(nullptr) || changed;
+        changed = SetHoveredInput(nullptr) || changed;
+        const ThemeTogglePart part = themeToggle ? themeToggle->HitPart(x, y) : themeIcon->HitPart(x, y);
+        const bool disabled = themeToggle ? themeToggle->IsDisabled() : themeIcon->IsDisabled();
+        if (!disabled) {
+            if (part == ThemeTogglePart::Light) {
+                SetTheme(Theme::Light);
+            } else if (part == ThemeTogglePart::Dark) {
+                SetTheme(Theme::Dark);
+            } else if (part == ThemeTogglePart::Switch) {
+                SetTheme(theme_ == Theme::Dark ? Theme::Light : Theme::Dark);
+            }
+        }
+        MarkFullDirty();
+        changed = true;
+    } else if (themeMotion) {
+        changed = SetHoveredScrollbar(nullptr) || changed;
+        changed = SetFocusedScrollbar(nullptr) || changed;
+        changed = SetFocusedInput(nullptr) || changed;
+        changed = SetPressedButton(nullptr) || changed;
+        changed = SetHoveredButton(nullptr) || changed;
+        changed = SetHoveredInput(nullptr) || changed;
+        SetTheme(theme_ == Theme::Dark ? Theme::Light : Theme::Dark);
         MarkFullDirty();
         changed = true;
     } else if (button) {
@@ -2428,6 +3062,11 @@ bool RoboScene::PointerLeave() {
         MarkFullDirty();
         changed = true;
     }
+    VisitSceneMotion(items_, [&](MotionShape& shape) {
+        if (shape.UpdatePointer(-100000.0f, -100000.0f)) {
+            changed = true;
+        }
+    });
     if (changed && !needsRender_) {
         MarkFullDirty();
     }
@@ -2512,6 +3151,18 @@ bool RoboScene::Tick(double deltaMs) {
         }
         changed = true;
     }
+    bool motionChanged = false;
+    VisitSceneMotion(items_, [&](MotionShape& shape) {
+        if (!shape.NeedsMotion()) {
+            return;
+        }
+        shape.Tick(static_cast<float>(deltaMs), false);
+        motionChanged = true;
+    });
+    if (motionChanged) {
+        MarkFullDirty();
+        changed = true;
+    }
     if (contentMoved) {
         MarkFullDirty();
     }
@@ -2539,6 +3190,11 @@ bool RoboScene::NeedsTick() {
     if (TextSelection::NeedsBlink()) {
         needsTick = true;
     }
+    VisitSceneMotion(items_, [&](MotionShape& shape) {
+        if (shape.NeedsMotion()) {
+            needsTick = true;
+        }
+    });
     return needsTick;
 }
 

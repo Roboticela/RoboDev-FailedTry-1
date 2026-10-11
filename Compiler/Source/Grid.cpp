@@ -105,6 +105,30 @@ void Grid::AddBrandLogo(BrandLogo logo, const GridItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Grid::AddThemeToggle(ThemeToggle toggle, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::ThemeToggle;
+    item.props = props;
+    item.themeToggle = std::move(toggle);
+    items_.push_back(std::move(item));
+}
+
+void Grid::AddThemeIconToggle(ThemeIconToggle toggle, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::ThemeIconToggle;
+    item.props = props;
+    item.themeIconToggle = std::move(toggle);
+    items_.push_back(std::move(item));
+}
+
+void Grid::AddMotionShape(MotionShape shape, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::MotionShape;
+    item.props = props;
+    item.motionShape = std::move(shape);
+    items_.push_back(std::move(item));
+}
+
 void Grid::AddButton(Button button, const GridItemProps& props) {
     GridItem item;
     item.kind = GridItemKind::Button;

@@ -111,6 +111,30 @@ void Position::AddBrandLogo(BrandLogo logo, const PositionItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Position::AddThemeToggle(ThemeToggle toggle, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::ThemeToggle;
+    item.props = props;
+    item.themeToggle = std::move(toggle);
+    items_.push_back(std::move(item));
+}
+
+void Position::AddThemeIconToggle(ThemeIconToggle toggle, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::ThemeIconToggle;
+    item.props = props;
+    item.themeIconToggle = std::move(toggle);
+    items_.push_back(std::move(item));
+}
+
+void Position::AddMotionShape(MotionShape shape, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::MotionShape;
+    item.props = props;
+    item.motionShape = std::move(shape);
+    items_.push_back(std::move(item));
+}
+
 void Position::AddButton(Button button, const PositionItemProps& props) {
     PositionItem item;
     item.kind = PositionItemKind::Button;
