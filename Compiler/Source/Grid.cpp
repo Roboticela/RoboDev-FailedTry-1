@@ -137,6 +137,14 @@ void Grid::AddThemeIconToggle(ThemeIconToggle toggle, const GridItemProps& props
     items_.push_back(std::move(item));
 }
 
+void Grid::AddSeparator(Separator separator, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::Separator;
+    item.props = props;
+    item.separator = std::move(separator);
+    items_.push_back(std::move(item));
+}
+
 void Grid::AddMotionShape(MotionShape shape, const GridItemProps& props) {
     GridItem item;
     item.kind = GridItemKind::MotionShape;

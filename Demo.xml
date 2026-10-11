@@ -14,11 +14,30 @@
     Paragraphs wrap, align, and share the text engine with headings. This one can be selected and copied. Edit Demo.xml and run RunDemo.ps1 to rebuild the page.
   </Paragraph>
 
+  <Separator size="sm"/>
+
   <H2>Buttons</H2>
   <Button variant="filled">Continue</Button>
   <Button variant="tinted">Not now</Button>
   <Button variant="gray">Secondary</Button>
   <Button variant="plain">Plain</Button>
+  <Button variant="destructive">Delete</Button>
+  <Button disabled="true">Unavailable</Button>
+  <IconButton icon="Close" label="Close"/>
+  <IconButton icon="Plus" label="Add" variant="primary"/>
+
+  <Separator>or continue with</Separator>
+  <Separator variant="subtle"/>
+  <Separator variant="dashed" tone="brand"/>
+  <Separator variant="dotted"/>
+  <Separator variant="fade"/>
+  <Flexbox direction="row" align="stretch" gap="{space.5}">
+    <Button variant="plain">Archive</Button>
+    <Separator orientation="vertical" flush="true"/>
+    <Button variant="plain">Report</Button>
+  </Flexbox>
+
+  <Separator size="sm"/>
 
   <H2>Inputs</H2>
   <Paragraph>Click a field and type. Escape leaves the field.</Paragraph>
@@ -26,12 +45,16 @@
   <Input variant="bordered" placeholder="Email address" width="100%" />
   <Input variant="plain" placeholder="Search" width="100%" />
 
+  <Separator size="sm"/>
+
   <H2>Flex</H2>
   <Flexbox direction="row" justify="space-between" align="center" gap="{space.3}" width="100%">
     <Button>Left</Button>
     <Button variant="tinted">Middle</Button>
     <Button>Right</Button>
   </Flexbox>
+
+  <Separator size="sm"/>
 
   <H2>Grid</H2>
   <Grid columns="1fr 1fr" gap="{space.3}" width="100%">
@@ -41,11 +64,15 @@
     <Button>D</Button>
   </Grid>
 
+  <Separator size="sm"/>
+
   <H2>Position</H2>
   <Position width="100%" height="{space.10}" background="{color.text.primary}" cornerRadius="{radius.lg}">
     <Button left="16" top="16">Top left</Button>
     <Button right="16" bottom="16" variant="tinted">Bottom right</Button>
   </Position>
+
+  <Separator size="sm"/>
 
   <H2>Container</H2>
   <Paragraph>Wheel, drag, or use the arrow keys. The cursor stays an arrow.</Paragraph>
@@ -61,6 +88,8 @@
     <Button variant="tinted">Last control</Button>
   </Container>
 
+  <Separator size="sm"/>
+
   <H2>Brand</H2>
   <Flexbox direction="row" align="center" gap="{space.5}">
     <BrandLogo />
@@ -68,6 +97,8 @@
     <BrandLogo variant="text" />
     <BrandLogo variant="lockup" />
   </Flexbox>
+
+  <Separator size="sm"/>
 
   <H2>Theme</H2>
   <ThemeToggle />
@@ -78,6 +109,8 @@
     <ThemeToggle variant="switch" />
     <ThemeToggle variant="compact" disabled="true" />
   </Flexbox>
+
+  <Separator size="sm"/>
 
   <H2>Theme switch</H2>
   <Keyframes name="shootingStar" duration="2s" easing="linear" iteration="infinite">
@@ -173,6 +206,8 @@
     </Shape>
   </Shape>
 
+  <Separator size="sm"/>
+
   <H2>Theme icon</H2>
   <Flexbox direction="row" align="center" wrap="wrap" gap="{space.4}">
     <ThemeIconToggle />
@@ -184,6 +219,8 @@
     <ThemeIconToggle variant="pair" size="sm" />
     <ThemeIconToggle variant="pair" disabled="true" />
   </Flexbox>
+
+  <Separator size="sm"/>
 
   <H2>Icons</H2>
   <Paragraph>Pack icons resize and recolor. Their paths stay in the pack.</Paragraph>
@@ -199,6 +236,8 @@
     <FlagGermany width="{space.6}" height="{space.5}" />
   </Flexbox>
 
+  <Separator size="sm"/>
+
   <H2>SVG</H2>
   <Paragraph>This graphic is written in the page XML.</Paragraph>
   <svg width="{space.10}" height="{space.8}" viewBox="0 0 220 88">
@@ -208,6 +247,8 @@
     <path d="M80 46 H168" fill="none" stroke="{color.text.tertiary}" stroke-width="4"/>
     <path d="M80 60 H140" fill="none" stroke="{color.border.strong}" stroke-width="4"/>
   </svg>
+
+  <Separator size="sm"/>
 
   <H2>Horizontal</H2>
   <Paragraph>Swipe sideways, drag the thumb, or press Left and Right.</Paragraph>

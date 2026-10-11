@@ -6,6 +6,7 @@
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
 #include "Robo/SidebarPainter.hpp"
+#include "Robo/SeparatorPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -295,6 +296,13 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             }
             case FlexItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult measured = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::Separator: {
+                const float offeredH = forcedHeight > 0.0f ? std::max(0.0f, forcedHeight - padT - padB) : 0.0f;
+                SeparatorMeasureResult measured = SeparatorPainter::Measure(fonts, item.separator, innerW, offeredH, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
                 break;
@@ -772,6 +780,10 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                 }
                 case FlexItemKind::ThemeIconToggle: {
                     ThemeIconTogglePainter::Paint(buffer, item.themeIconToggle, childX, childY, scale);
+                    break;
+                }
+                case FlexItemKind::Separator: {
+                    SeparatorPainter::Paint(buffer, fonts, item.separator, childX, childY, childW, childH, scale);
                     break;
                 }
                 case FlexItemKind::MotionShape: {

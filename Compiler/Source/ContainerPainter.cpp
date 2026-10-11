@@ -4,6 +4,7 @@
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
 #include "Robo/SidebarPainter.hpp"
+#include "Robo/SeparatorPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -213,6 +214,12 @@ void MeasureChild(const FontEngine& fonts,
         }
         case PositionItemKind::ThemeIconToggle: {
             const ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::Separator: {
+            const SeparatorMeasureResult res = SeparatorPainter::Measure(fonts, item.separator, innerAvailW, 0.0f, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;

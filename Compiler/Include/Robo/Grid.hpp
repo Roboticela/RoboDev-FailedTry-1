@@ -8,6 +8,7 @@
 #include "BrandLogo.hpp"
 #include "TitleBar.hpp"
 #include "Sidebar.hpp"
+#include "Separator.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -71,6 +72,7 @@ enum class GridItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    Separator,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -164,6 +166,7 @@ struct GridItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -188,6 +191,7 @@ public:
     void AddBrandLogo(BrandLogo logo, const GridItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const GridItemProps& props = {});
     void AddSidebar(Robo::Sidebar pane, const GridItemProps& props = {});
+    void AddSeparator(Robo::Separator separator, const GridItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const GridItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const GridItemProps& props = {});
     void AddMotionShape(MotionShape shape, const GridItemProps& props = {});

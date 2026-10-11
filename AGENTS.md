@@ -7,7 +7,8 @@ Board -> The board will not be containing anything by default it will be just a 
 ✅ - Text (This component is going to support the rich text with multiple font sizes at same text and multiple colors. Options like wrap, left, center, right etc. Basically, all the features which text supports must come in this component and user must be able to tweak and play with the component using XML code.)
 ✅ - Heading (1 to 6; derives from Text with semantic size/weight defaults)
 ✅ - Paragraph (derives from Text with body copy defaults)
-✅ - Button (Apple-style; label sizes the control; single-line text, no wrap)
+✅ - Button (foundation variants filled/primary, tinted, gray/secondary, plain/tertiary, destructive; hover, press, focus, disabled, loading; action commits on release inside the control)
+✅ - IconButton (icon-only button, 44px target, accessible label)
 ✅ - Input (Apple-style; filled / bordered / plain; focus ring; placeholder; caret typing)
 ✅ - Scrollbar
 Dropdown
@@ -31,6 +32,7 @@ Table
 ✅ - BrandLogo
 ✅ - TitleBar (also Navbar; Apple bar, 57px, background `color.bg.secondary`, BrandLogo on the left, split ThemeIconToggle on the right)
 ✅ - Sidebar (also Pane; 282px wide, background `color.bg.secondary`)
+✅ - Separator (also Divider; 1px foundation rule, optional label, solid / subtle / dashed / dotted / fade)
 ThemeToggle
 ThemeIconToggle
 ✅ - Shape (rect, ellipse, or path). Theme pairs (`darkX`, `darkY`, `darkBottom`, `darkFill`, `darkOpacity`, `darkScale`, `darkRotate`), `transition="0.5s cubic-bezier(0, -0.02, 0.4, 1.25)"`, hover (`hoverX`, `darkHoverX`, `hoverY`, `hoverScale`, `hoverRotate`, `hoverFill`, `hoverWithin`), `clip`, and `toggle="theme"` animate and transition any shape. `animation="name"` plus `animationDelay` plays a Keyframes clip.

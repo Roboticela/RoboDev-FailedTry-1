@@ -79,6 +79,14 @@ void Flexbox::AddThemeIconToggle(ThemeIconToggle toggle, const FlexItemProps& pr
     items_.push_back(std::move(item));
 }
 
+void Flexbox::AddSeparator(Separator separator, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::Separator;
+    item.separator = std::move(separator);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
 void Flexbox::AddMotionShape(MotionShape shape, const FlexItemProps& props) {
     FlexboxItem item;
     item.kind = FlexItemKind::MotionShape;

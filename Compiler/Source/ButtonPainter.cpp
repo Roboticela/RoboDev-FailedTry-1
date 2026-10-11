@@ -1,5 +1,6 @@
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/Foundation.hpp"
+#include "Robo/SvgPainter.hpp"
 #include "Robo/TextSelection.hpp"
 
 #include <algorithm>
@@ -106,17 +107,22 @@ ButtonMeasureResult ButtonPainter::Measure(const FontEngine& fonts,
     const float fontSize = static_cast<float>(style.fontSize) * scale;
     const float letterSpacing = static_cast<float>(style.letterSpacing) * scale;
 
-    const float textWidth = fonts.MeasureWidth(label, fontSize, faceId, letterSpacing);
+    const bool showLabel = !button.IsIconOnly() || !button.HasIcon();
+    const std::string visibleLabel = showLabel ? label : std::string();
+    const float textWidth = visibleLabel.empty() ? 0.0f : fonts.MeasureWidth(visibleLabel, fontSize, faceId, letterSpacing);
     const float ascent = fonts.GetAscent(fontSize, faceId);
     const float descent = fonts.GetDescent(fontSize, faceId);
     const float textHeight = std::max(fontSize, ascent + descent);
+    const float iconSize = button.HasIcon() ? 20.0f * scale : 0.0f;
+    const float iconGap = button.HasIcon() && !visibleLabel.empty() ? 8.0f * scale : 0.0f;
 
     const float paddingX = static_cast<float>(style.paddingX) * scale;
     const float paddingY = static_cast<float>(style.paddingY) * scale;
+    const float minTarget = 44.0f * scale;
 
     ButtonMeasureResult result;
-    result.width = textWidth + paddingX * 2.0f;
-    result.height = textHeight + paddingY * 2.0f;
+    result.width = button.IsIconOnly() ? minTarget : std::max(minTarget, textWidth + iconSize + iconGap + paddingX * 2.0f);
+    result.height = button.IsIconOnly() ? minTarget : std::max(minTarget, textHeight + paddingY * 2.0f);
     result.advanceY = result.height + 16.0f * scale;
     return result;
 }
@@ -142,15 +148,21 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     const Color backgroundColor = button.ResolveBackgroundColor();
     const Color textColor = button.ResolveTextColor();
 
-    const float textWidth = fonts.MeasureWidth(label, fontSize, faceId, letterSpacing);
+    const bool showLabel = !button.IsIconOnly() || !button.HasIcon();
+    const std::string visibleLabel = showLabel ? label : std::string();
+    const float textWidth = visibleLabel.empty() ? 0.0f : fonts.MeasureWidth(visibleLabel, fontSize, faceId, letterSpacing);
     const float ascent = fonts.GetAscent(fontSize, faceId);
     const float descent = fonts.GetDescent(fontSize, faceId);
     const float textHeight = std::max(fontSize, ascent + descent);
+    const float iconSize = 20.0f * scale;
+    const float iconGap = button.HasIcon() && !visibleLabel.empty() ? 8.0f * scale : 0.0f;
+    const float contentWidth = (button.HasIcon() ? iconSize : 0.0f) + iconGap + textWidth;
 
     const float paddingX = static_cast<float>(style.paddingX) * scale;
     const float paddingY = static_cast<float>(style.paddingY) * scale;
-    const float naturalWidth = textWidth + paddingX * 2.0f;
-    const float naturalHeight = textHeight + paddingY * 2.0f;
+    const float minTarget = 44.0f * scale;
+    const float naturalWidth = button.IsIconOnly() ? minTarget : std::max(minTarget, contentWidth + paddingX * 2.0f);
+    const float naturalHeight = button.IsIconOnly() ? minTarget : std::max(minTarget, textHeight + paddingY * 2.0f);
 
     const float buttonWidth = forcedWidth > 0.0f ? forcedWidth : naturalWidth;
     const float buttonHeight = forcedHeight > 0.0f ? forcedHeight : naturalHeight;
@@ -165,47 +177,51 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     }
 
     const float buttonY = originY;
-    const float pressOffset = button.GetInteraction() == ButtonInteraction::Pressed ? 1.0f * scale : 0.0f;
+    const float radius = static_cast<float>(style.cornerRadius) * scale;
+    if (button.IsFocusVisible() && button.CanActivate()) {
+        const float ring = 3.0f * scale;
+        FillRoundedRect(buffer,
+                        buttonX - ring,
+                        buttonY - ring,
+                        buttonWidth + ring * 2.0f,
+                        buttonHeight + ring * 2.0f,
+                        radius + ring,
+                        button.ResolveFocusColor(),
+                        1.0f);
+    }
 
     if (backgroundColor.alpha > 0) {
-        FillRoundedRect(buffer,
-                        buttonX,
-                        buttonY + pressOffset,
-                        buttonWidth,
-                        buttonHeight,
-                        static_cast<float>(style.cornerRadius) * scale,
-                        backgroundColor,
-                        opacity);
+        FillRoundedRect(buffer, buttonX, buttonY, buttonWidth, buttonHeight, radius, backgroundColor, opacity);
     }
 
-    float textX = buttonX + paddingX;
-    if (buttonWidth > naturalWidth) {
-        if (style.align == TextAlign::Center || style.variant != ButtonVariant::Plain) {
-            textX = buttonX + (buttonWidth - textWidth) * 0.5f;
-        } else if (style.align == TextAlign::Right) {
-            textX = buttonX + buttonWidth - paddingX - textWidth;
-        }
-    }
-    float baseline = buttonY + paddingY + ascent + pressOffset;
-    if (buttonHeight > naturalHeight) {
-        baseline = buttonY + (buttonHeight - textHeight) * 0.5f + ascent + pressOffset;
+    float contentX = buttonX + (buttonWidth - contentWidth) * 0.5f;
+    if (!button.IsIconOnly() && style.align == TextAlign::Left && buttonWidth > contentWidth + paddingX * 2.0f) {
+        contentX = buttonX + paddingX;
+    } else if (!button.IsIconOnly() && style.align == TextAlign::Right) {
+        contentX = buttonX + buttonWidth - paddingX - contentWidth;
     }
 
-    fonts.DrawString(buffer,
-                     textX,
-                     baseline,
-                     label,
-                     fontSize,
-                     faceId,
-                     textColor,
-                     opacity,
-                     letterSpacing);
+    if (button.HasIcon()) {
+        Svg& icon = button.GetIcon();
+        icon.GetStyle().width = iconSize;
+        icon.GetStyle().height = iconSize;
+        icon.GetStyle().color = textColor;
+        icon.GetStyle().opacity = opacity;
+        const float iconY = buttonY + (buttonHeight - iconSize) * 0.5f;
+        SvgPainter::Paint(buffer, icon, contentX, iconY, iconSize, scale);
+        contentX += iconSize + iconGap;
+    }
+
+    if (!visibleLabel.empty()) {
+        const float baseline = buttonY + (buttonHeight - textHeight) * 0.5f + ascent;
+        fonts.DrawString(buffer, contentX, baseline, visibleLabel, fontSize, faceId, textColor, opacity, letterSpacing);
+    }
 
     ButtonPaintResult result;
     result.bounds.x = buttonX;
     result.bounds.y = buttonY;
     result.bounds.width = buttonWidth;
-    result.bounds.height = buttonHeight + pressOffset;
+    result.bounds.height = buttonHeight;
     result.advanceY = buttonHeight + 16.0f * scale;
     button.SetBounds(result.bounds);
     return result;

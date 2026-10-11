@@ -50,6 +50,8 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\TitleBarPainter.cpp"),
         (Join-Path $Root "Compiler\Source\Sidebar.cpp"),
         (Join-Path $Root "Compiler\Source\SidebarPainter.cpp"),
+        (Join-Path $Root "Compiler\Source\Separator.cpp"),
+        (Join-Path $Root "Compiler\Source\SeparatorPainter.cpp"),
         (Join-Path $Root "Compiler\Source\ThemeToggle.cpp"),
         (Join-Path $Root "Compiler\Source\ThemeTogglePainter.cpp"),
         (Join-Path $Root "Compiler\Source\ThemeIconToggle.cpp"),

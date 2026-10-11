@@ -213,7 +213,7 @@ function WireInteraction() {
   });
 
   canvas.addEventListener("pointerdown", (event) => {
-    if (!roboModule) {
+    if (!roboModule || event.button !== 0) {
       return;
     }
     canvas.focus();
@@ -284,9 +284,26 @@ function WireInteraction() {
     }
   });
 
+  canvas.addEventListener("keyup", (event) => {
+    if (!roboModule) {
+      return;
+    }
+    if (roboModule.KeyUp(event.key)) {
+      event.preventDefault();
+      StartAnimationLoop();
+    }
+  });
+
   canvas.addEventListener("keydown", (event) => {
     if (!roboModule) {
       return;
+    }
+    if (event.key === "Tab" || event.key === "Enter" || event.key === " ") {
+      if (roboModule.KeyDown(event.key, event.shiftKey)) {
+        event.preventDefault();
+        StartAnimationLoop();
+        return;
+      }
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
       if (roboModule.CopySelection()) {

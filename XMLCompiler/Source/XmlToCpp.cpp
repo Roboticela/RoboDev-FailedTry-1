@@ -594,7 +594,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
-    if (node.name == "Button") {
+    if (node.name == "Button" || node.name == "IconButton") {
         code << Indent(indent) << "{\n";
         code << Indent(indent + 1) << "Robo::Button button;\n";
         code << Indent(indent + 1) << "Robo::ButtonStyle style;\n";
@@ -640,6 +640,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
+        EmitButtonFlags(code, indent + 1, node);
         code << Indent(indent + 1) << "scene.AddButton(std::move(button));\n";
         code << Indent(indent) << "}\n";
         return code.str();
@@ -754,6 +755,14 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         code << Indent(indent) << "{\n";
         EmitSidebar(code, node, indent + 1, "sidebar");
         code << Indent(indent + 1) << "scene.AddSidebar(std::move(sidebar));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
+    if (node.name == "Separator" || node.name == "Divider") {
+        code << Indent(indent) << "{\n";
+        EmitSeparator(code, node, indent + 1, "separator");
+        code << Indent(indent + 1) << "scene.AddSeparator(std::move(separator));\n";
         code << Indent(indent) << "}\n";
         return code.str();
     }
@@ -1181,7 +1190,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         }
     }
 
-    if (child.name == "Button") {
+    if (child.name == "Button" || child.name == "IconButton") {
         code << Indent(indent + 1) << "Robo::Button button;\n";
         code << Indent(indent + 1) << "Robo::ButtonStyle style;\n";
         std::string label;
@@ -1219,6 +1228,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
+        EmitButtonFlags(code, indent + 1, child);
         code << Indent(indent + 1) << parentVar << ".AddButton(std::move(button), props);\n";
     } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
         code << Indent(indent + 1) << "Robo::Input input;\n";
@@ -1348,6 +1358,9 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "Sidebar" || child.name == "Pane") {
         EmitSidebar(code, child, indent + 1, "sidebar");
         code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
+    } else if (child.name == "Separator" || child.name == "Divider") {
+        EmitSeparator(code, child, indent + 1, "separator");
+        code << Indent(indent + 1) << parentVar << ".AddSeparator(std::move(separator), props);\n";
     } else if (child.name == "ThemeToggle") {
         EmitThemeToggle(code, child, indent + 1, "themeToggle");
         code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
@@ -1515,7 +1528,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         }
     }
 
-    if (child.name == "Button") {
+    if (child.name == "Button" || child.name == "IconButton") {
         code << Indent(indent + 1) << "Robo::Button button;\n";
         code << Indent(indent + 1) << "Robo::ButtonStyle style;\n";
         std::string label;
@@ -1553,6 +1566,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
+        EmitButtonFlags(code, indent + 1, child);
         code << Indent(indent + 1) << parentVar << ".AddButton(std::move(button), props);\n";
     } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
         code << Indent(indent + 1) << "Robo::Input input;\n";
@@ -1682,6 +1696,9 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "Sidebar" || child.name == "Pane") {
         EmitSidebar(code, child, indent + 1, "sidebar");
         code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
+    } else if (child.name == "Separator" || child.name == "Divider") {
+        EmitSeparator(code, child, indent + 1, "separator");
+        code << Indent(indent + 1) << parentVar << ".AddSeparator(std::move(separator), props);\n";
     } else if (child.name == "ThemeToggle") {
         EmitThemeToggle(code, child, indent + 1, "themeToggle");
         code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
@@ -1812,7 +1829,7 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         }
     }
 
-    if (child.name == "Button") {
+    if (child.name == "Button" || child.name == "IconButton") {
         code << Indent(indent + 1) << "Robo::Button button;\n";
         code << Indent(indent + 1) << "Robo::ButtonStyle style;\n";
         std::string label;
@@ -1842,6 +1859,7 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         code << Indent(indent + 1) << "button.SetStyle(style);\n";
         code << Indent(indent + 1) << "button.ApplyVariantDefaults();\n";
         code << Indent(indent + 1) << "button.SetLabel(\"" << EscapeCpp(label) << "\");\n";
+        EmitButtonFlags(code, indent + 1, child);
         code << Indent(indent + 1) << parentVar << ".AddButton(std::move(button), props);\n";
     } else if (child.name == "Input" || child.name == "TextField" || child.name == "TextInput") {
         code << Indent(indent + 1) << "Robo::Input input;\n";
@@ -1941,6 +1959,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     } else if (child.name == "Sidebar" || child.name == "Pane") {
         EmitSidebar(code, child, indent + 1, "sidebar");
         code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
+    } else if (child.name == "Separator" || child.name == "Divider") {
+        EmitSeparator(code, child, indent + 1, "separator");
+        code << Indent(indent + 1) << parentVar << ".AddSeparator(std::move(separator), props);\n";
     } else if (child.name == "ThemeToggle") {
         EmitThemeToggle(code, child, indent + 1, "themeToggle");
         code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
@@ -1966,6 +1987,46 @@ void XmlToCpp::EmitSidebar(std::ostringstream& code,
                              const std::string& variable) const {
     (void)node;
     code << Indent(indent) << "Robo::Sidebar " << variable << ";\n";
+}
+
+void XmlToCpp::EmitSeparator(std::ostringstream& code,
+                             const XmlNode& node,
+                             int indent,
+                             const std::string& variable) const {
+    code << Indent(indent) << "Robo::Separator " << variable << ";\n";
+    std::string label;
+    if (node.attributes.count("label") != 0) {
+        label = node.attributes.at("label");
+    }
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "variant") {
+            code << Indent(indent) << variable << ".SetVariant(Robo::ParseSeparatorVariant(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "size") {
+            code << Indent(indent) << variable << ".SetSize(Robo::ParseSeparatorSize(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "tone") {
+            code << Indent(indent) << variable << ".SetTone(Robo::ParseSeparatorTone(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "align") {
+            code << Indent(indent) << variable << ".SetAlign(Robo::ParseSeparatorAlign(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "orientation") {
+            code << Indent(indent) << variable << ".SetOrientation(Robo::ParseSeparatorOrientation(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "inset" && attribute.second != "false") {
+            code << Indent(indent) << variable << ".SetInset(true);\n";
+        } else if (attribute.first == "flush" && attribute.second != "false") {
+            code << Indent(indent) << variable << ".SetFlush(true);\n";
+        } else if (attribute.first == "disabled" && attribute.second != "false") {
+            code << Indent(indent) << variable << ".SetDisabled(true);\n";
+        }
+    }
+    if (label.empty()) {
+        for (const XmlNode& child : node.children) {
+            if (child.isText) {
+                label += child.text;
+            }
+        }
+    }
+    if (!label.empty()) {
+        code << Indent(indent) << variable << ".SetLabel(\"" << EscapeCpp(label) << "\");\n";
+    }
 }
 
 void XmlToCpp::EmitTitleBar(std::ostringstream& code,
@@ -2276,6 +2337,44 @@ void XmlToCpp::EmitSelectable(std::ostringstream& code,
     }
 }
 
+void XmlToCpp::EmitButtonFlags(std::ostringstream& code, int indent, const XmlNode& node) const {
+    bool disabled = false;
+    bool loading = false;
+    std::string iconName;
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "disabled" && attribute.second != "false") {
+            disabled = true;
+        } else if (attribute.first == "loading" && attribute.second != "false") {
+            loading = true;
+        } else if (attribute.first == "icon") {
+            iconName = attribute.second;
+        }
+    }
+    if (node.name == "IconButton") {
+        code << Indent(indent) << "button.SetIconOnly(true);\n";
+    }
+    if (disabled) {
+        code << Indent(indent) << "button.SetDisabled(true);\n";
+    }
+    if (loading) {
+        code << Indent(indent) << "button.SetLoading(true);\n";
+    }
+    const auto icon = icons_.find(iconName);
+    if (!iconName.empty() && icon != icons_.end()) {
+        code << Indent(indent) << "{\n";
+        code << Indent(indent + 1) << "Robo::Icon icon;\n";
+        code << Indent(indent + 1) << "icon.SetViewBox(" << FloatLiteral(std::to_string(icon->second.viewX)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewY)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewWidth)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewHeight)) << ");\n";
+        code << Indent(indent + 1) << "icon.SetWidth(20.0f);\n";
+        code << Indent(indent + 1) << "icon.SetHeight(20.0f);\n";
+        code << EmitCompiledShapes(icon->second.shapes, indent + 1, "icon", true);
+        code << Indent(indent + 1) << "button.SetIcon(icon.Bake());\n";
+        code << Indent(indent) << "}\n";
+    }
+}
+
 bool XmlToCpp::TryEmitGraphic(std::ostringstream& code,
                                const XmlNode& node,
                                int indent,
@@ -2379,6 +2478,7 @@ std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDi
     code << "#include \"Robo/BrandLogo.hpp\"\n";
     code << "#include \"Robo/TitleBar.hpp\"\n";
     code << "#include \"Robo/Sidebar.hpp\"\n";
+    code << "#include \"Robo/Separator.hpp\"\n";
     code << "#include \"Robo/ThemeToggle.hpp\"\n";
     code << "#include \"Robo/ThemeIconToggle.hpp\"\n";
     code << "#include \"Robo/Motion.hpp\"\n";

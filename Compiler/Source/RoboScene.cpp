@@ -4,6 +4,7 @@
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
 #include "Robo/SidebarPainter.hpp"
+#include "Robo/SeparatorPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -1375,6 +1376,63 @@ void CollectSceneContainers(std::vector<SceneItem>& items, float x, float y, std
     }
 }
 
+void CollectButtonsInFlexbox(Flexbox& flexbox, std::vector<Button*>& out);
+void CollectButtonsInGrid(Grid& grid, std::vector<Button*>& out);
+void CollectButtonsInPosition(Position& position, std::vector<Button*>& out);
+void CollectButtonsInContainer(Container& container, std::vector<Button*>& out);
+
+void CollectButtonsInFlexbox(Flexbox& flexbox, std::vector<Button*>& out) {
+    for (FlexboxItem& item : flexbox.GetItems()) {
+        if (item.kind == FlexItemKind::Button) {
+            out.push_back(&item.button);
+        } else if (item.kind == FlexItemKind::Container && item.container) {
+            CollectButtonsInContainer(*item.container, out);
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            CollectButtonsInFlexbox(*item.flexbox, out);
+        }
+    }
+}
+
+void CollectButtonsInGrid(Grid& grid, std::vector<Button*>& out) {
+    for (GridItem& item : grid.GetItems()) {
+        if (item.kind == GridItemKind::Button) {
+            out.push_back(&item.button);
+        } else if (item.kind == GridItemKind::Container && item.container) {
+            CollectButtonsInContainer(*item.container, out);
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            CollectButtonsInFlexbox(*item.flexbox, out);
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            CollectButtonsInGrid(*item.grid, out);
+        }
+    }
+}
+
+void CollectButtonsInPosition(Position& position, std::vector<Button*>& out) {
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::Button) {
+            out.push_back(&item.button);
+        } else if (item.kind == PositionItemKind::Container && item.container) {
+            CollectButtonsInContainer(*item.container, out);
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            CollectButtonsInFlexbox(*item.flexbox, out);
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            CollectButtonsInGrid(*item.grid, out);
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            CollectButtonsInPosition(*item.position, out);
+        }
+    }
+}
+
+void CollectButtonsInContainer(Container& container, std::vector<Button*>& out) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        CollectButtonsInFlexbox(container.GetFlexbox(), out);
+    } else if (container.GetStyle().layout == ContainerLayout::Grid) {
+        CollectButtonsInGrid(container.GetGrid(), out);
+    } else {
+        CollectButtonsInPosition(container.GetContent(), out);
+    }
+}
+
 }  // namespace
 
 void RoboScene::Clear() {
@@ -1383,6 +1441,8 @@ void RoboScene::Clear() {
     hoveredInput_ = nullptr;
     hoveredScrollbar_ = nullptr;
     pressedButton_ = nullptr;
+    focusedButton_ = nullptr;
+    keyboardPressed_ = false;
     focusedInput_ = nullptr;
     draggingScrollbar_ = nullptr;
     focusedScrollbar_ = nullptr;
@@ -1487,6 +1547,13 @@ void RoboScene::AddThemeIconToggle(ThemeIconToggle toggle) {
     items_.push_back(std::move(item));
 }
 
+void RoboScene::AddSeparator(Separator separator) {
+    SceneItem item;
+    item.kind = SceneItemKind::Separator;
+    item.separator = std::move(separator);
+    items_.push_back(std::move(item));
+}
+
 void RoboScene::AddMotionShape(MotionShape shape) {
     SceneItem item;
     item.kind = SceneItemKind::MotionShape;
@@ -1545,7 +1612,7 @@ void RoboScene::DirtyButton(const Button* button) {
         return;
     }
     const ButtonBounds& bounds = button->GetBounds();
-    MarkDirty(bounds.x, bounds.y, bounds.width, bounds.height);
+    MarkDirty(bounds.x - 8.0f, bounds.y - 8.0f, bounds.width + 16.0f, bounds.height + 16.0f);
 }
 
 void RoboScene::DirtyInput(const Input* input) {
@@ -1850,6 +1917,16 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 cursorY = flowEdge;
                 edgeSet = true;
                 contentRight = std::max(contentRight, columnX + scrollX_);
+            } else if (item.kind == SceneItemKind::Separator) {
+                const bool vertical = item.separator.GetOrientation() == SeparatorOrientation::Vertical;
+                const SeparatorMeasureResult measured =
+                    SeparatorPainter::Measure(fonts, item.separator, columnW, 0.0f, paintScale);
+                const float boxWidth = vertical ? measured.width : columnW;
+                const float boxHeight = measured.height;
+                const SeparatorPaintResult painted =
+                    SeparatorPainter::Paint(frame, fonts, item.separator, columnX, cursorY, boxWidth, boxHeight, paintScale);
+                cursorY += painted.advanceY;
+                contentRight = std::max(contentRight, columnX + painted.width + scrollX_);
             } else if (item.kind == SceneItemKind::ThemeToggle) {
                 const ThemeTogglePaintResult painted =
                     ThemeTogglePainter::Paint(frame, fonts, item.themeToggle, columnX, cursorY, columnW, paintScale);
@@ -2858,8 +2935,10 @@ HitKind RoboScene::HitTestKind(float x, float y) const {
         FindThemeMotionScene(const_cast<RoboScene*>(this)->items_, x, y)) {
         return HitKind::Theme;
     }
-    if (FindButtonAt(x, y)) {
-        return HitKind::Button;
+    if (const Button* button = FindButtonAt(x, y)) {
+        if (button->CanActivate()) {
+            return HitKind::Button;
+        }
     }
     if (FindInputAt(x, y)) {
         return HitKind::Input;
@@ -2872,6 +2951,9 @@ bool RoboScene::HitTest(float x, float y) const {
 }
 
 bool RoboScene::SetHoveredButton(Button* button) {
+    if (button && !button->CanActivate()) {
+        button = nullptr;
+    }
     if (hoveredButton_ == button) {
         return false;
     }
@@ -2932,6 +3014,9 @@ bool RoboScene::SetHoveredScrollbar(Scrollbar* scrollbar) {
 }
 
 bool RoboScene::SetPressedButton(Button* button) {
+    if (button && !button->CanActivate()) {
+        button = nullptr;
+    }
     if (pressedButton_ == button) {
         return false;
     }
@@ -2947,6 +3032,118 @@ bool RoboScene::SetPressedButton(Button* button) {
     }
     DirtyButton(pressedButton_);
     return true;
+}
+
+bool RoboScene::SetFocusedButton(Button* button, bool showRing) {
+    if (button && !button->CanActivate()) {
+        button = nullptr;
+        showRing = false;
+    }
+    if (focusedButton_ == button) {
+        if (focusedButton_ && focusedButton_->IsFocusVisible() != showRing) {
+            focusedButton_->SetFocusVisible(showRing);
+            DirtyButton(focusedButton_);
+            return true;
+        }
+        return false;
+    }
+    DirtyButton(focusedButton_);
+    if (focusedButton_) {
+        focusedButton_->SetFocused(false);
+    }
+    focusedButton_ = button;
+    if (focusedButton_) {
+        focusedButton_->SetFocused(true);
+        focusedButton_->SetFocusVisible(showRing);
+    }
+    DirtyButton(focusedButton_);
+    return true;
+}
+
+void RoboScene::CollectButtons(std::vector<Button*>& out) {
+    for (SceneItem& item : items_) {
+        if (item.kind == SceneItemKind::Button) {
+            out.push_back(&item.button);
+        } else if (item.kind == SceneItemKind::Container && item.container) {
+            CollectButtonsInContainer(*item.container, out);
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            CollectButtonsInFlexbox(item.flexbox, out);
+        } else if (item.kind == SceneItemKind::Grid) {
+            CollectButtonsInGrid(item.grid, out);
+        } else if (item.kind == SceneItemKind::Position) {
+            CollectButtonsInPosition(item.position, out);
+        }
+    }
+}
+
+bool RoboScene::KeyDown(const std::string& key, bool shift) {
+    if (focusedInput_ && key != "Tab") {
+        return false;
+    }
+    if (key == "Tab") {
+        if (focusedInput_) {
+            SetFocusedInput(nullptr);
+        }
+        std::vector<Button*> buttons;
+        CollectButtons(buttons);
+        std::vector<Button*> enabled;
+        for (Button* button : buttons) {
+            if (button->CanActivate()) {
+                enabled.push_back(button);
+            }
+        }
+        if (enabled.empty()) {
+            return false;
+        }
+        int index = -1;
+        for (int i = 0; i < static_cast<int>(enabled.size()); ++i) {
+            if (enabled[static_cast<std::size_t>(i)] == focusedButton_) {
+                index = i;
+            }
+        }
+        const int count = static_cast<int>(enabled.size());
+        int next = 0;
+        if (index < 0) {
+            next = shift ? count - 1 : 0;
+        } else if (shift) {
+            next = (index - 1 + count) % count;
+        } else {
+            next = (index + 1) % count;
+        }
+        keyboardPressed_ = false;
+        SetFocusedButton(enabled[static_cast<std::size_t>(next)], true);
+        return true;
+    }
+    if (!focusedButton_ || !focusedButton_->CanActivate()) {
+        return false;
+    }
+    if (key == "Enter" || key == " ") {
+        keyboardPressed_ = true;
+        if (focusedButton_->GetInteraction() != ButtonInteraction::Pressed) {
+            focusedButton_->SetInteraction(ButtonInteraction::Pressed);
+            DirtyButton(focusedButton_);
+        }
+        return true;
+    }
+    return false;
+}
+
+bool RoboScene::KeyUp(const std::string& key) {
+    if ((key != "Enter" && key != " ") || !keyboardPressed_) {
+        return false;
+    }
+    keyboardPressed_ = false;
+    if (!focusedButton_) {
+        return false;
+    }
+    const ButtonInteraction next =
+        (focusedButton_ == hoveredButton_) ? ButtonInteraction::Hovered : ButtonInteraction::Normal;
+    if (focusedButton_->GetInteraction() != next) {
+        focusedButton_->SetInteraction(next);
+        DirtyButton(focusedButton_);
+        return true;
+    }
+    return false;
 }
 
 bool RoboScene::SetFocusedInput(Input* input) {
@@ -3006,7 +3203,7 @@ bool RoboScene::PointerMove(float x, float y) {
 
     if (pressedButton_) {
         const bool inside = FindButtonAt(x, y) == pressedButton_;
-        const ButtonInteraction next = inside ? ButtonInteraction::Pressed : ButtonInteraction::Hovered;
+        const ButtonInteraction next = inside ? ButtonInteraction::Pressed : ButtonInteraction::Normal;
         if (pressedButton_->GetInteraction() != next) {
             pressedButton_->SetInteraction(next);
             DirtyButton(pressedButton_);
@@ -3073,6 +3270,7 @@ bool RoboScene::LongPressSelect(float x, float y) {
         MarkDirty(oldX, oldY, oldWidth, oldHeight);
     }
     SetPressedButton(nullptr);
+    SetFocusedButton(nullptr);
     SetFocusedInput(nullptr);
     SetFocusedScrollbar(nullptr);
     DirtySelectionVisual();
@@ -3086,6 +3284,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
     if (!fromTouch && TextSelection::BeginHandleDrag(x, y)) {
         DirtySelectionVisual();
         SetPressedButton(nullptr);
+        SetFocusedButton(nullptr);
         SetFocusedInput(nullptr);
         SetFocusedScrollbar(nullptr);
         DirtySelectionVisual();
@@ -3100,6 +3299,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         DirtySelectionVisual();
         TextSelection::BeginClick(x, y, clicks > 0 ? clicks : 1);
         SetPressedButton(nullptr);
+        SetFocusedButton(nullptr);
         SetFocusedInput(nullptr);
         SetFocusedScrollbar(nullptr);
         DirtySelectionVisual();
@@ -3124,6 +3324,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
     if (scrollbar) {
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedButton(nullptr) || changed;
         changed = SetFocusedScrollbar(scrollbar) || changed;
         changed = SetHoveredButton(nullptr) || changed;
         changed = SetHoveredInput(nullptr) || changed;
@@ -3148,6 +3349,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         changed = SetFocusedScrollbar(nullptr) || changed;
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedButton(nullptr) || changed;
         changed = SetHoveredButton(nullptr) || changed;
         changed = SetHoveredInput(nullptr) || changed;
         const ThemeTogglePart part = themeToggle ? themeToggle->HitPart(x, y) : themeIcon->HitPart(x, y);
@@ -3168,6 +3370,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         changed = SetFocusedScrollbar(nullptr) || changed;
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedButton(nullptr) || changed;
         changed = SetHoveredButton(nullptr) || changed;
         changed = SetHoveredInput(nullptr) || changed;
         SetTheme(theme_ == Theme::Dark ? Theme::Light : Theme::Dark);
@@ -3178,12 +3381,14 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         changed = SetFocusedScrollbar(nullptr) || changed;
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetPressedButton(button) || changed;
+        changed = SetFocusedButton(button) || changed;
         changed = SetHoveredButton(button) || changed;
         changed = SetHoveredInput(nullptr) || changed;
     } else if (input) {
         changed = SetHoveredScrollbar(nullptr) || changed;
         changed = SetFocusedScrollbar(nullptr) || changed;
         changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedButton(nullptr) || changed;
         changed = SetFocusedInput(input) || changed;
         changed = SetHoveredInput(input) || changed;
         changed = SetHoveredButton(nullptr) || changed;
@@ -3194,6 +3399,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         }
         changed = SetFocusedScrollbar(containerBar) || changed;
         changed = SetPressedButton(nullptr) || changed;
+        changed = SetFocusedButton(nullptr) || changed;
         changed = SetFocusedInput(nullptr) || changed;
         changed = SetHoveredButton(nullptr) || changed;
         changed = SetHoveredInput(nullptr) || changed;

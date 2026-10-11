@@ -4,6 +4,7 @@
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
 #include "Robo/SidebarPainter.hpp"
+#include "Robo/SeparatorPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -230,6 +231,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
             }
             case PositionItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::Separator: {
+                SeparatorMeasureResult res = SeparatorPainter::Measure(fonts, item.separator, innerAvailW, 0.0f, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -477,6 +484,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             }
             case PositionItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::Separator: {
+                SeparatorMeasureResult res = SeparatorPainter::Measure(fonts, item.separator, innerAvailW, 0.0f, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -775,6 +788,9 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 break;
             case PositionItemKind::ThemeIconToggle:
                 ThemeIconTogglePainter::Paint(buffer, item.themeIconToggle, lc.x, lc.y, scale);
+                break;
+            case PositionItemKind::Separator:
+                SeparatorPainter::Paint(buffer, fonts, item.separator, lc.x, lc.y, lc.width, lc.height, scale);
                 break;
             case PositionItemKind::MotionShape:
                 item.motionShape.Paint(buffer, lc.x, lc.y, lc.width, lc.height, scale);

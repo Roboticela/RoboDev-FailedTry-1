@@ -3,6 +3,7 @@
 #include "BrandLogo.hpp"
 #include "TitleBar.hpp"
 #include "Sidebar.hpp"
+#include "Separator.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -40,6 +41,7 @@ enum class SceneItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    Separator,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -67,6 +69,7 @@ struct SceneItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -87,6 +90,7 @@ public:
     void AddBrandLogo(BrandLogo logo);
     void AddTitleBar(Robo::TitleBar bar);
     void AddSidebar(Robo::Sidebar pane);
+    void AddSeparator(Robo::Separator separator);
     void AddThemeToggle(ThemeToggle toggle);
     void AddThemeIconToggle(ThemeIconToggle toggle);
     void AddMotionShape(MotionShape shape);
@@ -104,6 +108,8 @@ public:
     bool LongPressSelect(float x, float y);
     bool PointerUp(float x, float y);
     bool PointerLeave();
+    bool KeyDown(const std::string& key, bool shift);
+    bool KeyUp(const std::string& key);
 
     // Wheel / touchpad scrolling at a position, in device pixels.
     bool Wheel(float x, float y, float deltaX, float deltaY);
@@ -165,6 +171,8 @@ private:
     bool SetHoveredScrollbar(Scrollbar* scrollbar);
     bool SetFocusedScrollbar(Scrollbar* scrollbar);
     bool SetPressedButton(Button* button);
+    bool SetFocusedButton(Button* button, bool showRing = false);
+    void CollectButtons(std::vector<Button*>& out);
     bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
     void MarkFullDirty();
@@ -185,6 +193,8 @@ private:
     Input* hoveredInput_ = nullptr;
     Scrollbar* hoveredScrollbar_ = nullptr;
     Button* pressedButton_ = nullptr;
+    Button* focusedButton_ = nullptr;
+    bool keyboardPressed_ = false;
     Input* focusedInput_ = nullptr;
     Scrollbar* draggingScrollbar_ = nullptr;
     Scrollbar* focusedScrollbar_ = nullptr;

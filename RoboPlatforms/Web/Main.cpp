@@ -140,6 +140,24 @@ bool PointerUp(float x, float y) {
     return changed;
 }
 
+bool KeyDown(const std::string& key, bool shift) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyDown(key, shift);
+    SchedulePresent();
+    return changed;
+}
+
+bool KeyUp(const std::string& key) {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.KeyUp(key);
+    SchedulePresent();
+    return changed;
+}
+
 bool PointerLeave() {
     if (!EnsureApp()) {
         return false;
@@ -378,6 +396,8 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("HasCaret", &HasCaret);
     emscripten::function("MoveSelection", &MoveSelection);
     emscripten::function("PointerUp", &PointerUp);
+    emscripten::function("KeyDown", &KeyDown);
+    emscripten::function("KeyUp", &KeyUp);
     emscripten::function("PointerLeave", &PointerLeave);
     emscripten::function("HitTest", &HitTest);
     emscripten::function("Wheel", &Wheel);

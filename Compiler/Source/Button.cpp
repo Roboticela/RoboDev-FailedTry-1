@@ -77,6 +77,16 @@ void Button::ApplyVariantDefaults() {
         style_.tokens["paddingY"] = "space.3";
     }
 
+    if (iconOnly_) {
+        style_.paddingX = 0.0;
+        style_.paddingY = 0.0;
+        style_.tokens["paddingX"] = "";
+        style_.tokens["paddingY"] = "";
+        if (style_.tokens.find("cornerRadius") != style_.tokens.end()) {
+            style_.tokens["cornerRadius"] = "radius.pill";
+        }
+    }
+
     switch (style_.variant) {
         case ButtonVariant::Tinted:
             if (!style_.hasCustomBackground) {
@@ -103,6 +113,14 @@ void Button::ApplyVariantDefaults() {
                 style_.tokens["textColor"] = "color.brand.primary";
             }
             break;
+        case ButtonVariant::Destructive:
+            if (!style_.hasCustomBackground) {
+                style_.tokens["backgroundColor"] = "color.danger";
+            }
+            if (!style_.hasCustomTextColor) {
+                style_.tokens["textColor"] = "color.text.on-brand";
+            }
+            break;
         case ButtonVariant::Filled:
         default:
             if (!style_.hasCustomBackground) {
@@ -115,39 +133,118 @@ void Button::ApplyVariantDefaults() {
     }
 }
 
+void Button::SetDisabled(bool disabled) {
+    disabled_ = disabled;
+}
+
+bool Button::IsDisabled() const {
+    return disabled_;
+}
+
+void Button::SetLoading(bool loading) {
+    loading_ = loading;
+}
+
+bool Button::IsLoading() const {
+    return loading_;
+}
+
+bool Button::CanActivate() const {
+    return !disabled_ && !loading_;
+}
+
+void Button::SetFocused(bool focused) {
+    focused_ = focused;
+    if (!focused_) {
+        focusVisible_ = false;
+    }
+}
+
+bool Button::IsFocused() const {
+    return focused_;
+}
+
+void Button::SetFocusVisible(bool visible) {
+    focusVisible_ = visible && focused_;
+}
+
+bool Button::IsFocusVisible() const {
+    return focusVisible_;
+}
+
+void Button::SetIcon(Svg icon) {
+    icon_ = std::move(icon);
+    hasIcon_ = true;
+}
+
+bool Button::HasIcon() const {
+    return hasIcon_;
+}
+
+Svg& Button::GetIcon() {
+    return icon_;
+}
+
+const Svg& Button::GetIcon() const {
+    return icon_;
+}
+
+void Button::SetIconOnly(bool iconOnly) {
+    iconOnly_ = iconOnly;
+}
+
+bool Button::IsIconOnly() const {
+    return iconOnly_;
+}
+
 Color Button::ResolveBackgroundColor() const {
     ButtonStyle style = style_;
     Resolve(style);
-    Color background = style.backgroundColor;
-    const Color brand = ResolveColor(Color::FromHex("#0E7AFF"), "color.brand.primary");
-    const Color onBrand = ResolveColor(Color::FromHex("#FFFFFF"), "color.text.on-brand");
+    const Color background = style.backgroundColor;
     const Color subtle = ResolveColor(Color::FromHex("#0E7AFF1A"), "color.brand.primary.subtle");
+    const Color disabledFill = ResolveColor(Color::FromHex("#B8D9FF"), "color.brand.primary.disabled");
+    const Color quiet = ResolveColor(Color::FromHex("#EDEDEF"), "color.bg.tertiary");
+
+    if (!CanActivate()) {
+        if (style.variant == ButtonVariant::Filled) {
+            return disabledFill;
+        }
+        if (style.variant == ButtonVariant::Plain) {
+            return Color::FromRgba(0, 0, 0, 0);
+        }
+        return quiet;
+    }
 
     if (style.variant == ButtonVariant::Plain) {
-        if (interaction_ == ButtonInteraction::Hovered || interaction_ == ButtonInteraction::Pressed) {
+        if (interaction_ == ButtonInteraction::Pressed) {
+            return MixToward(subtle, ResolveColor(subtle, "color.brand.primary"), 0.18f);
+        }
+        if (interaction_ == ButtonInteraction::Hovered) {
             return subtle;
         }
         return background;
     }
 
-    if (interaction_ == ButtonInteraction::Hovered) {
+    if (interaction_ == ButtonInteraction::Hovered || interaction_ == ButtonInteraction::Pressed) {
+        const bool pressed = interaction_ == ButtonInteraction::Pressed;
+        const char* token = "color.bg.hover";
+        Color fallback = Color::FromHex("#F5F5F7");
         if (style.variant == ButtonVariant::Filled) {
-            return MixToward(background, onBrand, 0.12f);
+            token = pressed ? "color.brand.primary.active" : "color.brand.primary.hover";
+            fallback = pressed ? Color::FromHex("#0757C7") : Color::FromHex("#0A6AE8");
+        } else if (style.variant == ButtonVariant::Destructive) {
+            const Color danger = ResolveColor(Color::FromHex("#FF3B30"), "color.danger");
+            if (pressed) {
+                return MixToward(danger, Color::FromHex("#000000"), 0.16f);
+            }
+            return ResolveColor(Color::FromHex("#E0342A"), "color.danger.hover");
+        } else if (style.variant == ButtonVariant::Tinted) {
+            return MixToward(background, ResolveColor(background, "color.brand.primary"), pressed ? 0.22f : 0.12f);
+        } else if (pressed) {
+            token = "color.bg.active";
+            fallback = Color::FromHex("#EDEDEF");
         }
-        if (style.variant == ButtonVariant::Tinted) {
-            return MixToward(background, brand, 0.12f);
-        }
-        return MixToward(background, Color::FromHex("#000000"), 0.08f);
-    }
-
-    if (interaction_ == ButtonInteraction::Pressed) {
-        if (style.variant == ButtonVariant::Filled) {
-            return MixToward(background, Color::FromHex("#000000"), 0.18f);
-        }
-        if (style.variant == ButtonVariant::Tinted) {
-            return MixToward(background, brand, 0.22f);
-        }
-        return MixToward(background, Color::FromHex("#000000"), 0.16f);
+        return ResolveColor(fallback, token);
     }
 
     return background;
@@ -156,16 +253,23 @@ Color Button::ResolveBackgroundColor() const {
 Color Button::ResolveTextColor() const {
     ButtonStyle style = style_;
     Resolve(style);
-    if (style.variant == ButtonVariant::Plain && interaction_ == ButtonInteraction::Pressed) {
-        return MixToward(style.textColor, ResolveColor(style.textColor, "color.brand.primary.active"), 0.35f);
+    if (!CanActivate() && style.variant != ButtonVariant::Filled) {
+        return ResolveColor(Color::FromHex("#C7C7CC"), "color.text.disabled");
+    }
+    if (style.variant == ButtonVariant::Plain && interaction_ == ButtonInteraction::Pressed && CanActivate()) {
+        return ResolveColor(style.textColor, "color.brand.primary.active");
     }
     return style.textColor;
 }
 
-float Button::ResolveOpacity() const {
-    if (interaction_ == ButtonInteraction::Pressed) {
-        return static_cast<float>(style_.opacity) * 0.92f;
+Color Button::ResolveFocusColor() const {
+    if (style_.variant == ButtonVariant::Destructive) {
+        return ResolveColor(Color::FromHex("#FF3B3040"), "color.danger.focus-ring");
     }
+    return ResolveColor(Color::FromHex("#0E7AFF66"), "color.brand.primary.focus-ring");
+}
+
+float Button::ResolveOpacity() const {
     return static_cast<float>(style_.opacity);
 }
 
@@ -173,11 +277,14 @@ ButtonVariant ParseButtonVariant(const std::string& value) {
     if (value == "tinted") {
         return ButtonVariant::Tinted;
     }
-    if (value == "gray" || value == "grey") {
+    if (value == "gray" || value == "grey" || value == "secondary") {
         return ButtonVariant::Gray;
     }
-    if (value == "plain") {
+    if (value == "plain" || value == "tertiary") {
         return ButtonVariant::Plain;
+    }
+    if (value == "destructive" || value == "danger") {
+        return ButtonVariant::Destructive;
     }
     return ButtonVariant::Filled;
 }

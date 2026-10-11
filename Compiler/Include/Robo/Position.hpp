@@ -8,6 +8,7 @@
 #include "BrandLogo.hpp"
 #include "TitleBar.hpp"
 #include "Sidebar.hpp"
+#include "Separator.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -55,6 +56,7 @@ enum class PositionItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    Separator,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -140,6 +142,7 @@ struct PositionItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -173,6 +176,7 @@ public:
     void AddBrandLogo(BrandLogo logo, const PositionItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const PositionItemProps& props = {});
     void AddSidebar(Robo::Sidebar pane, const PositionItemProps& props = {});
+    void AddSeparator(Robo::Separator separator, const PositionItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const PositionItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const PositionItemProps& props = {});
     void AddMotionShape(MotionShape shape, const PositionItemProps& props = {});

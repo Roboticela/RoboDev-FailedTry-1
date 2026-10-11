@@ -5,6 +5,7 @@
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
 #include "Robo/SidebarPainter.hpp"
+#include "Robo/SeparatorPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -367,6 +368,12 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
             }
             case GridItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult measured = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                child.measuredWidth = measured.width;
+                child.measuredHeight = measured.height;
+                break;
+            }
+            case GridItemKind::Separator: {
+                SeparatorMeasureResult measured = SeparatorPainter::Measure(fonts, item.separator, innerW, 0.0f, scale);
                 child.measuredWidth = measured.width;
                 child.measuredHeight = measured.height;
                 break;
@@ -754,6 +761,10 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
             }
             case GridItemKind::ThemeIconToggle: {
                 ThemeIconTogglePainter::Paint(buffer, item.themeIconToggle, childX, childY, scale);
+                break;
+            }
+            case GridItemKind::Separator: {
+                SeparatorPainter::Paint(buffer, fonts, item.separator, childX, childY, childW, childH, scale);
                 break;
             }
             case GridItemKind::MotionShape: {

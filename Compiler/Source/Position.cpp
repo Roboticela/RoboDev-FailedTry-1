@@ -143,6 +143,14 @@ void Position::AddThemeIconToggle(ThemeIconToggle toggle, const PositionItemProp
     items_.push_back(std::move(item));
 }
 
+void Position::AddSeparator(Separator separator, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::Separator;
+    item.props = props;
+    item.separator = std::move(separator);
+    items_.push_back(std::move(item));
+}
+
 void Position::AddMotionShape(MotionShape shape, const PositionItemProps& props) {
     PositionItem item;
     item.kind = PositionItemKind::MotionShape;

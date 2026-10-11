@@ -3,6 +3,7 @@
 #include "Color.hpp"
 #include "FontStyle.hpp"
 #include "Selectable.hpp"
+#include "Svg.hpp"
 #include "TextAlign.hpp"
 
 #include <map>
@@ -14,7 +15,8 @@ enum class ButtonVariant {
     Filled,
     Tinted,
     Gray,
-    Plain
+    Plain,
+    Destructive
 };
 
 enum class ButtonInteraction {
@@ -69,8 +71,27 @@ public:
 
     void ApplyVariantDefaults();
 
+    void SetDisabled(bool disabled);
+    bool IsDisabled() const;
+    void SetLoading(bool loading);
+    bool IsLoading() const;
+    bool CanActivate() const;
+
+    void SetFocused(bool focused);
+    bool IsFocused() const;
+    void SetFocusVisible(bool visible);
+    bool IsFocusVisible() const;
+
+    void SetIcon(Svg icon);
+    bool HasIcon() const;
+    Svg& GetIcon();
+    const Svg& GetIcon() const;
+    void SetIconOnly(bool iconOnly);
+    bool IsIconOnly() const;
+
     Color ResolveBackgroundColor() const;
     Color ResolveTextColor() const;
+    Color ResolveFocusColor() const;
     float ResolveOpacity() const;
 
 private:
@@ -78,6 +99,13 @@ private:
     ButtonStyle style_;
     ButtonInteraction interaction_ = ButtonInteraction::Normal;
     ButtonBounds bounds_;
+    Svg icon_;
+    bool hasIcon_ = false;
+    bool iconOnly_ = false;
+    bool disabled_ = false;
+    bool loading_ = false;
+    bool focused_ = false;
+    bool focusVisible_ = false;
 };
 
 ButtonVariant ParseButtonVariant(const std::string& value);

@@ -9,6 +9,7 @@
 #include "BrandLogo.hpp"
 #include "TitleBar.hpp"
 #include "Sidebar.hpp"
+#include "Separator.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -63,6 +64,7 @@ enum class FlexItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    Separator,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -102,6 +104,7 @@ struct FlexboxItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -169,6 +172,7 @@ public:
     void AddBrandLogo(BrandLogo logo, const FlexItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const FlexItemProps& props = {});
     void AddSidebar(Robo::Sidebar pane, const FlexItemProps& props = {});
+    void AddSeparator(Robo::Separator separator, const FlexItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const FlexItemProps& props = {});
     void AddMotionShape(MotionShape shape, const FlexItemProps& props = {});

@@ -27,6 +27,7 @@ private:
     void EmitBrandLogo(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitTitleBar(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitSidebar(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
+    void EmitSeparator(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitThemeToggle(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitThemeIconToggle(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitKeyframes(std::ostringstream& code, const XmlNode& node, int indent) const;
@@ -34,6 +35,7 @@ private:
     std::string NextShapeName() const;
     // Normalises a numeric XML attribute into a valid C++ float literal.
     void EmitSelectable(std::ostringstream& code, int indent, const std::string& styleName, const XmlNode& node) const;
+    void EmitButtonFlags(std::ostringstream& code, int indent, const XmlNode& node) const;
     bool TryEmitGraphic(std::ostringstream& code, const XmlNode& node, int indent, const std::string& parent, bool withProps) const;
     std::string FloatLiteral(const std::string& value) const;
     std::string ExtractToken(const std::string& value) const;
