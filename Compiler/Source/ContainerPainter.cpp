@@ -1,6 +1,7 @@
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
+#include "Robo/BrandLogoPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/GridPainter.hpp"
@@ -178,6 +179,12 @@ void MeasureChild(const FontEngine& fonts,
         }
         case PositionItemKind::Svg: {
             const SvgMeasureResult res = SvgPainter::Measure(item.svg, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::BrandLogo: {
+            const BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;

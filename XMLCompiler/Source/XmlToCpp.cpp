@@ -721,6 +721,14 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    if (node.name == "BrandLogo") {
+        code << Indent(indent) << "{\n";
+        EmitBrandLogo(code, node, indent + 1, "brandLogo");
+        code << Indent(indent + 1) << "scene.AddBrandLogo(std::move(brandLogo));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
     if (TryEmitGraphic(code, node, indent + 1, "scene", false)) {
         return code.str();
     }
@@ -1277,6 +1285,9 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         const std::string childGridVar = "nestedGrid" + std::to_string(indent + 1);
         EmitGrid(code, child, indent + 1, childGridVar);
         code << Indent(indent + 1) << parentVar << ".AddGrid(std::move(childGridVar), props);\n";
+    } else if (child.name == "BrandLogo") {
+        EmitBrandLogo(code, child, indent + 1, "brandLogo");
+        code << Indent(indent + 1) << parentVar << ".AddBrandLogo(std::move(brandLogo), props);\n";
     } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
         if (!child.name.empty()) {
             std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
@@ -1592,6 +1603,9 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         const std::string childGridVar = "nestedGrid" + std::to_string(indent + 1);
         EmitGrid(code, child, indent + 1, childGridVar);
         code << Indent(indent + 1) << parentVar << ".AddGrid(std::move(childGridVar), props);\n";
+    } else if (child.name == "BrandLogo") {
+        EmitBrandLogo(code, child, indent + 1, "brandLogo");
+        code << Indent(indent + 1) << parentVar << ".AddBrandLogo(std::move(brandLogo), props);\n";
     } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
         if (!child.name.empty()) {
             std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
@@ -1832,6 +1846,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         const std::string childPosVar = "nestedPos" + std::to_string(indent + 1);
         EmitPosition(code, child, indent + 1, childPosVar);
         code << Indent(indent + 1) << parentVar << ".AddPosition(std::move(" << childPosVar << "), props);\n";
+    } else if (child.name == "BrandLogo") {
+        EmitBrandLogo(code, child, indent + 1, "brandLogo");
+        code << Indent(indent + 1) << parentVar << ".AddBrandLogo(std::move(brandLogo), props);\n";
     } else if (!TryEmitGraphic(code, child, indent + 1, parentVar, true)) {
         if (!child.name.empty()) {
             std::cerr << "Skipping unknown XML element <" << child.name << ">\n";
@@ -1839,6 +1856,29 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     }
 
     code << Indent(indent) << "}\n";
+}
+
+void XmlToCpp::EmitBrandLogo(std::ostringstream& code,
+                               const XmlNode& node,
+                               int indent,
+                               const std::string& variable) const {
+    code << Indent(indent) << "Robo::BrandLogo " << variable << ";\n";
+    for (const auto& attribute : node.attributes) {
+        if (attribute.first == "variant") {
+            code << Indent(indent) << variable << ".SetVariant(Robo::ParseBrandLogoVariant(\"" << EscapeCpp(attribute.second) << "\"));\n";
+        } else if (attribute.first == "size") {
+            const std::string token = ExtractToken(attribute.second);
+            if (!token.empty()) {
+                code << Indent(indent) << variable << ".SetSize(Robo::ResolveFloat(20.0f, \"" << token << "\"));\n";
+            } else {
+                code << Indent(indent) << variable << ".SetSize(" << FloatLiteral(attribute.second) << ");\n";
+            }
+        } else if (attribute.first == "primary") {
+            code << Indent(indent) << variable << ".SetPrimary(\"" << EscapeCpp(attribute.second) << "\");\n";
+        } else if (attribute.first == "secondary") {
+            code << Indent(indent) << variable << ".SetSecondary(\"" << EscapeCpp(attribute.second) << "\");\n";
+        }
+    }
 }
 
 void XmlToCpp::EmitSelectable(std::ostringstream& code,
@@ -1952,6 +1992,7 @@ std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDi
     code << "#include \"Robo/Foundation.hpp\"\n";
     code << "#include \"Robo/Svg.hpp\"\n";
     code << "#include \"Robo/Icon.hpp\"\n";
+    code << "#include \"Robo/BrandLogo.hpp\"\n";
     code << "#include \"Robo/Heading.hpp\"\n";
     code << "#include \"Robo/Paragraph.hpp\"\n";
     code << "#include \"Robo/Button.hpp\"\n";

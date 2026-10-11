@@ -103,6 +103,14 @@ void Position::AddSvg(Svg svg, const PositionItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Position::AddBrandLogo(BrandLogo logo, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::BrandLogo;
+    item.props = props;
+    item.brandLogo = std::move(logo);
+    items_.push_back(std::move(item));
+}
+
 void Position::AddButton(Button button, const PositionItemProps& props) {
     PositionItem item;
     item.kind = PositionItemKind::Button;

@@ -5,6 +5,7 @@
 #include "Selectable.hpp"
 #include "Input.hpp"
 #include "Scrollbar.hpp"
+#include "BrandLogo.hpp"
 #include "Svg.hpp"
 #include "Text.hpp"
 
@@ -61,7 +62,8 @@ enum class GridItemKind {
     Container,
     Flexbox,
     Grid,
-    Svg
+    Svg,
+    BrandLogo
 };
 
 struct GridStyle {
@@ -149,6 +151,7 @@ struct GridItem {
     std::shared_ptr<Flexbox> flexbox;
     std::shared_ptr<Grid> grid;
     Svg svg;
+    BrandLogo brandLogo;
 };
 
 class Grid {
@@ -167,6 +170,7 @@ public:
     void AddFlexbox(Flexbox flexbox, const GridItemProps& props = {});
     void AddGrid(Grid grid, const GridItemProps& props = {});
     void AddSvg(Svg svg, const GridItemProps& props = {});
+    void AddBrandLogo(BrandLogo logo, const GridItemProps& props = {});
     void AddItem(GridItem item);
 
     const std::vector<GridItem>& GetItems() const;

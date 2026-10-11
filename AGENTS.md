@@ -11,10 +11,10 @@ Board -> The board will not be containing anything by default it will be just a 
 ✅ - Input (Apple-style; filled / bordered / plain; focus ring; placeholder; caret typing)
 ✅ - Scrollbar
 Dropdown
-Icons -> The icons will be basically SVGs which user can add by <SVGName /> which will load from the Assets/RoboCountry.pack and RoboIcons.pack.
+✅ - Icons -> The icons will be basically SVGs which user can add by <SVGName /> which will load from the Assets/RoboCountry.pack and RoboIcons.pack.
 Menu
 Context Menu
-SVGs -> SVGs will be directly supported in XML user can write <svg><path> etc</svg> they can write the SVg directly in XML how they write the components. They can use the icons too as <IconName />
+✅ - SVGs -> SVGs will be directly supported in XML user can write <svg><path> etc</svg> they can write the SVg directly in XML how they write the components. They can use the icons too as <IconName />
 Ellipse/Circle
 Rectangle
 Polygon
@@ -28,6 +28,9 @@ Toggle
 Slider
 List
 Table
+BrandLogo
+ThemeToggle
+ThemeIconToggle
 
 
 Use the current which already exists as folders to make everything and put everything correctly in these structure. I want to build first for the web so build it for the web platform first but the implementation must be independant of everything so we will just need to put implementation in RoboPlatforms and must not need any other changes to the code. Use the WebAssembly for web and on request of the page the HTMl will be provided too which will be made of the XML so we can get the best SEO.

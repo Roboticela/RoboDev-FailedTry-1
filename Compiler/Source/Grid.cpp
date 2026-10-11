@@ -97,6 +97,14 @@ void Grid::AddSvg(Svg svg, const GridItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Grid::AddBrandLogo(BrandLogo logo, const GridItemProps& props) {
+    GridItem item;
+    item.kind = GridItemKind::BrandLogo;
+    item.props = props;
+    item.brandLogo = std::move(logo);
+    items_.push_back(std::move(item));
+}
+
 void Grid::AddButton(Button button, const GridItemProps& props) {
     GridItem item;
     item.kind = GridItemKind::Button;

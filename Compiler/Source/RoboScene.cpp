@@ -1,5 +1,6 @@
 #include "Robo/RoboScene.hpp"
 #include "Robo/TextSelection.hpp"
+#include "Robo/BrandLogoPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -1140,6 +1141,13 @@ void RoboScene::AddSvg(Svg svg) {
     items_.push_back(std::move(item));
 }
 
+void RoboScene::AddBrandLogo(BrandLogo logo) {
+    SceneItem item;
+    item.kind = SceneItemKind::BrandLogo;
+    item.brandLogo = std::move(logo);
+    items_.push_back(std::move(item));
+}
+
 bool RoboScene::RerenderIfPossible() {
     if (!hasRenderContext_ || !platform_ || !fonts_) {
         return false;
@@ -1439,6 +1447,12 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 cursorY += painted.advanceY;
                 const SvgBounds& bounds = item.svg.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            } else if (item.kind == SceneItemKind::BrandLogo) {
+                const BrandLogoPaintResult painted =
+                    BrandLogoPainter::Paint(frame, fonts, item.brandLogo, originX, cursorY, paintScale);
+                cursorY += painted.advanceY;
+                const BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, paintScale);
+                contentRight = std::max(contentRight, originX + measured.width + scrollX_);
             } else if (item.kind == SceneItemKind::Position) {
                 const PositionPaintResult painted =
                     PositionPainter::Paint(frame, fonts, item.position, originX, cursorY, contentWidth, paintScale);

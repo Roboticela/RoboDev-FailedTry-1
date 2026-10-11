@@ -3,6 +3,7 @@
 #include "Robo/SvgPainter.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
+#include "Robo/BrandLogoPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/InputPainter.hpp"
 #include "Robo/ScrollbarPainter.hpp"
@@ -261,6 +262,12 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                 SvgMeasureResult measured = SvgPainter::Measure(item.svg, scale);
                 child.baseWidth = hasExplicitWidth ? ParseDimension(item.props.width, innerW, measured.width, scale) : measured.width;
                 child.baseHeight = hasExplicitHeight ? ParseDimension(item.props.height, innerW, measured.height, scale) : measured.height;
+                break;
+            }
+            case FlexItemKind::BrandLogo: {
+                BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
                 break;
             }
             case FlexItemKind::Button: {
@@ -711,6 +718,10 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                 }
                 case FlexItemKind::Svg: {
                     SvgPainter::Paint(buffer, item.svg, childX, childY, childW, scale);
+                    break;
+                }
+                case FlexItemKind::BrandLogo: {
+                    BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, childX, childY, scale);
                     break;
                 }
                 case FlexItemKind::Button: {

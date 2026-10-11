@@ -1,6 +1,7 @@
 #include "Robo/PositionPainter.hpp"
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
+#include "Robo/BrandLogoPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -195,6 +196,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
             }
             case PositionItemKind::Svg: {
                 SvgMeasureResult res = SvgPainter::Measure(item.svg, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::BrandLogo: {
+                BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -407,6 +414,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             }
             case PositionItemKind::Svg: {
                 SvgMeasureResult res = SvgPainter::Measure(item.svg, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::BrandLogo: {
+                BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -685,6 +698,9 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 break;
             case PositionItemKind::Svg:
                 SvgPainter::Paint(buffer, item.svg, lc.x, lc.y, lc.width, scale);
+                break;
+            case PositionItemKind::BrandLogo:
+                BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, lc.x, lc.y, scale);
                 break;
             case PositionItemKind::Button:
                 ButtonPainter::Paint(buffer, fonts, item.button, lc.x, lc.y, lc.width, scale, lc.width, lc.height);

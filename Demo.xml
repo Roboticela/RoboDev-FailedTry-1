@@ -59,6 +59,14 @@
     <Button variant="tinted">Last control</Button>
   </Container>
 
+  <H2>Brand</H2>
+  <Flexbox direction="row" align="center" gap="{space.5}">
+    <BrandLogo />
+    <BrandLogo variant="icon" />
+    <BrandLogo variant="text" />
+    <BrandLogo variant="lockup" />
+  </Flexbox>
+
   <H2>Icons</H2>
   <Paragraph>Pack icons resize and recolor. Their paths stay in the pack.</Paragraph>
   <Flexbox direction="row" align="center" gap="{space.4}">

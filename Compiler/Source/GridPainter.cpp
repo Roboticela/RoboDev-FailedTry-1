@@ -2,6 +2,7 @@
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
+#include "Robo/BrandLogoPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
 #include "Robo/InputPainter.hpp"
@@ -334,6 +335,12 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
                 SvgMeasureResult measured = SvgPainter::Measure(item.svg, scale);
                 child.measuredWidth = hasExplicitWidth ? ParseDimension(item.props.width, innerW, measured.width, scale) : measured.width;
                 child.measuredHeight = hasExplicitHeight ? ParseDimension(item.props.height, innerW, measured.height, scale) : measured.height;
+                break;
+            }
+            case GridItemKind::BrandLogo: {
+                BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
+                child.measuredWidth = measured.width;
+                child.measuredHeight = measured.height;
                 break;
             }
             case GridItemKind::Button: {
@@ -694,6 +701,10 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
             }
             case GridItemKind::Svg: {
                 SvgPainter::Paint(buffer, item.svg, childX, childY, childW, scale);
+                break;
+            }
+            case GridItemKind::BrandLogo: {
+                BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, childX, childY, scale);
                 break;
             }
             case GridItemKind::Button: {

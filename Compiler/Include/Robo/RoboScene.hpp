@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BrandLogo.hpp"
 #include "Button.hpp"
 #include "Container.hpp"
 #include "Flexbox.hpp"
@@ -30,7 +31,8 @@ enum class SceneItemKind {
     Flexbox,
     Grid,
     Position,
-    Svg
+    Svg,
+    BrandLogo
 };
 
 enum class HitKind {
@@ -51,6 +53,7 @@ struct SceneItem {
     Grid grid;
     Position position;
     Svg svg;
+    BrandLogo brandLogo;
 };
 
 class RoboScene {
@@ -65,6 +68,7 @@ public:
     void AddGrid(Grid grid);
     void AddPosition(Position position);
     void AddSvg(Svg svg);
+    void AddBrandLogo(BrandLogo logo);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
 
     void SetFoundation(const std::string& name);

@@ -39,6 +39,8 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\Svg.cpp"),
         (Join-Path $Root "Compiler\Source\Icon.cpp"),
         (Join-Path $Root "Compiler\Source\SvgPainter.cpp"),
+        (Join-Path $Root "Compiler\Source\BrandLogo.cpp"),
+        (Join-Path $Root "Compiler\Source\BrandLogoPainter.cpp"),
         (Join-Path $Root "Compiler\Source\Foundation.cpp"),
         (Join-Path $Root "Compiler\Source\RoboFoundation.cpp"),
         (Join-Path $Root "Compiler\Source\ButtonPainter.cpp"),

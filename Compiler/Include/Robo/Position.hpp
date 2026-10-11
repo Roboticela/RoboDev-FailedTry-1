@@ -5,6 +5,7 @@
 #include "Selectable.hpp"
 #include "Input.hpp"
 #include "Scrollbar.hpp"
+#include "BrandLogo.hpp"
 #include "Svg.hpp"
 #include "Text.hpp"
 
@@ -45,7 +46,8 @@ enum class PositionItemKind {
     Flexbox,
     Grid,
     Position,
-    Svg
+    Svg,
+    BrandLogo
 };
 
 struct PositionItemProps {
@@ -125,6 +127,7 @@ struct PositionItem {
     std::shared_ptr<Grid> grid;
     std::shared_ptr<Position> position;
     Svg svg;
+    BrandLogo brandLogo;
     InputBounds computedBounds;
 };
 
@@ -152,6 +155,7 @@ public:
     void AddGrid(Grid grid, const PositionItemProps& props = {});
     void AddPosition(Position position, const PositionItemProps& props = {});
     void AddSvg(Svg svg, const PositionItemProps& props = {});
+    void AddBrandLogo(BrandLogo logo, const PositionItemProps& props = {});
 
     const std::vector<PositionItem>& GetItems() const;
     std::vector<PositionItem>& GetItems();

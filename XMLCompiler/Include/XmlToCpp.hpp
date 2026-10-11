@@ -24,6 +24,7 @@ private:
     void EmitGridChild(std::ostringstream& code, const XmlNode& child, int indent, const std::string& parentVar) const;
     void EmitPosition(std::ostringstream& code, const XmlNode& node, int indent, const std::string& targetVar) const;
     void EmitPositionChild(std::ostringstream& code, const XmlNode& child, int indent, const std::string& parentVar) const;
+    void EmitBrandLogo(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     // Normalises a numeric XML attribute into a valid C++ float literal.
     void EmitSelectable(std::ostringstream& code, int indent, const std::string& styleName, const XmlNode& node) const;
     bool TryEmitGraphic(std::ostringstream& code, const XmlNode& node, int indent, const std::string& parent, bool withProps) const;
