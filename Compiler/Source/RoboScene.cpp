@@ -3,6 +3,7 @@
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
+#include "Robo/SidebarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -1465,6 +1466,13 @@ void RoboScene::AddTitleBar(TitleBar bar) {
     items_.push_back(std::move(item));
 }
 
+void RoboScene::AddSidebar(Sidebar pane) {
+    SceneItem item;
+    item.kind = SceneItemKind::Sidebar;
+    item.sidebar = std::move(pane);
+    items_.push_back(std::move(item));
+}
+
 void RoboScene::AddThemeToggle(ThemeToggle toggle) {
     SceneItem item;
     item.kind = SceneItemKind::ThemeToggle;
@@ -1681,9 +1689,11 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     const FoundationScope foundationScope(ActiveFoundation(), theme_, themeMix_);
     platform_ = &platform;
     fonts_ = &fonts;
+    Color lightPage = background;
     Color darkPage = Color::FromHex("#000000");
+    ActiveFoundation().LookupColor("bg.primary", Theme::Light, lightPage);
     ActiveFoundation().LookupColor("bg.primary", Theme::Dark, darkPage);
-    background_ = LerpPageColor(background, darkPage, themeMix_);
+    background_ = LerpPageColor(lightPage, darkPage, themeMix_);
     if (!pagePaddingSet_) {
         padding_ = padding;
     }
@@ -1746,17 +1756,22 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
 
         const float contentWidth = std::max(0.0f, static_cast<float>(width) - pad * 2.0f - verticalReserve);
         const float originX = pad - scrollX_;
+        float columnX = originX;
+        float columnW = contentWidth;
         float cursorY = pad - scrollY_;
+        float flowEdge = cursorY;
         float contentRight = originX + scrollX_;
 
         for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
             SceneItem& item = items_[static_cast<std::size_t>(i)];
+            const float yBefore = cursorY;
+            bool edgeSet = false;
             if (item.kind == SceneItemKind::Text) {
-                cursorY += TextPainter::Paint(frame, fonts, item.text, originX, cursorY, contentWidth, paintScale);
-                contentRight = std::max(contentRight, originX + contentWidth + scrollX_);
+                cursorY += TextPainter::Paint(frame, fonts, item.text, columnX, cursorY, columnW, paintScale);
+                contentRight = std::max(contentRight, columnX + columnW + scrollX_);
             } else if (item.kind == SceneItemKind::Button) {
                 const ButtonPaintResult painted =
-                    ButtonPainter::Paint(frame, fonts, item.button, originX, cursorY, contentWidth, paintScale);
+                    ButtonPainter::Paint(frame, fonts, item.button, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const ButtonBounds& bounds = item.button.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
@@ -1770,7 +1785,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 }
 
                 const InputPaintResult painted =
-                    InputPainter::Paint(frame, fonts, item.input, originX, cursorY, contentWidth, paintScale);
+                    InputPainter::Paint(frame, fonts, item.input, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const InputBounds& bounds = item.input.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
@@ -1784,66 +1799,81 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 }
 
                 const ScrollbarPaintResult painted =
-                    ScrollbarPainter::Paint(frame, item.scrollbar, originX, cursorY, contentWidth, paintScale);
+                    ScrollbarPainter::Paint(frame, item.scrollbar, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const ScrollbarBounds& bounds = item.scrollbar.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             } else if (item.kind == SceneItemKind::Container) {
                 const ContainerPaintResult painted =
-                    ContainerPainter::Paint(frame, fonts, *item.container, originX, cursorY, contentWidth, paintScale);
+                    ContainerPainter::Paint(frame, fonts, *item.container, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const InputBounds& bounds = item.container->GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             } else if (item.kind == SceneItemKind::Flexbox) {
                 const FlexboxPaintResult painted =
-                    FlexboxPainter::Paint(frame, fonts, item.flexbox, originX, cursorY, contentWidth, paintScale);
+                    FlexboxPainter::Paint(frame, fonts, item.flexbox, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const FlexboxBounds& bounds = item.flexbox.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             } else if (item.kind == SceneItemKind::Grid) {
                 const GridPaintResult painted =
-                    GridPainter::Paint(frame, fonts, item.grid, originX, cursorY, contentWidth, paintScale);
+                    GridPainter::Paint(frame, fonts, item.grid, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const GridBounds& bounds = item.grid.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             } else if (item.kind == SceneItemKind::Svg) {
                 const SvgPaintResult painted =
-                    SvgPainter::Paint(frame, item.svg, originX, cursorY, contentWidth, paintScale);
+                    SvgPainter::Paint(frame, item.svg, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const SvgBounds& bounds = item.svg.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
             } else if (item.kind == SceneItemKind::BrandLogo) {
                 const BrandLogoPaintResult painted =
-                    BrandLogoPainter::Paint(frame, fonts, item.brandLogo, originX, cursorY, paintScale);
+                    BrandLogoPainter::Paint(frame, fonts, item.brandLogo, columnX, cursorY, paintScale);
                 cursorY += painted.advanceY;
                 const BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, paintScale);
-                contentRight = std::max(contentRight, originX + measured.width + scrollX_);
+                contentRight = std::max(contentRight, columnX + measured.width + scrollX_);
             } else if (item.kind == SceneItemKind::TitleBar) {
                 const TitleBarPaintResult painted =
                     TitleBarPainter::Paint(frame, fonts, item.titleBar, originX, cursorY, contentWidth, paintScale);
                 cursorY += painted.advanceY;
+                flowEdge = yBefore + painted.height;
+                edgeSet = true;
                 contentRight = std::max(contentRight, originX + contentWidth + scrollX_);
+            } else if (item.kind == SceneItemKind::Sidebar) {
+                const float surfaceTop = flowEdge + scrollY_;
+                const float sidebarHeight = std::max(0.0f, static_cast<float>(height) - horizontalReserve - surfaceTop);
+                SidebarPainter::Paint(frame, columnX, surfaceTop, sidebarHeight, paintScale);
+                const float paneWidth = SIDEBAR_WIDTH * paintScale;
+                columnX += paneWidth;
+                columnW = std::max(0.0f, columnW - paneWidth);
+                cursorY = flowEdge;
+                edgeSet = true;
+                contentRight = std::max(contentRight, columnX + scrollX_);
             } else if (item.kind == SceneItemKind::ThemeToggle) {
                 const ThemeTogglePaintResult painted =
-                    ThemeTogglePainter::Paint(frame, fonts, item.themeToggle, originX, cursorY, contentWidth, paintScale);
+                    ThemeTogglePainter::Paint(frame, fonts, item.themeToggle, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
-                contentRight = std::max(contentRight, originX + item.themeToggle.GetBounds().width + scrollX_);
+                contentRight = std::max(contentRight, columnX + item.themeToggle.GetBounds().width + scrollX_);
             } else if (item.kind == SceneItemKind::ThemeIconToggle) {
                 const ThemeIconTogglePaintResult painted =
-                    ThemeIconTogglePainter::Paint(frame, item.themeIconToggle, originX, cursorY, paintScale);
+                    ThemeIconTogglePainter::Paint(frame, item.themeIconToggle, columnX, cursorY, paintScale);
                 cursorY += painted.advanceY;
-                contentRight = std::max(contentRight, originX + item.themeIconToggle.GetBounds().width + scrollX_);
+                contentRight = std::max(contentRight, columnX + item.themeIconToggle.GetBounds().width + scrollX_);
             } else if (item.kind == SceneItemKind::MotionShape) {
-                item.motionShape.Paint(frame, originX, cursorY, contentWidth, item.motionShape.Height() * paintScale, paintScale);
+                item.motionShape.Paint(frame, columnX, cursorY, columnW, item.motionShape.Height() * paintScale, paintScale);
                 const float advance = item.motionShape.Height() * paintScale + 12.0f * paintScale;
                 cursorY += advance;
-                contentRight = std::max(contentRight, originX + item.motionShape.Width() * paintScale + scrollX_);
+                contentRight = std::max(contentRight, columnX + item.motionShape.Width() * paintScale + scrollX_);
             } else if (item.kind == SceneItemKind::Position) {
                 const PositionPaintResult painted =
-                    PositionPainter::Paint(frame, fonts, item.position, originX, cursorY, contentWidth, paintScale);
+                    PositionPainter::Paint(frame, fonts, item.position, columnX, cursorY, columnW, paintScale);
                 cursorY += painted.advanceY;
                 const InputBounds& bounds = item.position.GetBounds();
                 contentRight = std::max(contentRight, bounds.x + bounds.width + scrollX_);
+            }
+            if (!edgeSet) {
+                flowEdge = cursorY;
             }
         }
 

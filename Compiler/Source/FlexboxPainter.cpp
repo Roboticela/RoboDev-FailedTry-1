@@ -5,6 +5,7 @@
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
+#include "Robo/SidebarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -275,6 +276,13 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             }
             case FlexItemKind::TitleBar: {
                 TitleBarMeasureResult measured = TitleBarPainter::Measure(fonts, item.titleBar, innerW, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::Sidebar: {
+                const float offered = forcedHeight > 0.0f ? std::max(0.0f, forcedHeight - padT - padB) : 0.0f;
+                SidebarMeasureResult measured = SidebarPainter::Measure(offered, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
                 break;
@@ -752,6 +760,10 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                 }
                 case FlexItemKind::TitleBar: {
                     TitleBarPainter::Paint(buffer, fonts, item.titleBar, childX, childY, childW, scale);
+                    break;
+                }
+                case FlexItemKind::Sidebar: {
+                    SidebarPainter::Paint(buffer, childX, childY, childH, scale);
                     break;
                 }
                 case FlexItemKind::ThemeToggle: {

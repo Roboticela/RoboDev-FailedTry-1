@@ -55,6 +55,14 @@ void Flexbox::AddTitleBar(TitleBar bar, const FlexItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Flexbox::AddSidebar(Sidebar pane, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::Sidebar;
+    item.sidebar = std::move(pane);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
 void Flexbox::AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props) {
     FlexboxItem item;
     item.kind = FlexItemKind::ThemeToggle;

@@ -80,6 +80,7 @@ TitleBarPaintResult TitleBarPainter::Paint(FrameBuffer& buffer,
 
     TitleBarPaintResult result;
     result.advanceY = measured.advanceY;
+    result.height = measured.height;
     return result;
 }
 

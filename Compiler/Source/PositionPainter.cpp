@@ -3,6 +3,7 @@
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
+#include "Robo/SidebarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -211,6 +212,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
             }
             case PositionItemKind::TitleBar: {
                 TitleBarMeasureResult res = TitleBarPainter::Measure(fonts, item.titleBar, innerAvailW, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::Sidebar: {
+                SidebarMeasureResult res = SidebarPainter::Measure(0.0f, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -452,6 +459,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             }
             case PositionItemKind::TitleBar: {
                 TitleBarMeasureResult res = TitleBarPainter::Measure(fonts, item.titleBar, innerAvailW, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::Sidebar: {
+                SidebarMeasureResult res = SidebarPainter::Measure(0.0f, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -753,6 +766,9 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 break;
             case PositionItemKind::TitleBar:
                 TitleBarPainter::Paint(buffer, fonts, item.titleBar, lc.x, lc.y, lc.width, scale);
+                break;
+            case PositionItemKind::Sidebar:
+                SidebarPainter::Paint(buffer, lc.x, lc.y, lc.height, scale);
                 break;
             case PositionItemKind::ThemeToggle:
                 ThemeTogglePainter::Paint(buffer, fonts, item.themeToggle, lc.x, lc.y, lc.width, scale);

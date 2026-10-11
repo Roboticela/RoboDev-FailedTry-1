@@ -26,6 +26,7 @@ private:
     void EmitPositionChild(std::ostringstream& code, const XmlNode& child, int indent, const std::string& parentVar) const;
     void EmitBrandLogo(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitTitleBar(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
+    void EmitSidebar(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitThemeToggle(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitThemeIconToggle(std::ostringstream& code, const XmlNode& node, int indent, const std::string& variable) const;
     void EmitKeyframes(std::ostringstream& code, const XmlNode& node, int indent) const;

@@ -8,6 +8,7 @@
 #include "Scrollbar.hpp"
 #include "BrandLogo.hpp"
 #include "TitleBar.hpp"
+#include "Sidebar.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -61,6 +62,7 @@ enum class FlexItemKind {
     Svg,
     BrandLogo,
     TitleBar,
+    Sidebar,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -99,6 +101,7 @@ struct FlexboxItem {
     Svg svg;
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
+    Robo::Sidebar sidebar;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -165,6 +168,7 @@ public:
     void AddSvg(Svg svg, const FlexItemProps& props = {});
     void AddBrandLogo(BrandLogo logo, const FlexItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const FlexItemProps& props = {});
+    void AddSidebar(Robo::Sidebar pane, const FlexItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const FlexItemProps& props = {});
     void AddMotionShape(MotionShape shape, const FlexItemProps& props = {});

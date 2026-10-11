@@ -750,6 +750,14 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    if (node.name == "Sidebar" || node.name == "Pane") {
+        code << Indent(indent) << "{\n";
+        EmitSidebar(code, node, indent + 1, "sidebar");
+        code << Indent(indent + 1) << "scene.AddSidebar(std::move(sidebar));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
     if (node.name == "ThemeToggle") {
         code << Indent(indent) << "{\n";
         EmitThemeToggle(code, node, indent + 1, "themeToggle");
@@ -1337,6 +1345,9 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "TitleBar" || child.name == "Navbar" || child.name == "NavBar") {
         EmitTitleBar(code, child, indent + 1, "titleBar");
         code << Indent(indent + 1) << parentVar << ".AddTitleBar(std::move(titleBar), props);\n";
+    } else if (child.name == "Sidebar" || child.name == "Pane") {
+        EmitSidebar(code, child, indent + 1, "sidebar");
+        code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
     } else if (child.name == "ThemeToggle") {
         EmitThemeToggle(code, child, indent + 1, "themeToggle");
         code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
@@ -1668,6 +1679,9 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "TitleBar" || child.name == "Navbar" || child.name == "NavBar") {
         EmitTitleBar(code, child, indent + 1, "titleBar");
         code << Indent(indent + 1) << parentVar << ".AddTitleBar(std::move(titleBar), props);\n";
+    } else if (child.name == "Sidebar" || child.name == "Pane") {
+        EmitSidebar(code, child, indent + 1, "sidebar");
+        code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
     } else if (child.name == "ThemeToggle") {
         EmitThemeToggle(code, child, indent + 1, "themeToggle");
         code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
@@ -1924,6 +1938,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     } else if (child.name == "TitleBar" || child.name == "Navbar" || child.name == "NavBar") {
         EmitTitleBar(code, child, indent + 1, "titleBar");
         code << Indent(indent + 1) << parentVar << ".AddTitleBar(std::move(titleBar), props);\n";
+    } else if (child.name == "Sidebar" || child.name == "Pane") {
+        EmitSidebar(code, child, indent + 1, "sidebar");
+        code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
     } else if (child.name == "ThemeToggle") {
         EmitThemeToggle(code, child, indent + 1, "themeToggle");
         code << Indent(indent + 1) << parentVar << ".AddThemeToggle(std::move(themeToggle), props);\n";
@@ -1941,6 +1958,14 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     }
 
     code << Indent(indent) << "}\n";
+}
+
+void XmlToCpp::EmitSidebar(std::ostringstream& code,
+                             const XmlNode& node,
+                             int indent,
+                             const std::string& variable) const {
+    (void)node;
+    code << Indent(indent) << "Robo::Sidebar " << variable << ";\n";
 }
 
 void XmlToCpp::EmitTitleBar(std::ostringstream& code,
@@ -2353,6 +2378,7 @@ std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDi
     code << "#include \"Robo/Icon.hpp\"\n";
     code << "#include \"Robo/BrandLogo.hpp\"\n";
     code << "#include \"Robo/TitleBar.hpp\"\n";
+    code << "#include \"Robo/Sidebar.hpp\"\n";
     code << "#include \"Robo/ThemeToggle.hpp\"\n";
     code << "#include \"Robo/ThemeIconToggle.hpp\"\n";
     code << "#include \"Robo/Motion.hpp\"\n";

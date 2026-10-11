@@ -2,6 +2,7 @@
 
 #include "BrandLogo.hpp"
 #include "TitleBar.hpp"
+#include "Sidebar.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -38,6 +39,7 @@ enum class SceneItemKind {
     Svg,
     BrandLogo,
     TitleBar,
+    Sidebar,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -64,6 +66,7 @@ struct SceneItem {
     Svg svg;
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
+    Robo::Sidebar sidebar;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -83,6 +86,7 @@ public:
     void AddSvg(Svg svg);
     void AddBrandLogo(BrandLogo logo);
     void AddTitleBar(Robo::TitleBar bar);
+    void AddSidebar(Robo::Sidebar pane);
     void AddThemeToggle(ThemeToggle toggle);
     void AddThemeIconToggle(ThemeIconToggle toggle);
     void AddMotionShape(MotionShape shape);
@@ -188,7 +192,7 @@ private:
     float panX_ = 0.0f;
     float panY_ = 0.0f;
 
-    Color background_ = Color::FromHex("#F7F3EB");
+    Color background_ = Color::FromHex("#FFFFFF");
     float padding_ = 28.0f;
     bool pagePaddingSet_ = false;
     float scrollX_ = 0.0f;

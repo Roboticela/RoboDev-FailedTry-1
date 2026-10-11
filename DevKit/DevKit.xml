@@ -3,4 +3,5 @@
   <FoundationUse name="DevKit"/>
 
   <TitleBar title="DevKit"/>
+  <Sidebar/>
 </Robo>

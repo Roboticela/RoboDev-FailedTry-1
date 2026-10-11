@@ -14,6 +14,7 @@ struct TitleBarMeasureResult {
 
 struct TitleBarPaintResult {
     float advanceY = 0.0f;
+    float height = 0.0f;
 };
 
 class TitleBarPainter {

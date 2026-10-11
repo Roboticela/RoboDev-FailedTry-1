@@ -83,7 +83,7 @@ void Render(int width, int height, float pixelScale) {
     gPixelScale = pixelScale > 0.0f ? pixelScale : 1.0f;
     gPlatform->SetSurfaceSize(gWidth, gHeight);
     gPlatform->SetPixelScale(gPixelScale);
-    gScene.Render(*gPlatform, *gFonts, Robo::Color::FromHex("#F7F3EB"), 28.0f);
+    gScene.Render(*gPlatform, *gFonts, Robo::Color::FromHex("#FFFFFF"), 28.0f);
     const Robo::Color page = gScene.GetBackground();
     JsSetPageBackground(page.red, page.green, page.blue);
 }

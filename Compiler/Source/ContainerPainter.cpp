@@ -3,6 +3,7 @@
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
+#include "Robo/SidebarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -194,6 +195,12 @@ void MeasureChild(const FontEngine& fonts,
         }
         case PositionItemKind::TitleBar: {
             const TitleBarMeasureResult res = TitleBarPainter::Measure(fonts, item.titleBar, innerAvailW, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::Sidebar: {
+            const SidebarMeasureResult res = SidebarPainter::Measure(0.0f, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;

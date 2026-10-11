@@ -119,6 +119,14 @@ void Position::AddTitleBar(TitleBar bar, const PositionItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Position::AddSidebar(Sidebar pane, const PositionItemProps& props) {
+    PositionItem item;
+    item.kind = PositionItemKind::Sidebar;
+    item.props = props;
+    item.sidebar = std::move(pane);
+    items_.push_back(std::move(item));
+}
+
 void Position::AddThemeToggle(ThemeToggle toggle, const PositionItemProps& props) {
     PositionItem item;
     item.kind = PositionItemKind::ThemeToggle;

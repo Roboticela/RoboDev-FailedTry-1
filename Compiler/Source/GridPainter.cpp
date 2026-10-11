@@ -4,6 +4,7 @@
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/BrandLogoPainter.hpp"
 #include "Robo/TitleBarPainter.hpp"
+#include "Robo/SidebarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -342,6 +343,12 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
             }
             case GridItemKind::TitleBar: {
                 TitleBarMeasureResult measured = TitleBarPainter::Measure(fonts, item.titleBar, innerW, scale);
+                child.measuredWidth = measured.width;
+                child.measuredHeight = measured.height;
+                break;
+            }
+            case GridItemKind::Sidebar: {
+                SidebarMeasureResult measured = SidebarPainter::Measure(0.0f, scale);
                 child.measuredWidth = measured.width;
                 child.measuredHeight = measured.height;
                 break;
@@ -735,6 +742,10 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
             }
             case GridItemKind::TitleBar: {
                 TitleBarPainter::Paint(buffer, fonts, item.titleBar, childX, childY, childW, scale);
+                break;
+            }
+            case GridItemKind::Sidebar: {
+                SidebarPainter::Paint(buffer, childX, childY, childH, scale);
                 break;
             }
             case GridItemKind::ThemeToggle: {
