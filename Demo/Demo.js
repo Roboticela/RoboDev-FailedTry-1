@@ -7,10 +7,11 @@ let lastAnimationTime = 0;
 function PageSize() {
   const cssWidth = Math.max(1, window.innerWidth);
   const cssHeight = Math.max(1, window.innerHeight);
-  // Pinch changes visualViewport.scale without resizing the layout. Fold that
-  // into the bitmap so the magnified frame still has a pixel per screen pixel.
+  // Page zoom is already in devicePixelRatio. Pinch multiplies it again.
+  // Cap the extra so a deep pinch does not allocate a bitmap many times the screen.
+  const dpr = window.devicePixelRatio || 1;
   const pinch = window.visualViewport && window.visualViewport.scale ? window.visualViewport.scale : 1;
-  const pixelRatio = Math.min(8, Math.max(1, (window.devicePixelRatio || 1) * pinch));
+  const pixelRatio = Math.min(Math.max(1, dpr * pinch), Math.max(dpr, dpr * 2));
   return {
     width: Math.max(1, Math.round(cssWidth * pixelRatio)),
     height: Math.max(1, Math.round(cssHeight * pixelRatio)),
@@ -19,6 +20,8 @@ function PageSize() {
 }
 
 let frameRender = 0;
+let sharpRenderTimer = 0;
+let lastZoom = 0;
 
 function ScheduleFrameRender() {
   if (frameRender) {
@@ -28,6 +31,19 @@ function ScheduleFrameRender() {
     frameRender = 0;
     RenderPage();
   });
+}
+
+// Pinch and page zoom scale the canvas on the GPU. Rasterize once after the
+// gesture settles, at the final resolution, instead of rebuilding every frame.
+function ScheduleSharpRender() {
+  if (sharpRenderTimer) {
+    clearTimeout(sharpRenderTimer);
+  }
+  sharpRenderTimer = setTimeout(() => {
+    sharpRenderTimer = 0;
+    lastZoom = PageSize().pixelRatio;
+    RenderPage();
+  }, 140);
 }
 
 function RenderPage() {
@@ -143,7 +159,7 @@ function WireInteraction() {
       // Ctrl/Cmd + wheel and trackpad pinch belong to the browser so its zoom
       // control stays in the address bar and the gesture stays on the GPU.
       if (event.ctrlKey || event.metaKey) {
-        ScheduleFrameRender();
+        ScheduleSharpRender();
         return;
       }
       const point = CanvasPoint(event);
@@ -397,6 +413,12 @@ function WireInteraction() {
   });
 
   function OnViewportChange() {
+    const zoom = PageSize().pixelRatio;
+    if (lastZoom && Math.abs(zoom - lastZoom) > 0.01) {
+      ScheduleSharpRender();
+      return;
+    }
+    lastZoom = zoom;
     ScheduleFrameRender();
   }
   window.addEventListener("resize", OnViewportChange);

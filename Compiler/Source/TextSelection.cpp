@@ -873,4 +873,84 @@ bool TextSelection::HandleGeometry(float& startX, float& startY, float& endX, fl
     return true;
 }
 
+bool TextSelection::VisualBounds(float& x, float& y, float& width, float& height) {
+    if (!selectionRoot) {
+        return false;
+    }
+    const int count = RootCount(selectionRoot);
+    if (count <= 0 || anchor < 0) {
+        return false;
+    }
+
+    const int first = std::max(0, std::min(anchor, focus));
+    const int last = std::max(anchor, focus);
+    float left = 0.0f;
+    float top = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+    bool any = false;
+    auto include = [&](float boxX, float boxY, float boxWidth, float boxHeight) {
+        if (boxWidth <= 0.0f || boxHeight <= 0.0f) {
+            return;
+        }
+        const float boxRight = boxX + boxWidth;
+        const float boxBottom = boxY + boxHeight;
+        if (!any) {
+            left = boxX;
+            top = boxY;
+            right = boxRight;
+            bottom = boxBottom;
+            any = true;
+            return;
+        }
+        left = std::min(left, boxX);
+        top = std::min(top, boxY);
+        right = std::max(right, boxRight);
+        bottom = std::max(bottom, boxBottom);
+    };
+
+    if (first == last) {
+        const Glyph* glyph = GlyphAt(selectionRoot, std::min(first, count - 1));
+        const float boxHeight = glyph ? glyph->height : 16.0f;
+        include(BoundaryX(first) - 3.0f, BoundaryY(first), 6.0f, boxHeight);
+    } else {
+        for (int i = first; i < last && i < count; ++i) {
+            const Glyph* glyph = GlyphAt(selectionRoot, i);
+            if (!glyph) {
+                continue;
+            }
+            float boxWidth = glyph->width;
+            if (i + 1 < last) {
+                const Glyph* next = GlyphAt(selectionRoot, i + 1);
+                if (next && SameLine(*glyph, *next)) {
+                    boxWidth = std::max(boxWidth, next->x - glyph->x);
+                }
+            }
+            include(glyph->x, glyph->y, boxWidth, glyph->height);
+        }
+    }
+
+    if (ShowsHandles()) {
+        float startX = 0.0f;
+        float startY = 0.0f;
+        float endX = 0.0f;
+        float endY = 0.0f;
+        float lineHeight = 0.0f;
+        if (HandleGeometry(startX, startY, endX, endY, lineHeight)) {
+            const float radius = std::max(5.0f, lineHeight * 0.22f);
+            include(startX - radius, startY + lineHeight - radius, radius * 2.0f, radius * 2.0f);
+            include(endX - radius, endY + lineHeight - radius, radius * 2.0f, radius * 2.0f);
+        }
+    }
+
+    if (!any) {
+        return false;
+    }
+    x = left;
+    y = top;
+    width = std::max(1.0f, right - left);
+    height = std::max(1.0f, bottom - top);
+    return true;
+}
+
 }  // namespace Robo

@@ -10,14 +10,19 @@ namespace Robo {
 
 namespace {
 
-EM_JS(void, JsPresentRgba, (int width, int height, float pixelScale, const uint8_t* pixels), {
+EM_JS(void, JsPresentRgba, (int width, int height, int damageX, int damageY, int damageW, int damageH, const uint8_t* pixels), {
     const canvas = document.getElementById("robo-canvas");
-    if (!canvas) {
+    if (!canvas || damageW <= 0 || damageH <= 0) {
         return;
     }
-    if (canvas.width !== width || canvas.height !== height) {
+    const resized = canvas.width !== width || canvas.height !== height;
+    if (resized) {
         canvas.width = width;
         canvas.height = height;
+        damageX = 0;
+        damageY = 0;
+        damageW = width;
+        damageH = height;
     }
     canvas.style.position = "fixed";
     canvas.style.left = "0px";
@@ -27,9 +32,21 @@ EM_JS(void, JsPresentRgba, (int width, int height, float pixelScale, const uint8
     const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.imageSmoothingEnabled = false;
-    const imageData = context.createImageData(width, height);
-    imageData.data.set(HEAPU8.subarray(pixels, pixels + width * height * 4));
-    context.putImageData(imageData, 0, 0);
+    const source = HEAPU8.subarray(pixels, pixels + width * height * 4);
+    if (damageX === 0 && damageY === 0 && damageW === width && damageH === height) {
+        const imageData = context.createImageData(width, height);
+        imageData.data.set(source);
+        context.putImageData(imageData, 0, 0);
+        return;
+    }
+    const imageData = context.createImageData(damageW, damageH);
+    const destination = imageData.data;
+    const rowBytes = damageW * 4;
+    for (let row = 0; row < damageH; row++) {
+        const offset = ((damageY + row) * width + damageX) * 4;
+        destination.set(source.subarray(offset, offset + rowBytes), row * rowBytes);
+    }
+    context.putImageData(imageData, damageX, damageY);
 });
 
 EM_JS(void, JsCopyText, (const char* text), {
@@ -70,7 +87,17 @@ void WebPlatform::SetPixelScale(float scale) {
 }
 
 void WebPlatform::Present(const FrameBuffer& buffer) {
-    JsPresentRgba(buffer.GetWidth(), buffer.GetHeight(), pixelScale_, buffer.GetPixels());
+    int damageX = buffer.GetPresentX();
+    int damageY = buffer.GetPresentY();
+    int damageWidth = buffer.GetPresentWidth();
+    int damageHeight = buffer.GetPresentHeight();
+    if (damageWidth <= 0 || damageHeight <= 0) {
+        damageX = 0;
+        damageY = 0;
+        damageWidth = buffer.GetWidth();
+        damageHeight = buffer.GetHeight();
+    }
+    JsPresentRgba(buffer.GetWidth(), buffer.GetHeight(), damageX, damageY, damageWidth, damageHeight, buffer.GetPixels());
 }
 
 void WebPlatform::CopyText(const std::string& text) {

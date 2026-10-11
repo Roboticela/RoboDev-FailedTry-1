@@ -14,11 +14,22 @@ public:
 
     void Resize(int width, int height);
     void Clear(const Color& color);
+    void ClearRect(int x, int y, int width, int height, const Color& color);
 
     int GetWidth() const;
     int GetHeight() const;
     const std::uint8_t* GetPixels() const;
     std::uint8_t* GetPixels();
+
+    // The rectangle Present should upload. A full paint covers the buffer.
+    void SetPresentRect(int x, int y, int width, int height);
+    int GetPresentX() const;
+    int GetPresentY() const;
+    int GetPresentWidth() const;
+    int GetPresentHeight() const;
+
+    // True when a clip is active and the rectangle cannot affect any pixel.
+    bool MissesClip(int x, int y, int width, int height) const;
 
     void BlendPixel(int x, int y, const Color& color, float opacity = 1.0f);
     void FillRect(int x, int y, int width, int height, const Color& color, float opacity = 1.0f);
@@ -43,6 +54,10 @@ private:
 
     int width_ = 0;
     int height_ = 0;
+    int presentX_ = 0;
+    int presentY_ = 0;
+    int presentWidth_ = 0;
+    int presentHeight_ = 0;
     std::vector<std::uint8_t> pixels_;
     std::vector<ClipRect> clips_;
 };

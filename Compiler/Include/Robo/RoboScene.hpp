@@ -128,6 +128,13 @@ private:
     bool SetPressedButton(Button* button);
     bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
+    void MarkFullDirty();
+    void MarkDirty(float x, float y, float width, float height);
+    void DirtyButton(const Button* button);
+    void DirtyInput(const Input* input);
+    void DirtyScrollbar(const Scrollbar* scrollbar);
+    void DirtySelectionVisual();
+    bool CanPaintPartial(float paintScale, int width, int height) const;
     void ConfigurePageBars();
     void PullPageScroll();
     bool PageBarDriving(const Scrollbar& bar) const;
@@ -163,8 +170,23 @@ private:
     bool pageBarsReady_ = false;
     IPlatform* platform_ = nullptr;
     FontEngine* fonts_ = nullptr;
+    FrameBuffer frame_;
     bool hasRenderContext_ = false;
     bool needsRender_ = false;
+    bool fullDirty_ = true;
+    bool frameReady_ = false;
+    bool damageOpen_ = false;
+    float dirtyLeft_ = 0.0f;
+    float dirtyTop_ = 0.0f;
+    float dirtyRight_ = 0.0f;
+    float dirtyBottom_ = 0.0f;
+    float paintedScrollX_ = 0.0f;
+    float paintedScrollY_ = 0.0f;
+    float paintedScale_ = 0.0f;
+    int paintedWidth_ = 0;
+    int paintedHeight_ = 0;
+    float paintedVerticalReserve_ = 0.0f;
+    float paintedHorizontalReserve_ = 0.0f;
 };
 
 }  // namespace Robo

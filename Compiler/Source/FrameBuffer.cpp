@@ -25,6 +25,33 @@ void FrameBuffer::Clear(const Color& color) {
     }
 }
 
+void FrameBuffer::ClearRect(int x, int y, int width, int height, const Color& color) {
+    int x0 = std::max(0, x);
+    int y0 = std::max(0, y);
+    int x1 = std::min(width_, x + width);
+    int y1 = std::min(height_, y + height);
+    if (!clips_.empty()) {
+        const ClipRect& clip = clips_.back();
+        x0 = std::max(x0, clip.left);
+        y0 = std::max(y0, clip.top);
+        x1 = std::min(x1, clip.right);
+        y1 = std::min(y1, clip.bottom);
+    }
+    if (x0 >= x1 || y0 >= y1) {
+        return;
+    }
+    for (int py = y0; py < y1; ++py) {
+        std::uint8_t* row = pixels_.data() + static_cast<std::size_t>(py * width_ + x0) * 4;
+        for (int px = x0; px < x1; ++px) {
+            row[0] = color.red;
+            row[1] = color.green;
+            row[2] = color.blue;
+            row[3] = color.alpha;
+            row += 4;
+        }
+    }
+}
+
 int FrameBuffer::GetWidth() const {
     return width_;
 }
@@ -39,6 +66,37 @@ const std::uint8_t* FrameBuffer::GetPixels() const {
 
 std::uint8_t* FrameBuffer::GetPixels() {
     return pixels_.data();
+}
+
+void FrameBuffer::SetPresentRect(int x, int y, int width, int height) {
+    presentX_ = std::max(0, x);
+    presentY_ = std::max(0, y);
+    presentWidth_ = std::max(0, width);
+    presentHeight_ = std::max(0, height);
+}
+
+int FrameBuffer::GetPresentX() const {
+    return presentX_;
+}
+
+int FrameBuffer::GetPresentY() const {
+    return presentY_;
+}
+
+int FrameBuffer::GetPresentWidth() const {
+    return presentWidth_;
+}
+
+int FrameBuffer::GetPresentHeight() const {
+    return presentHeight_;
+}
+
+bool FrameBuffer::MissesClip(int x, int y, int width, int height) const {
+    if (clips_.empty() || width <= 0 || height <= 0) {
+        return false;
+    }
+    const ClipRect& clip = clips_.back();
+    return x + width <= clip.left || y + height <= clip.top || x >= clip.right || y >= clip.bottom;
 }
 
 namespace {

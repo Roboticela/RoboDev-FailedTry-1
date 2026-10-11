@@ -366,8 +366,11 @@ void FontEngine::DrawString(FrameBuffer& buffer,
         const int x1 = static_cast<int>(std::ceil(right));
         const int y0 = static_cast<int>(std::floor(bandTop));
         const int y1 = static_cast<int>(std::ceil(bandTop + glyphHeight));
-        buffer.FillRect(x0, y0, std::max(1, x1 - x0), std::max(1, y1 - y0),
-                        Color::FromRgba(0, 122, 255, 255), 0.28f);
+        const int bandWidth = std::max(1, x1 - x0);
+        const int bandHeight = std::max(1, y1 - y0);
+        if (!buffer.MissesClip(x0, y0, bandWidth, bandHeight)) {
+            buffer.FillRect(x0, y0, bandWidth, bandHeight, Color::FromRgba(0, 122, 255, 255), 0.28f);
+        }
         run = next;
     }
 
@@ -379,6 +382,7 @@ void FontEngine::DrawString(FrameBuffer& buffer,
             const CachedGlyph& cached = CachedGlyphFor(FaceIndex(faceId), item.glyph, fontSize, shiftX, shiftY);
             const int destX = static_cast<int>(std::floor(item.x)) + cached.xOff;
             const int destY = static_cast<int>(std::floor(baselineY)) + cached.yOff;
+            if (!buffer.MissesClip(destX, destY, cached.width, cached.height)) {
             for (int row = 0; row < cached.height; ++row) {
                 const int py = destY + row;
                 if (py < 0 || py >= buffer.GetHeight()) {
@@ -391,6 +395,7 @@ void FontEngine::DrawString(FrameBuffer& buffer,
                     }
                     buffer.BlendPixel(destX + col, py, color, (coverage / 255.0f) * opacity);
                 }
+            }
             }
         }
 

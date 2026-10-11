@@ -1136,8 +1136,96 @@ bool RoboScene::RerenderIfPossible() {
     if (!hasRenderContext_ || !platform_ || !fonts_) {
         return false;
     }
-    needsRender_ = true;
+    MarkFullDirty();
     return true;
+}
+
+void RoboScene::MarkFullDirty() {
+    needsRender_ = true;
+    fullDirty_ = true;
+    damageOpen_ = false;
+}
+
+void RoboScene::MarkDirty(float x, float y, float width, float height) {
+    needsRender_ = true;
+    if (fullDirty_ || !frameReady_ || width <= 0.0f || height <= 0.0f) {
+        fullDirty_ = true;
+        damageOpen_ = false;
+        return;
+    }
+    const float pad = 32.0f;
+    const float left = x - pad;
+    const float top = y - pad;
+    const float right = x + width + pad;
+    const float bottom = y + height + pad;
+    if (!damageOpen_) {
+        dirtyLeft_ = left;
+        dirtyTop_ = top;
+        dirtyRight_ = right;
+        dirtyBottom_ = bottom;
+        damageOpen_ = true;
+    } else {
+        dirtyLeft_ = std::min(dirtyLeft_, left);
+        dirtyTop_ = std::min(dirtyTop_, top);
+        dirtyRight_ = std::max(dirtyRight_, right);
+        dirtyBottom_ = std::max(dirtyBottom_, bottom);
+    }
+    const float area = std::max(0.0f, dirtyRight_ - dirtyLeft_) * std::max(0.0f, dirtyBottom_ - dirtyTop_);
+    const float surface = static_cast<float>(std::max(1, paintedWidth_)) * static_cast<float>(std::max(1, paintedHeight_));
+    if (area > surface * 0.5f) {
+        fullDirty_ = true;
+        damageOpen_ = false;
+    }
+}
+
+void RoboScene::DirtyButton(const Button* button) {
+    if (!button) {
+        return;
+    }
+    const ButtonBounds& bounds = button->GetBounds();
+    MarkDirty(bounds.x, bounds.y, bounds.width, bounds.height);
+}
+
+void RoboScene::DirtyInput(const Input* input) {
+    if (!input) {
+        return;
+    }
+    const InputBounds& bounds = input->GetBounds();
+    MarkDirty(bounds.x, bounds.y, bounds.width, bounds.height);
+}
+
+void RoboScene::DirtyScrollbar(const Scrollbar* scrollbar) {
+    if (!scrollbar) {
+        return;
+    }
+    const ScrollbarBounds& bounds = scrollbar->GetBounds();
+    MarkDirty(bounds.x, bounds.y, bounds.width, bounds.height);
+}
+
+void RoboScene::DirtySelectionVisual() {
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    if (TextSelection::VisualBounds(x, y, width, height)) {
+        MarkDirty(x, y, width, height);
+    }
+}
+
+bool RoboScene::CanPaintPartial(float paintScale, int width, int height) const {
+    if (fullDirty_ || !frameReady_ || !damageOpen_) {
+        return false;
+    }
+    if (width != paintedWidth_ || height != paintedHeight_) {
+        return false;
+    }
+    if (std::fabs(paintScale - paintedScale_) > 0.001f) {
+        return false;
+    }
+    if (std::fabs(scrollX_ - paintedScrollX_) > 0.5f || std::fabs(scrollY_ - paintedScrollY_) > 0.5f) {
+        return false;
+    }
+    return dirtyRight_ > dirtyLeft_ && dirtyBottom_ > dirtyTop_;
 }
 
 bool RoboScene::NeedsRender() const {
@@ -1206,15 +1294,36 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     const float barThickness = 14.0f * paintScale;
     const float edge = 3.0f * paintScale;
 
-    FrameBuffer frame(width, height);
+    if (frame_.GetWidth() != width || frame_.GetHeight() != height) {
+        frame_.Resize(width, height);
+    }
+    FrameBuffer& frame = frame_;
+    const bool partial = CanPaintPartial(paintScale, width, height);
+    int damageX = 0;
+    int damageY = 0;
+    int damageWidth = width;
+    int damageHeight = height;
+    if (partial) {
+        damageX = std::max(0, static_cast<int>(std::floor(dirtyLeft_)));
+        damageY = std::max(0, static_cast<int>(std::floor(dirtyTop_)));
+        const int damageRight = std::min(width, static_cast<int>(std::ceil(dirtyRight_)));
+        const int damageBottom = std::min(height, static_cast<int>(std::ceil(dirtyBottom_)));
+        damageWidth = std::max(0, damageRight - damageX);
+        damageHeight = std::max(0, damageBottom - damageY);
+        frame.PushClipRect(static_cast<float>(damageX), static_cast<float>(damageY),
+                           static_cast<float>(damageWidth), static_cast<float>(damageHeight));
+        frame.ClearRect(damageX, damageY, damageWidth, damageHeight, background);
+    }
 
-    float verticalReserve = 0.0f;
-    float horizontalReserve = 0.0f;
+    float verticalReserve = partial ? paintedVerticalReserve_ : 0.0f;
+    float horizontalReserve = partial ? paintedHorizontalReserve_ : 0.0f;
     for (int pass = 0; pass < 3; ++pass) {
         scrollX_ = std::max(0.0f, std::min(scrollX_, maxScrollX_));
         scrollY_ = std::max(0.0f, std::min(scrollY_, maxScrollY_));
 
-        frame.Clear(background);
+        if (!partial) {
+            frame.Clear(background);
+        }
         TextSelection::BeginFrame();
 
         const float contentWidth = std::max(0.0f, static_cast<float>(width) - pad * 2.0f - verticalReserve);
@@ -1300,7 +1409,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
         maxScrollX_ = nextMaxX;
         scrollY_ = std::max(0.0f, std::min(scrollY_, maxScrollY_));
         scrollX_ = std::max(0.0f, std::min(scrollX_, maxScrollX_));
-        if (pass < 2 && (nextVertical != verticalReserve || nextHorizontal != horizontalReserve || scrollClamped)) {
+        if (!partial && pass < 2 && (nextVertical != verticalReserve || nextHorizontal != horizontalReserve || scrollClamped)) {
             verticalReserve = nextVertical;
             horizontalReserve = nextHorizontal;
             continue;
@@ -1366,6 +1475,26 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                                   radius, handle, 1.0f);
         }
     }
+    if (partial) {
+        frame.PopClip();
+    }
+    if (!partial || damageWidth <= 0 || damageHeight <= 0) {
+        damageX = 0;
+        damageY = 0;
+        damageWidth = width;
+        damageHeight = height;
+    }
+    frame.SetPresentRect(damageX, damageY, damageWidth, damageHeight);
+    fullDirty_ = false;
+    damageOpen_ = false;
+    frameReady_ = true;
+    paintedScrollX_ = scrollX_;
+    paintedScrollY_ = scrollY_;
+    paintedScale_ = paintScale;
+    paintedWidth_ = width;
+    paintedHeight_ = height;
+    paintedVerticalReserve_ = verticalReserve;
+    paintedHorizontalReserve_ = horizontalReserve;
     platform.Present(frame);
 }
 
@@ -1650,6 +1779,7 @@ bool RoboScene::SetFocusedScrollbar(Scrollbar* scrollbar) {
     if (focusedScrollbar_ == scrollbar) {
         return false;
     }
+    DirtyScrollbar(focusedScrollbar_);
     if (focusedScrollbar_) {
         focusedScrollbar_->SetFocused(false);
         if (focusedScrollbar_ != hoveredScrollbar_ && focusedScrollbar_ != draggingScrollbar_) {
@@ -1663,6 +1793,7 @@ bool RoboScene::SetFocusedScrollbar(Scrollbar* scrollbar) {
             focusedScrollbar_->SetInteraction(ScrollbarInteraction::Hovered);
         }
     }
+    DirtyScrollbar(focusedScrollbar_);
     return true;
 }
 
@@ -1881,6 +2012,7 @@ bool RoboScene::SetHoveredButton(Button* button) {
     if (hoveredButton_ == button) {
         return false;
     }
+    DirtyButton(hoveredButton_);
     if (hoveredButton_ && hoveredButton_ != pressedButton_) {
         hoveredButton_->SetInteraction(ButtonInteraction::Normal);
     }
@@ -1888,6 +2020,7 @@ bool RoboScene::SetHoveredButton(Button* button) {
     if (hoveredButton_ && hoveredButton_ != pressedButton_) {
         hoveredButton_->SetInteraction(ButtonInteraction::Hovered);
     }
+    DirtyButton(hoveredButton_);
     return true;
 }
 
@@ -1895,6 +2028,7 @@ bool RoboScene::SetHoveredInput(Input* input) {
     if (hoveredInput_ == input) {
         return false;
     }
+    DirtyInput(hoveredInput_);
     if (hoveredInput_ && hoveredInput_ != focusedInput_) {
         hoveredInput_->SetInteraction(InputInteraction::Normal);
     }
@@ -1902,6 +2036,7 @@ bool RoboScene::SetHoveredInput(Input* input) {
     if (hoveredInput_ && hoveredInput_ != focusedInput_) {
         hoveredInput_->SetInteraction(InputInteraction::Hovered);
     }
+    DirtyInput(hoveredInput_);
     return true;
 }
 
@@ -1913,6 +2048,7 @@ bool RoboScene::SetHoveredScrollbar(Scrollbar* scrollbar) {
         }
         return false;
     }
+    DirtyScrollbar(hoveredScrollbar_);
     if (hoveredScrollbar_) {
         hoveredScrollbar_->SetPointerInside(false);
         hoveredScrollbar_->SetHotArrow(ScrollbarArrow::None);
@@ -1928,6 +2064,7 @@ bool RoboScene::SetHoveredScrollbar(Scrollbar* scrollbar) {
             hoveredScrollbar_->SetInteraction(ScrollbarInteraction::Hovered);
         }
     }
+    DirtyScrollbar(hoveredScrollbar_);
     return true;
 }
 
@@ -1935,6 +2072,7 @@ bool RoboScene::SetPressedButton(Button* button) {
     if (pressedButton_ == button) {
         return false;
     }
+    DirtyButton(pressedButton_);
     if (pressedButton_) {
         const ButtonInteraction next =
             (pressedButton_ == hoveredButton_) ? ButtonInteraction::Hovered : ButtonInteraction::Normal;
@@ -1944,6 +2082,7 @@ bool RoboScene::SetPressedButton(Button* button) {
     if (pressedButton_) {
         pressedButton_->SetInteraction(ButtonInteraction::Pressed);
     }
+    DirtyButton(pressedButton_);
     return true;
 }
 
@@ -1951,6 +2090,7 @@ bool RoboScene::SetFocusedInput(Input* input) {
     if (focusedInput_ == input) {
         return false;
     }
+    DirtyInput(focusedInput_);
     if (focusedInput_) {
         const InputInteraction next =
             (focusedInput_ == hoveredInput_) ? InputInteraction::Hovered : InputInteraction::Normal;
@@ -1961,6 +2101,7 @@ bool RoboScene::SetFocusedInput(Input* input) {
         focusedInput_->SetInteraction(InputInteraction::Focused);
         focusedInput_->SetCaretIndex(focusedInput_->GetValue().size());
     }
+    DirtyInput(focusedInput_);
     return true;
 }
 
@@ -1968,8 +2109,12 @@ bool RoboScene::PointerMove(float x, float y) {
     selectX_ = x;
     selectY_ = y;
     if (TextSelection::IsDragging()) {
+        DirtySelectionVisual();
         TextSelection::MovePointer(x, y);
-        RerenderIfPossible();
+        DirtySelectionVisual();
+        if (!needsRender_) {
+            MarkFullDirty();
+        }
         return true;
     }
 
@@ -2001,7 +2146,7 @@ bool RoboScene::PointerMove(float x, float y) {
         const ButtonInteraction next = inside ? ButtonInteraction::Pressed : ButtonInteraction::Hovered;
         if (pressedButton_->GetInteraction() != next) {
             pressedButton_->SetInteraction(next);
-            RerenderIfPossible();
+            DirtyButton(pressedButton_);
             return true;
         }
         return false;
@@ -2030,11 +2175,9 @@ bool RoboScene::PointerMove(float x, float y) {
         const ScrollbarArrow arrow = scrollbar->FindArrowAt(x, y);
         if (scrollbar->GetHotArrow() != arrow) {
             scrollbar->SetHotArrow(arrow);
+            DirtyScrollbar(scrollbar);
             changed = true;
         }
-    }
-    if (changed) {
-        RerenderIfPossible();
     }
     return changed;
 }
@@ -2042,14 +2185,22 @@ bool RoboScene::PointerMove(float x, float y) {
 bool RoboScene::LongPressSelect(float x, float y) {
     selectX_ = x;
     selectY_ = y;
+    float oldX = 0.0f;
+    float oldY = 0.0f;
+    float oldWidth = 0.0f;
+    float oldHeight = 0.0f;
+    const bool hadVisual = TextSelection::VisualBounds(oldX, oldY, oldWidth, oldHeight);
     TextSelection::LongPress(x, y);
     if (!TextSelection::IsDragging() && !TextSelection::HasSelection()) {
         return false;
     }
+    if (hadVisual) {
+        MarkDirty(oldX, oldY, oldWidth, oldHeight);
+    }
     SetPressedButton(nullptr);
     SetFocusedInput(nullptr);
     SetFocusedScrollbar(nullptr);
-    RerenderIfPossible();
+    DirtySelectionVisual();
     return true;
 }
 
@@ -2058,22 +2209,25 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
     selectX_ = x;
     selectY_ = y;
     if (!fromTouch && TextSelection::BeginHandleDrag(x, y)) {
+        DirtySelectionVisual();
         SetPressedButton(nullptr);
         SetFocusedInput(nullptr);
         SetFocusedScrollbar(nullptr);
-        RerenderIfPossible();
+        DirtySelectionVisual();
         return true;
     }
     if (!fromTouch && TextSelection::Hit(x, y) >= 0) {
+        DirtySelectionVisual();
         TextSelection::BeginClick(x, y, clicks > 0 ? clicks : 1);
         SetPressedButton(nullptr);
         SetFocusedInput(nullptr);
         SetFocusedScrollbar(nullptr);
-        RerenderIfPossible();
+        DirtySelectionVisual();
         return true;
     }
     bool changed = false;
-    if (TextSelection::HasCaret()) {
+    if (TextSelection::HasCaret() || TextSelection::HasSelection()) {
+        DirtySelectionVisual();
         TextSelection::Clear();
         changed = true;
     }
@@ -2104,6 +2258,7 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         if (scrollbar == &pageVertical_ || scrollbar == &pageHorizontal_) {
             PullPageScroll();
         }
+        MarkFullDirty();
         changed = true;
     } else if (button) {
         changed = SetHoveredScrollbar(nullptr) || changed;
@@ -2134,12 +2289,13 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
             panningContainer_ = container;
             panX_ = x;
             panY_ = y;
+            MarkFullDirty();
             changed = true;
         }
     }
 
-    if (changed) {
-        RerenderIfPossible();
+    if (changed && !needsRender_) {
+        MarkFullDirty();
     }
     return changed;
 }
@@ -2147,10 +2303,12 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
 bool RoboScene::PointerUp(float x, float y) {
     bool changed = false;
     if (TextSelection::IsDragging()) {
+        DirtySelectionVisual();
         TextSelection::EndDrag();
         changed = true;
     }
     if (draggingScrollbar_) {
+        DirtyScrollbar(draggingScrollbar_);
         draggingScrollbar_->EndDrag();
         hoveredScrollbar_ = nullptr;
         draggingScrollbar_ = nullptr;
@@ -2161,9 +2319,10 @@ bool RoboScene::PointerUp(float x, float y) {
         changed = true;
     }
 
-    auto releaseArrows = [&changed](Scrollbar& scrollbar) {
+    auto releaseArrows = [this, &changed](Scrollbar& scrollbar) {
         if (scrollbar.GetPressedArrow() != ScrollbarArrow::None) {
             scrollbar.SetPressedArrow(ScrollbarArrow::None);
+            DirtyScrollbar(&scrollbar);
             changed = true;
         }
     };
@@ -2179,8 +2338,8 @@ bool RoboScene::PointerUp(float x, float y) {
     changed = SetHoveredScrollbar(scrollbar) || changed;
     changed = SetHoveredButton(button) || changed;
     changed = SetHoveredInput(input) || changed;
-    if (changed) {
-        RerenderIfPossible();
+    if (changed && !needsRender_) {
+        MarkFullDirty();
     }
     return changed;
 }
@@ -2201,23 +2360,33 @@ bool RoboScene::PointerLeave() {
     }
     if (panningContainer_) {
         panningContainer_ = nullptr;
+        MarkFullDirty();
         changed = true;
     }
-    if (changed) {
-        RerenderIfPossible();
+    if (changed && !needsRender_) {
+        MarkFullDirty();
     }
     return changed;
 }
 
 bool RoboScene::Tick(double deltaMs) {
     bool changed = false;
-    auto visit = [&changed, deltaMs](Scrollbar& scrollbar) {
-        if (scrollbar.Tick(deltaMs)) {
-            changed = true;
+    bool contentMoved = false;
+    auto visit = [&changed, &contentMoved, this, deltaMs](Scrollbar& scrollbar) {
+        const double value = scrollbar.GetValue();
+        if (!scrollbar.Tick(deltaMs)) {
+            return;
+        }
+        changed = true;
+        if (std::fabs(scrollbar.GetValue() - value) > 0.00001) {
+            contentMoved = true;
+        } else {
+            DirtyScrollbar(&scrollbar);
         }
     };
     VisitSceneScrollbars(items_, visit);
     if (TextSelection::Tick(deltaMs)) {
+        DirtySelectionVisual();
         changed = true;
     }
     if (TextSelection::IsDragging()) {
@@ -2239,6 +2408,7 @@ bool RoboScene::Tick(double deltaMs) {
             if (next != scrollY_) {
                 scrollY_ = next;
                 pageVertical_.SetValue(scrollY_ / maxScrollY_);
+                contentMoved = true;
                 changed = true;
             }
         }
@@ -2247,6 +2417,7 @@ bool RoboScene::Tick(double deltaMs) {
             if (next != scrollX_) {
                 scrollX_ = next;
                 pageHorizontal_.SetValue(scrollX_ / maxScrollX_);
+                contentMoved = true;
                 changed = true;
             }
         }
@@ -2254,19 +2425,30 @@ bool RoboScene::Tick(double deltaMs) {
             TextSelection::MovePointer(selectX_, selectY_);
         }
     }
-    bool pageChanged = false;
-    if (pageVertical_.Tick(deltaMs)) {
-        pageChanged = true;
-    }
-    if (pageHorizontal_.Tick(deltaMs)) {
-        pageChanged = true;
-    }
-    if (pageChanged) {
+    const double verticalValue = pageVertical_.GetValue();
+    const double horizontalValue = pageHorizontal_.GetValue();
+    const bool verticalTicked = pageVertical_.Tick(deltaMs);
+    const bool horizontalTicked = pageHorizontal_.Tick(deltaMs);
+    if (verticalTicked || horizontalTicked) {
+        const float scrollBeforeX = scrollX_;
+        const float scrollBeforeY = scrollY_;
         PullPageScroll();
+        if (std::fabs(scrollX_ - scrollBeforeX) > 0.5f || std::fabs(scrollY_ - scrollBeforeY) > 0.5f ||
+            std::fabs(pageVertical_.GetValue() - verticalValue) > 0.00001 ||
+            std::fabs(pageHorizontal_.GetValue() - horizontalValue) > 0.00001) {
+            contentMoved = true;
+        } else {
+            if (verticalTicked) {
+                DirtyScrollbar(&pageVertical_);
+            }
+            if (horizontalTicked) {
+                DirtyScrollbar(&pageHorizontal_);
+            }
+        }
         changed = true;
     }
-    if (changed) {
-        RerenderIfPossible();
+    if (contentMoved) {
+        MarkFullDirty();
     }
     return changed;
 }
@@ -2311,10 +2493,18 @@ bool RoboScene::MoveSelection(int command, bool extend) {
     if (focusedInput_) {
         return false;
     }
+    float oldX = 0.0f;
+    float oldY = 0.0f;
+    float oldWidth = 0.0f;
+    float oldHeight = 0.0f;
+    const bool hadVisual = TextSelection::VisualBounds(oldX, oldY, oldWidth, oldHeight);
     if (!TextSelection::Move(command, extend)) {
         return false;
     }
-    RerenderIfPossible();
+    if (hadVisual) {
+        MarkDirty(oldX, oldY, oldWidth, oldHeight);
+    }
+    DirtySelectionVisual();
     return true;
 }
 
@@ -2328,10 +2518,18 @@ bool RoboScene::CopySelection() {
 }
 
 bool RoboScene::SelectAllText() {
+    float oldX = 0.0f;
+    float oldY = 0.0f;
+    float oldWidth = 0.0f;
+    float oldHeight = 0.0f;
+    const bool hadVisual = TextSelection::VisualBounds(oldX, oldY, oldWidth, oldHeight);
     if (!TextSelection::SelectAll()) {
         return false;
     }
-    RerenderIfPossible();
+    if (hadVisual) {
+        MarkDirty(oldX, oldY, oldWidth, oldHeight);
+    }
+    DirtySelectionVisual();
     return true;
 }
 
@@ -2342,7 +2540,7 @@ bool RoboScene::KeyInsert(const std::string& utf8) {
     if (!focusedInput_->InsertText(utf8)) {
         return false;
     }
-    RerenderIfPossible();
+    MarkFullDirty();
     return true;
 }
 
@@ -2353,7 +2551,7 @@ bool RoboScene::KeyBackspace() {
     if (!focusedInput_->DeleteBackward()) {
         return false;
     }
-    RerenderIfPossible();
+    MarkFullDirty();
     return true;
 }
 
@@ -2364,7 +2562,7 @@ bool RoboScene::KeyDelete() {
     if (!focusedInput_->DeleteForward()) {
         return false;
     }
-    RerenderIfPossible();
+    MarkFullDirty();
     return true;
 }
 
@@ -2375,7 +2573,7 @@ bool RoboScene::KeyLeft() {
     if (!focusedInput_->MoveCaretLeft()) {
         return false;
     }
-    RerenderIfPossible();
+    DirtyInput(focusedInput_);
     return true;
 }
 
@@ -2386,7 +2584,7 @@ bool RoboScene::KeyRight() {
     if (!focusedInput_->MoveCaretRight()) {
         return false;
     }
-    RerenderIfPossible();
+    DirtyInput(focusedInput_);
     return true;
 }
 

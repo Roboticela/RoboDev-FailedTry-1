@@ -51,6 +51,8 @@ public:
     static void RestartCaret();
 
     static bool HandleGeometry(float& startX, float& startY, float& endX, float& endY, float& lineHeight);
+    // Device-pixel box of the caret, the highlight, and the touch handles.
+    static bool VisualBounds(float& x, float& y, float& width, float& height);
 };
 
 struct SelectableScope {
