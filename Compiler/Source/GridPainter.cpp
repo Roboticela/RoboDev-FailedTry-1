@@ -349,7 +349,7 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
                 break;
             }
             case GridItemKind::Sidebar: {
-                SidebarMeasureResult measured = SidebarPainter::Measure(0.0f, scale);
+                SidebarMeasureResult measured = SidebarPainter::Measure(item.sidebar, 0.0f, scale);
                 child.measuredWidth = measured.width;
                 child.measuredHeight = measured.height;
                 break;
@@ -368,6 +368,12 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
             }
             case GridItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult measured = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                child.measuredWidth = measured.width;
+                child.measuredHeight = measured.height;
+                break;
+            }
+            case GridItemKind::SidebarItem: {
+                SidebarItemMeasureResult measured = SidebarPainter::MeasureItem(fonts, item.sidebarItem, scale);
                 child.measuredWidth = measured.width;
                 child.measuredHeight = measured.height;
                 break;
@@ -752,7 +758,7 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
                 break;
             }
             case GridItemKind::Sidebar: {
-                SidebarPainter::Paint(buffer, childX, childY, childH, scale);
+                SidebarPainter::Paint(buffer, fonts, item.sidebar, childX, childY, childH, scale, 1.0f);
                 break;
             }
             case GridItemKind::ThemeToggle: {
@@ -761,6 +767,10 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
             }
             case GridItemKind::ThemeIconToggle: {
                 ThemeIconTogglePainter::Paint(buffer, item.themeIconToggle, childX, childY, scale);
+                break;
+            }
+            case GridItemKind::SidebarItem: {
+                SidebarPainter::PaintItem(buffer, fonts, item.sidebarItem, childX, childY, childW, childH, scale, false);
                 break;
             }
             case GridItemKind::Separator: {

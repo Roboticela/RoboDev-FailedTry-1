@@ -56,6 +56,7 @@ enum class PositionItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    SidebarItem,
     Separator,
     ThemeToggle,
     ThemeIconToggle,
@@ -142,6 +143,7 @@ struct PositionItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::SidebarItem sidebarItem;
     Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
@@ -176,6 +178,7 @@ public:
     void AddBrandLogo(BrandLogo logo, const PositionItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const PositionItemProps& props = {});
     void AddSidebar(Robo::Sidebar pane, const PositionItemProps& props = {});
+    void AddSidebarItem(Robo::SidebarItem item, const PositionItemProps& props = {});
     void AddSeparator(Robo::Separator separator, const PositionItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const PositionItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const PositionItemProps& props = {});

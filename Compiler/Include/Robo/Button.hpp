@@ -16,7 +16,8 @@ enum class ButtonVariant {
     Tinted,
     Gray,
     Plain,
-    Destructive
+    Destructive,
+    Outline
 };
 
 enum class ButtonInteraction {

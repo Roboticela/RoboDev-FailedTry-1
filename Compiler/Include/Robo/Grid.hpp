@@ -72,6 +72,7 @@ enum class GridItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    SidebarItem,
     Separator,
     ThemeToggle,
     ThemeIconToggle,
@@ -166,6 +167,7 @@ struct GridItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::SidebarItem sidebarItem;
     Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
@@ -191,6 +193,7 @@ public:
     void AddBrandLogo(BrandLogo logo, const GridItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const GridItemProps& props = {});
     void AddSidebar(Robo::Sidebar pane, const GridItemProps& props = {});
+    void AddSidebarItem(Robo::SidebarItem item, const GridItemProps& props = {});
     void AddSeparator(Robo::Separator separator, const GridItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const GridItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const GridItemProps& props = {});

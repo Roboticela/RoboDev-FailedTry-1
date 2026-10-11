@@ -121,6 +121,15 @@ void Button::ApplyVariantDefaults() {
                 style_.tokens["textColor"] = "color.text.on-brand";
             }
             break;
+        case ButtonVariant::Outline:
+            if (!style_.hasCustomBackground) {
+                style_.backgroundColor = Color::FromRgba(0, 0, 0, 0);
+                style_.tokens["backgroundColor"] = "";
+            }
+            if (!style_.hasCustomTextColor) {
+                style_.tokens["textColor"] = "color.text.primary";
+            }
+            break;
         case ButtonVariant::Filled:
         default:
             if (!style_.hasCustomBackground) {
@@ -209,7 +218,7 @@ Color Button::ResolveBackgroundColor() const {
         if (style.variant == ButtonVariant::Filled) {
             return disabledFill;
         }
-        if (style.variant == ButtonVariant::Plain) {
+        if (style.variant == ButtonVariant::Plain || style.variant == ButtonVariant::Outline) {
             return Color::FromRgba(0, 0, 0, 0);
         }
         return quiet;
@@ -285,6 +294,9 @@ ButtonVariant ParseButtonVariant(const std::string& value) {
     }
     if (value == "destructive" || value == "danger") {
         return ButtonVariant::Destructive;
+    }
+    if (value == "outline") {
+        return ButtonVariant::Outline;
     }
     return ButtonVariant::Filled;
 }

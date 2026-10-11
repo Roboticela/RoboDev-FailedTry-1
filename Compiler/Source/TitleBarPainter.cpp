@@ -1,7 +1,9 @@
 #include "Robo/TitleBarPainter.hpp"
 
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/ButtonPainter.hpp"
 #include "Robo/Foundation.hpp"
+#include "Robo/SvgPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 
 #include <algorithm>
@@ -13,6 +15,29 @@ namespace {
 const float TITLE_SIZE = 17.0f;
 const float TITLE_TRACKING = -0.022f;
 const float SIDE_INSET = 16.0f;
+const float CLUSTER_GAP = 10.0f;
+const float SIDEBAR_PAD = 9.0f;
+const float SIDEBAR_ICON_WIDTH = 24.0f;
+const float SIDEBAR_ICON_HEIGHT = 30.0f * 16.5f / 28.5f;
+const float SIDEBAR_BUTTON_WIDTH = SIDEBAR_ICON_WIDTH + SIDEBAR_PAD * 2.0f;
+const float SIDEBAR_BUTTON_HEIGHT = SIDEBAR_ICON_HEIGHT + SIDEBAR_PAD * 2.0f;
+
+void PaintSidebarIcon(FrameBuffer& buffer, Svg& icon, float x, float y, float width, const Color& ink, float opacity, float scale) {
+    if (opacity <= 0.01f) {
+        return;
+    }
+    icon.GetStyle().viewX = 1.75f;
+    icon.GetStyle().viewY = 3.75f;
+    icon.GetStyle().viewWidth = 28.5f;
+    icon.GetStyle().viewHeight = 16.5f;
+    icon.GetStyle().width = SIDEBAR_ICON_WIDTH;
+    icon.GetStyle().height = SIDEBAR_ICON_HEIGHT;
+    icon.GetStyle().widthSpec.clear();
+    icon.GetStyle().heightSpec.clear();
+    icon.GetStyle().color = ink;
+    icon.GetStyle().opacity = opacity;
+    SvgPainter::Paint(buffer, icon, x, y, width, scale);
+}
 
 }  // namespace
 
@@ -59,6 +84,25 @@ TitleBarPaintResult TitleBarPainter::Paint(FrameBuffer& buffer,
     const BrandLogoMeasureResult logo = BrandLogoPainter::Measure(fonts, bar.Logo(), scale);
     const float logoY = originY + std::max(0.0f, (measured.height - logo.height) * 0.5f);
     BrandLogoPainter::Paint(buffer, fonts, bar.Logo(), originX + inset, logoY, scale);
+
+    const float buttonW = SIDEBAR_BUTTON_WIDTH * scale;
+    const float buttonH = SIDEBAR_BUTTON_HEIGHT * scale;
+    const float buttonX = originX + inset + logo.width + CLUSTER_GAP * scale;
+    const float buttonY = originY + std::max(0.0f, (measured.height - buttonH) * 0.5f);
+    ButtonPainter::Paint(buffer, fonts, bar.SidebarButton(), buttonX, buttonY, buttonW, scale, buttonW, buttonH);
+    if (bar.HasSidebarIcons()) {
+        const ButtonBounds& buttonBounds = bar.SidebarButton().GetBounds();
+        const float pad = SIDEBAR_PAD * scale;
+        const float glyphW = SIDEBAR_ICON_WIDTH * scale;
+        const float glyphX = buttonBounds.x + pad;
+        const float glyphY = buttonBounds.y + pad;
+        const float open = bar.SidebarAmount();
+        const Color ink = ResolveColor(Color::FromHex("#6E6E73"), "color.text.secondary");
+        buffer.PushClipRect(buttonBounds.x, buttonBounds.y, buttonBounds.width, buttonBounds.height);
+        PaintSidebarIcon(buffer, bar.HiddenIcon(), glyphX, glyphY, glyphW, ink, 1.0f - open, scale);
+        PaintSidebarIcon(buffer, bar.ShownIcon(), glyphX, glyphY, glyphW, ink, open, scale);
+        buffer.PopClip();
+    }
 
     const ThemeIconToggleMeasureResult icon = ThemeIconTogglePainter::Measure(bar.ThemeIcon(), scale);
     const float iconX = originX + std::max(inset, measured.width - inset - icon.width);

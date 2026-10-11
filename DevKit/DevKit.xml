@@ -3,5 +3,15 @@
   <FoundationUse name="DevKit"/>
 
   <TitleBar title="DevKit"/>
-  <Sidebar/>
+  <Sidebar variant="activity">
+    <PaneItem icon="Foundation" label="Robo Foundation">
+      <PaneItem icon="Color" label="Color"/>
+      <PaneItem icon="Type" label="Type"/>
+      <PaneItem icon="Space" label="Space"/>
+      <PaneItem icon="Radius" label="Radius"/>
+      <PaneItem icon="Layout" label="Layout"/>
+      <PaneItem icon="Icons" label="Icons"/>
+      <PaneItem icon="Flags" label="Country Flags"/>
+    </PaneItem>
+  </Sidebar>
 </Robo>

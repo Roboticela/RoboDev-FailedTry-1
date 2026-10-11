@@ -64,6 +64,7 @@ enum class FlexItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    SidebarItem,
     Separator,
     ThemeToggle,
     ThemeIconToggle,
@@ -104,6 +105,7 @@ struct FlexboxItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::SidebarItem sidebarItem;
     Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
@@ -172,6 +174,7 @@ public:
     void AddBrandLogo(BrandLogo logo, const FlexItemProps& props = {});
     void AddTitleBar(Robo::TitleBar bar, const FlexItemProps& props = {});
     void AddSidebar(Robo::Sidebar pane, const FlexItemProps& props = {});
+    void AddSidebarItem(Robo::SidebarItem item, const FlexItemProps& props = {});
     void AddSeparator(Robo::Separator separator, const FlexItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const FlexItemProps& props = {});

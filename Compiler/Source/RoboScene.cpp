@@ -88,6 +88,9 @@ void ScaleFlexboxBounds(Flexbox& flexbox, float inv) {
             item.themeIconToggle.ScaleBounds(inv);
         } else if (item.kind == FlexItemKind::TitleBar) {
             item.titleBar.ThemeIcon().ScaleBounds(inv);
+            ButtonBounds sidebarBounds = item.titleBar.SidebarButton().GetBounds();
+            ScaleBounds(sidebarBounds, inv);
+            item.titleBar.SidebarButton().SetBounds(sidebarBounds);
         } else if (item.kind == FlexItemKind::MotionShape) {
             item.motionShape.ScaleBounds(inv);
         } else if (item.kind == FlexItemKind::Input) {
@@ -135,6 +138,9 @@ void ScaleGridBounds(Grid& grid, float inv) {
             item.themeIconToggle.ScaleBounds(inv);
         } else if (item.kind == GridItemKind::TitleBar) {
             item.titleBar.ThemeIcon().ScaleBounds(inv);
+            ButtonBounds sidebarBounds = item.titleBar.SidebarButton().GetBounds();
+            ScaleBounds(sidebarBounds, inv);
+            item.titleBar.SidebarButton().SetBounds(sidebarBounds);
         } else if (item.kind == GridItemKind::MotionShape) {
             item.motionShape.ScaleBounds(inv);
         } else if (item.kind == GridItemKind::Input) {
@@ -275,6 +281,10 @@ Button* FindButtonInFlexbox(Flexbox& flexbox, float x, float y) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
             }
+        } else if (item.kind == FlexItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
+            }
         } else if (item.kind == FlexItemKind::Container && item.container) {
             Button* found = FindButtonInContainer(*item.container, x, y);
             if (found) {
@@ -343,6 +353,10 @@ const Button* FindButtonInFlexboxConst(const Flexbox& flexbox, float x, float y)
         if (item.kind == FlexItemKind::Button) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
+            }
+        } else if (item.kind == FlexItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
             }
         } else if (item.kind == FlexItemKind::Container && item.container) {
             const Button* found = FindButtonInContainerConst(*item.container, x, y);
@@ -419,6 +433,10 @@ Button* FindButtonInGrid(Grid& grid, float x, float y) {
         if (item.kind == GridItemKind::Button) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
+            }
+        } else if (item.kind == GridItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
             }
         } else if (item.kind == GridItemKind::Container && item.container) {
             Button* found = FindButtonInContainer(*item.container, x, y);
@@ -503,6 +521,10 @@ const Button* FindButtonInGridConst(const Grid& grid, float x, float y) {
         if (item.kind == GridItemKind::Button) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
+            }
+        } else if (item.kind == GridItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
             }
         } else if (item.kind == GridItemKind::Container && item.container) {
             const Button* found = FindButtonInContainerConst(*item.container, x, y);
@@ -597,6 +619,9 @@ void ScalePositionBounds(Position& position, float inv) {
             item.themeIconToggle.ScaleBounds(inv);
         } else if (item.kind == PositionItemKind::TitleBar) {
             item.titleBar.ThemeIcon().ScaleBounds(inv);
+            ButtonBounds sidebarBounds = item.titleBar.SidebarButton().GetBounds();
+            ScaleBounds(sidebarBounds, inv);
+            item.titleBar.SidebarButton().SetBounds(sidebarBounds);
         } else if (item.kind == PositionItemKind::MotionShape) {
             item.motionShape.ScaleBounds(inv);
         } else if (item.kind == PositionItemKind::Input) {
@@ -631,6 +656,10 @@ Button* FindButtonInPosition(Position& position, float x, float y) {
         if (item.kind == PositionItemKind::Button) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
+            }
+        } else if (item.kind == PositionItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
             }
         } else if (item.kind == PositionItemKind::Container && item.container) {
             Button* found = FindButtonInContainer(*item.container, x, y);
@@ -751,6 +780,10 @@ const Button* FindButtonInPositionConst(const Position& position, float x, float
         if (item.kind == PositionItemKind::Button) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
+            }
+        } else if (item.kind == PositionItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
             }
         } else if (item.kind == PositionItemKind::Container && item.container) {
             const Button* found = FindButtonInContainerConst(*item.container, x, y);
@@ -1423,6 +1456,206 @@ void CollectButtonsInPosition(Position& position, std::vector<Button*>& out) {
     }
 }
 
+SidebarItem* FindPaneInFlexbox(Flexbox& flexbox, float x, float y);
+SidebarItem* FindPaneInGrid(Grid& grid, float x, float y);
+SidebarItem* FindPaneInPosition(Position& position, float x, float y);
+SidebarItem* FindPaneInContainer(Container& container, float x, float y);
+
+SidebarItem* HitPane(SidebarItem& item, float x, float y) {
+    if (item.CanActivate() && item.GetBounds().Contains(x, y)) {
+        return &item;
+    }
+    return nullptr;
+}
+
+SidebarItem* FindPaneInFlexbox(Flexbox& flexbox, float x, float y) {
+    std::vector<FlexboxItem>& items = flexbox.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        FlexboxItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == FlexItemKind::SidebarItem) {
+            if (SidebarItem* found = HitPane(item.sidebarItem, x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::Sidebar) {
+            if (SidebarItem* found = item.sidebar.HitItem(x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::Container && item.container) {
+            if (SidebarItem* found = FindPaneInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            if (SidebarItem* found = FindPaneInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+SidebarItem* FindPaneInGrid(Grid& grid, float x, float y) {
+    std::vector<GridItem>& items = grid.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        GridItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == GridItemKind::SidebarItem) {
+            if (SidebarItem* found = HitPane(item.sidebarItem, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Sidebar) {
+            if (SidebarItem* found = item.sidebar.HitItem(x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Container && item.container) {
+            if (SidebarItem* found = FindPaneInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            if (SidebarItem* found = FindPaneInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            if (SidebarItem* found = FindPaneInGrid(*item.grid, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+SidebarItem* FindPaneInPosition(Position& position, float x, float y) {
+    std::vector<PositionItem>& items = position.GetItems();
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        PositionItem& item = items[static_cast<std::size_t>(i)];
+        if (item.kind == PositionItemKind::SidebarItem) {
+            if (SidebarItem* found = HitPane(item.sidebarItem, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Sidebar) {
+            if (SidebarItem* found = item.sidebar.HitItem(x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Container && item.container) {
+            if (SidebarItem* found = FindPaneInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            if (SidebarItem* found = FindPaneInFlexbox(*item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            if (SidebarItem* found = FindPaneInGrid(*item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            if (SidebarItem* found = FindPaneInPosition(*item.position, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+SidebarItem* FindPaneInContainer(Container& container, float x, float y) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        return FindPaneInFlexbox(container.GetFlexbox(), x, y);
+    }
+    if (container.GetStyle().layout == ContainerLayout::Grid) {
+        return FindPaneInGrid(container.GetGrid(), x, y);
+    }
+    return FindPaneInPosition(container.GetContent(), x, y);
+}
+
+struct FocusSlot {
+    Button* button = nullptr;
+    SidebarItem* item = nullptr;
+};
+
+void AppendSidebarSlots(Sidebar& sidebar, std::vector<FocusSlot>& out) {
+    for (SidebarItem& item : sidebar.Items()) {
+        if (item.CanActivate()) {
+            FocusSlot slot;
+            slot.item = &item;
+            out.push_back(slot);
+        }
+        for (SidebarItem& child : item.Children()) {
+            if (child.CanActivate() && child.GetBounds().height > 1.0f) {
+                FocusSlot slot;
+                slot.item = &child;
+                out.push_back(slot);
+            }
+        }
+    }
+}
+
+void AppendPaneSlotsFlex(Flexbox& flexbox, std::vector<FocusSlot>& out);
+void AppendPaneSlotsGrid(Grid& grid, std::vector<FocusSlot>& out);
+void AppendPaneSlotsPosition(Position& position, std::vector<FocusSlot>& out);
+void AppendPaneSlotsContainer(Container& container, std::vector<FocusSlot>& out);
+
+void AppendPaneSlotsFlex(Flexbox& flexbox, std::vector<FocusSlot>& out) {
+    for (FlexboxItem& item : flexbox.GetItems()) {
+        if (item.kind == FlexItemKind::SidebarItem && item.sidebarItem.CanActivate()) {
+            FocusSlot slot;
+            slot.item = &item.sidebarItem;
+            out.push_back(slot);
+        } else if (item.kind == FlexItemKind::Sidebar) {
+            AppendSidebarSlots(item.sidebar, out);
+        } else if (item.kind == FlexItemKind::Container && item.container) {
+            AppendPaneSlotsContainer(*item.container, out);
+        } else if (item.kind == FlexItemKind::Flexbox && item.flexbox) {
+            AppendPaneSlotsFlex(*item.flexbox, out);
+        }
+    }
+}
+
+void AppendPaneSlotsGrid(Grid& grid, std::vector<FocusSlot>& out) {
+    for (GridItem& item : grid.GetItems()) {
+        if (item.kind == GridItemKind::SidebarItem && item.sidebarItem.CanActivate()) {
+            FocusSlot slot;
+            slot.item = &item.sidebarItem;
+            out.push_back(slot);
+        } else if (item.kind == GridItemKind::Sidebar) {
+            AppendSidebarSlots(item.sidebar, out);
+        } else if (item.kind == GridItemKind::Container && item.container) {
+            AppendPaneSlotsContainer(*item.container, out);
+        } else if (item.kind == GridItemKind::Flexbox && item.flexbox) {
+            AppendPaneSlotsFlex(*item.flexbox, out);
+        } else if (item.kind == GridItemKind::Grid && item.grid) {
+            AppendPaneSlotsGrid(*item.grid, out);
+        }
+    }
+}
+
+void AppendPaneSlotsPosition(Position& position, std::vector<FocusSlot>& out) {
+    for (PositionItem& item : position.GetItems()) {
+        if (item.kind == PositionItemKind::SidebarItem && item.sidebarItem.CanActivate()) {
+            FocusSlot slot;
+            slot.item = &item.sidebarItem;
+            out.push_back(slot);
+        } else if (item.kind == PositionItemKind::Sidebar) {
+            AppendSidebarSlots(item.sidebar, out);
+        } else if (item.kind == PositionItemKind::Container && item.container) {
+            AppendPaneSlotsContainer(*item.container, out);
+        } else if (item.kind == PositionItemKind::Flexbox && item.flexbox) {
+            AppendPaneSlotsFlex(*item.flexbox, out);
+        } else if (item.kind == PositionItemKind::Grid && item.grid) {
+            AppendPaneSlotsGrid(*item.grid, out);
+        } else if (item.kind == PositionItemKind::Position && item.position) {
+            AppendPaneSlotsPosition(*item.position, out);
+        }
+    }
+}
+
+void AppendPaneSlotsContainer(Container& container, std::vector<FocusSlot>& out) {
+    if (container.GetStyle().layout == ContainerLayout::Flex) {
+        AppendPaneSlotsFlex(container.GetFlexbox(), out);
+    } else if (container.GetStyle().layout == ContainerLayout::Grid) {
+        AppendPaneSlotsGrid(container.GetGrid(), out);
+    } else {
+        AppendPaneSlotsPosition(container.GetContent(), out);
+    }
+}
+
 void CollectButtonsInContainer(Container& container, std::vector<Button*>& out) {
     if (container.GetStyle().layout == ContainerLayout::Flex) {
         CollectButtonsInFlexbox(container.GetFlexbox(), out);
@@ -1443,6 +1676,10 @@ void RoboScene::Clear() {
     pressedButton_ = nullptr;
     focusedButton_ = nullptr;
     keyboardPressed_ = false;
+    hoveredSidebarItem_ = nullptr;
+    pressedSidebarItem_ = nullptr;
+    focusedSidebarItem_ = nullptr;
+    sidebarKeyboardPressed_ = false;
     focusedInput_ = nullptr;
     draggingScrollbar_ = nullptr;
     focusedScrollbar_ = nullptr;
@@ -1530,6 +1767,13 @@ void RoboScene::AddSidebar(Sidebar pane) {
     SceneItem item;
     item.kind = SceneItemKind::Sidebar;
     item.sidebar = std::move(pane);
+    items_.push_back(std::move(item));
+}
+
+void RoboScene::AddSidebarItem(SidebarItem entry) {
+    SceneItem item;
+    item.kind = SceneItemKind::SidebarItem;
+    item.sidebarItem = std::move(entry);
     items_.push_back(std::move(item));
 }
 
@@ -1901,6 +2145,8 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 const BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, paintScale);
                 contentRight = std::max(contentRight, columnX + measured.width + scrollX_);
             } else if (item.kind == SceneItemKind::TitleBar) {
+                item.titleBar.SetSidebarOpen(sidebarVisible_);
+                item.titleBar.SetSidebarAmount(sidebarAmount_);
                 const TitleBarPaintResult painted =
                     TitleBarPainter::Paint(frame, fonts, item.titleBar, originX, cursorY, contentWidth, paintScale);
                 cursorY += painted.advanceY;
@@ -1910,13 +2156,22 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
             } else if (item.kind == SceneItemKind::Sidebar) {
                 const float surfaceTop = flowEdge + scrollY_;
                 const float sidebarHeight = std::max(0.0f, static_cast<float>(height) - horizontalReserve - surfaceTop);
-                SidebarPainter::Paint(frame, columnX, surfaceTop, sidebarHeight, paintScale);
-                const float paneWidth = SIDEBAR_WIDTH * paintScale;
-                columnX += paneWidth;
-                columnW = std::max(0.0f, columnW - paneWidth);
+                const float paneWidth = item.sidebar.LayoutWidth(sidebarAmount_) * paintScale;
+                if (paneWidth > 0.5f) {
+                    frame.PushClipRect(columnX, surfaceTop, paneWidth, sidebarHeight);
+                    SidebarPainter::Paint(frame, fonts, item.sidebar, columnX, surfaceTop, sidebarHeight, paintScale, sidebarAmount_);
+                    frame.PopClip();
+                    columnX += paneWidth;
+                    columnW = std::max(0.0f, columnW - paneWidth);
+                }
                 cursorY = flowEdge;
                 edgeSet = true;
                 contentRight = std::max(contentRight, columnX + scrollX_);
+            } else if (item.kind == SceneItemKind::SidebarItem) {
+                const SidebarItemMeasureResult measured = SidebarPainter::MeasureItem(fonts, item.sidebarItem, paintScale);
+                SidebarPainter::PaintItem(frame, fonts, item.sidebarItem, columnX, cursorY, measured.width, measured.height, paintScale, false);
+                cursorY += measured.height + 8.0f * paintScale;
+                contentRight = std::max(contentRight, columnX + measured.width + scrollX_);
             } else if (item.kind == SceneItemKind::Separator) {
                 const bool vertical = item.separator.GetOrientation() == SeparatorOrientation::Vertical;
                 const SeparatorMeasureResult measured =
@@ -2500,6 +2755,10 @@ Button* RoboScene::FindButtonAt(float x, float y) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
             }
+        } else if (item.kind == SceneItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
+            }
         } else if (item.kind == SceneItemKind::Container) {
             Button* found = FindButtonInContainer(*item.container, x, y);
             if (found) {
@@ -2618,6 +2877,10 @@ const Button* RoboScene::FindButtonAt(float x, float y) const {
         if (item.kind == SceneItemKind::Button) {
             if (item.button.GetBounds().Contains(x, y)) {
                 return &item.button;
+            }
+        } else if (item.kind == SceneItemKind::TitleBar) {
+            if (item.titleBar.SidebarButton().GetBounds().Contains(x, y)) {
+                return &item.titleBar.SidebarButton();
             }
         } else if (item.kind == SceneItemKind::Container) {
             const Button* found = FindButtonInContainerConst(*item.container, x, y);
@@ -2804,6 +3067,14 @@ Scrollbar* RoboScene::FindScrollbarNear(float x, float y, float tolerance) {
 }
 
 bool RoboScene::Wheel(float x, float y, float deltaX, float deltaY) {
+    if (std::fabs(deltaY) >= std::fabs(deltaX)) {
+        for (SceneItem& item : items_) {
+            if (item.kind == SceneItemKind::Sidebar && item.sidebar.Contains(x, y) && item.sidebar.ScrollBy(deltaY)) {
+                MarkFullDirty();
+                return true;
+            }
+        }
+    }
     // Prefer the bar whose axis matches the gesture, then any scroller under
     // the cursor. A mouse wheel over a horizontal bar still moves it.
     const bool wantHorizontal = std::fabs(deltaX) > std::fabs(deltaY);
@@ -2935,6 +3206,9 @@ HitKind RoboScene::HitTestKind(float x, float y) const {
         FindThemeMotionScene(const_cast<RoboScene*>(this)->items_, x, y)) {
         return HitKind::Theme;
     }
+    if (const_cast<RoboScene*>(this)->FindSidebarItemAt(x, y)) {
+        return HitKind::Button;
+    }
     if (const Button* button = FindButtonAt(x, y)) {
         if (button->CanActivate()) {
             return HitKind::Button;
@@ -3060,10 +3334,156 @@ bool RoboScene::SetFocusedButton(Button* button, bool showRing) {
     return true;
 }
 
+SidebarItem* RoboScene::FindSidebarItemAt(float x, float y) {
+    for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
+        SceneItem& item = items_[static_cast<std::size_t>(i)];
+        if (item.kind == SceneItemKind::Sidebar) {
+            if (SidebarItem* found = item.sidebar.HitItem(x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::SidebarItem) {
+            if (item.sidebarItem.CanActivate() && item.sidebarItem.GetBounds().Contains(x, y)) {
+                return &item.sidebarItem;
+            }
+        } else if (item.kind == SceneItemKind::Container && item.container) {
+            if (SidebarItem* found = FindPaneInContainer(*item.container, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Flexbox) {
+            if (SidebarItem* found = FindPaneInFlexbox(item.flexbox, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Grid) {
+            if (SidebarItem* found = FindPaneInGrid(item.grid, x, y)) {
+                return found;
+            }
+        } else if (item.kind == SceneItemKind::Position) {
+            if (SidebarItem* found = FindPaneInPosition(item.position, x, y)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool RoboScene::SetHoveredSidebarItem(SidebarItem* item) {
+    if (item && !item->CanActivate()) {
+        item = nullptr;
+    }
+    if (hoveredSidebarItem_ == item) {
+        return false;
+    }
+    if (hoveredSidebarItem_ && hoveredSidebarItem_ != pressedSidebarItem_) {
+        hoveredSidebarItem_->SetInteraction(SidebarItemInteraction::Normal);
+    }
+    hoveredSidebarItem_ = item;
+    if (hoveredSidebarItem_ && hoveredSidebarItem_ != pressedSidebarItem_) {
+        hoveredSidebarItem_->SetInteraction(SidebarItemInteraction::Hovered);
+    }
+    MarkFullDirty();
+    return true;
+}
+
+bool RoboScene::SetPressedSidebarItem(SidebarItem* item) {
+    if (item && !item->CanActivate()) {
+        item = nullptr;
+    }
+    if (pressedSidebarItem_ == item) {
+        return false;
+    }
+    if (pressedSidebarItem_) {
+        const SidebarItemInteraction next =
+            (pressedSidebarItem_ == hoveredSidebarItem_) ? SidebarItemInteraction::Hovered : SidebarItemInteraction::Normal;
+        pressedSidebarItem_->SetInteraction(next);
+    }
+    pressedSidebarItem_ = item;
+    if (pressedSidebarItem_) {
+        pressedSidebarItem_->SetInteraction(SidebarItemInteraction::Pressed);
+    }
+    MarkFullDirty();
+    return true;
+}
+
+bool RoboScene::SetFocusedSidebarItem(SidebarItem* item, bool showRing) {
+    if (item && !item->CanActivate()) {
+        item = nullptr;
+        showRing = false;
+    }
+    if (focusedSidebarItem_ == item) {
+        if (focusedSidebarItem_ && focusedSidebarItem_->IsFocusVisible() != showRing) {
+            focusedSidebarItem_->SetFocusVisible(showRing);
+            MarkFullDirty();
+            return true;
+        }
+        return false;
+    }
+    if (focusedSidebarItem_) {
+        focusedSidebarItem_->SetFocused(false);
+    }
+    focusedSidebarItem_ = item;
+    if (focusedSidebarItem_) {
+        focusedSidebarItem_->SetFocused(true);
+        focusedSidebarItem_->SetFocusVisible(showRing);
+    }
+    MarkFullDirty();
+    return true;
+}
+
+Sidebar* RoboScene::SidebarOwning(SidebarItem* item) {
+    if (!item) {
+        return nullptr;
+    }
+    for (SceneItem& scene : items_) {
+        if (scene.kind != SceneItemKind::Sidebar) {
+            continue;
+        }
+        if (scene.sidebar.IndexOf(item) >= 0) {
+            return &scene.sidebar;
+        }
+        for (SidebarItem& row : scene.sidebar.Items()) {
+            for (SidebarItem& child : row.Children()) {
+                if (&child == item) {
+                    return &scene.sidebar;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+void RoboScene::ActivateSidebarItem(SidebarItem* item) {
+    if (!item || !item->CanActivate()) {
+        return;
+    }
+    Sidebar* owner = SidebarOwning(item);
+    if (!owner) {
+        item->SetSelected(true);
+        MarkFullDirty();
+        return;
+    }
+    const int index = owner->IndexOf(item);
+    if (index >= 0) {
+        const bool activity = owner->GetVariant() == SidebarVariant::Activity;
+        const bool same = index == owner->Selected();
+        owner->Select(index);
+        if (activity && same && sidebarVisible_) {
+            ToggleSidebar();
+        } else if (activity && !sidebarVisible_) {
+            ToggleSidebar();
+        }
+        MarkFullDirty();
+        return;
+    }
+    owner->SelectChild(item);
+    MarkFullDirty();
+}
+
 void RoboScene::CollectButtons(std::vector<Button*>& out) {
     for (SceneItem& item : items_) {
         if (item.kind == SceneItemKind::Button) {
             out.push_back(&item.button);
+        } else if (item.kind == SceneItemKind::TitleBar) {
+            out.push_back(&item.titleBar.SidebarButton());
         } else if (item.kind == SceneItemKind::Container && item.container) {
             CollectButtonsInContainer(*item.container, out);
         } else if (item.kind == SceneItemKind::Flexbox) {
@@ -3076,32 +3496,169 @@ void RoboScene::CollectButtons(std::vector<Button*>& out) {
     }
 }
 
+bool RoboScene::IsSidebarToggle(const Button* button) const {
+    if (!button) {
+        return false;
+    }
+    for (const SceneItem& item : items_) {
+        if (item.kind == SceneItemKind::TitleBar && &item.titleBar.SidebarButton() == button) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RoboScene::ShowOrHideSidebar() {
+    ToggleSidebar();
+    return true;
+}
+
+void RoboScene::ToggleSidebar() {
+    sidebarVisible_ = !sidebarVisible_;
+    sidebarFrom_ = sidebarAmount_;
+    sidebarTo_ = sidebarVisible_ ? 1.0f : 0.0f;
+    sidebarElapsed_ = 0.0f;
+    sidebarAnimating_ = std::fabs(sidebarTo_ - sidebarFrom_) > 0.001f;
+    MarkFullDirty();
+}
+
 bool RoboScene::KeyDown(const std::string& key, bool shift) {
     if (focusedInput_ && key != "Tab") {
         return false;
+    }
+    if (key == "ArrowUp" || key == "ArrowDown" || key == "Home" || key == "End" || key == "ArrowLeft" || key == "ArrowRight") {
+        if (!focusedSidebarItem_ || !focusedSidebarItem_->CanActivate()) {
+            return false;
+        }
+        if (key == "ArrowLeft" || key == "ArrowRight") {
+            return true;
+        }
+        std::vector<SidebarItem*> rows;
+        if (Sidebar* owner = SidebarOwning(focusedSidebarItem_)) {
+            for (SidebarItem& item : owner->Items()) {
+                if (item.CanActivate()) {
+                    rows.push_back(&item);
+                }
+                for (SidebarItem& child : item.Children()) {
+                    if (child.CanActivate() && child.GetBounds().height > 1.0f) {
+                        rows.push_back(&child);
+                    }
+                }
+            }
+        }
+        if (rows.empty()) {
+            return true;
+        }
+        int index = 0;
+        for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+            if (rows[static_cast<std::size_t>(i)] == focusedSidebarItem_) {
+                index = i;
+            }
+        }
+        if (key == "Home") {
+            index = 0;
+        } else if (key == "End") {
+            index = static_cast<int>(rows.size()) - 1;
+        } else if (key == "ArrowUp") {
+            index = std::max(0, index - 1);
+        } else {
+            index = std::min(static_cast<int>(rows.size()) - 1, index + 1);
+        }
+        SidebarItem* next = rows[static_cast<std::size_t>(index)];
+        sidebarKeyboardPressed_ = false;
+        SetFocusedSidebarItem(next, true);
+        if (Sidebar* owner = SidebarOwning(next)) {
+            const int top = owner->IndexOf(next);
+            if (top >= 0) {
+                owner->Select(top);
+            } else {
+                owner->SelectChild(next);
+            }
+            const SidebarItemBounds& bounds = next->GetBounds();
+            owner->Reveal(bounds.y, bounds.height);
+        } else {
+            next->SetSelected(true);
+        }
+        MarkFullDirty();
+        return true;
     }
     if (key == "Tab") {
         if (focusedInput_) {
             SetFocusedInput(nullptr);
         }
-        std::vector<Button*> buttons;
-        CollectButtons(buttons);
-        std::vector<Button*> enabled;
-        for (Button* button : buttons) {
-            if (button->CanActivate()) {
-                enabled.push_back(button);
+        std::vector<FocusSlot> slots;
+        for (SceneItem& scene : items_) {
+            if (scene.kind == SceneItemKind::Button && scene.button.CanActivate()) {
+                FocusSlot slot;
+                slot.button = &scene.button;
+                slots.push_back(slot);
+            } else if (scene.kind == SceneItemKind::TitleBar && scene.titleBar.SidebarButton().CanActivate()) {
+                FocusSlot slot;
+                slot.button = &scene.titleBar.SidebarButton();
+                slots.push_back(slot);
+            } else if (scene.kind == SceneItemKind::Sidebar) {
+                AppendSidebarSlots(scene.sidebar, slots);
+            } else if (scene.kind == SceneItemKind::SidebarItem && scene.sidebarItem.CanActivate()) {
+                FocusSlot slot;
+                slot.item = &scene.sidebarItem;
+                slots.push_back(slot);
+            } else if (scene.kind == SceneItemKind::Container && scene.container) {
+                std::vector<Button*> buttons;
+                CollectButtonsInContainer(*scene.container, buttons);
+                for (Button* button : buttons) {
+                    if (button->CanActivate()) {
+                        FocusSlot slot;
+                        slot.button = button;
+                        slots.push_back(slot);
+                    }
+                }
+                AppendPaneSlotsContainer(*scene.container, slots);
+            } else if (scene.kind == SceneItemKind::Flexbox) {
+                std::vector<Button*> buttons;
+                CollectButtonsInFlexbox(scene.flexbox, buttons);
+                for (Button* button : buttons) {
+                    if (button->CanActivate()) {
+                        FocusSlot slot;
+                        slot.button = button;
+                        slots.push_back(slot);
+                    }
+                }
+                AppendPaneSlotsFlex(scene.flexbox, slots);
+            } else if (scene.kind == SceneItemKind::Grid) {
+                std::vector<Button*> buttons;
+                CollectButtonsInGrid(scene.grid, buttons);
+                for (Button* button : buttons) {
+                    if (button->CanActivate()) {
+                        FocusSlot slot;
+                        slot.button = button;
+                        slots.push_back(slot);
+                    }
+                }
+                AppendPaneSlotsGrid(scene.grid, slots);
+            } else if (scene.kind == SceneItemKind::Position) {
+                std::vector<Button*> buttons;
+                CollectButtonsInPosition(scene.position, buttons);
+                for (Button* button : buttons) {
+                    if (button->CanActivate()) {
+                        FocusSlot slot;
+                        slot.button = button;
+                        slots.push_back(slot);
+                    }
+                }
+                AppendPaneSlotsPosition(scene.position, slots);
             }
         }
-        if (enabled.empty()) {
+        if (slots.empty()) {
             return false;
         }
         int index = -1;
-        for (int i = 0; i < static_cast<int>(enabled.size()); ++i) {
-            if (enabled[static_cast<std::size_t>(i)] == focusedButton_) {
+        for (int i = 0; i < static_cast<int>(slots.size()); ++i) {
+            const FocusSlot& slot = slots[static_cast<std::size_t>(i)];
+            if ((slot.button && slot.button == focusedButton_) || (slot.item && slot.item == focusedSidebarItem_)) {
                 index = i;
             }
         }
-        const int count = static_cast<int>(enabled.size());
+        const int count = static_cast<int>(slots.size());
         int next = 0;
         if (index < 0) {
             next = shift ? count - 1 : 0;
@@ -3111,7 +3668,23 @@ bool RoboScene::KeyDown(const std::string& key, bool shift) {
             next = (index + 1) % count;
         }
         keyboardPressed_ = false;
-        SetFocusedButton(enabled[static_cast<std::size_t>(next)], true);
+        sidebarKeyboardPressed_ = false;
+        const FocusSlot& slot = slots[static_cast<std::size_t>(next)];
+        if (slot.button) {
+            SetFocusedSidebarItem(nullptr);
+            SetFocusedButton(slot.button, true);
+        } else {
+            SetFocusedButton(nullptr);
+            SetFocusedSidebarItem(slot.item, true);
+        }
+        return true;
+    }
+    if (focusedSidebarItem_ && focusedSidebarItem_->CanActivate() && (key == "Enter" || key == " ")) {
+        sidebarKeyboardPressed_ = true;
+        if (focusedSidebarItem_->GetInteraction() != SidebarItemInteraction::Pressed) {
+            focusedSidebarItem_->SetInteraction(SidebarItemInteraction::Pressed);
+            MarkFullDirty();
+        }
         return true;
     }
     if (!focusedButton_ || !focusedButton_->CanActivate()) {
@@ -3129,21 +3702,40 @@ bool RoboScene::KeyDown(const std::string& key, bool shift) {
 }
 
 bool RoboScene::KeyUp(const std::string& key) {
-    if ((key != "Enter" && key != " ") || !keyboardPressed_) {
+    if (key != "Enter" && key != " ") {
         return false;
+    }
+    bool changed = false;
+    if (sidebarKeyboardPressed_) {
+        sidebarKeyboardPressed_ = false;
+        if (focusedSidebarItem_) {
+            const SidebarItemInteraction next = (focusedSidebarItem_ == hoveredSidebarItem_) ? SidebarItemInteraction::Hovered
+                                                                                            : SidebarItemInteraction::Normal;
+            focusedSidebarItem_->SetInteraction(next);
+            ActivateSidebarItem(focusedSidebarItem_);
+            changed = true;
+        }
+    }
+    if (!keyboardPressed_) {
+        return changed;
     }
     keyboardPressed_ = false;
     if (!focusedButton_) {
-        return false;
+        return changed;
     }
+    const bool toggle = IsSidebarToggle(focusedButton_);
     const ButtonInteraction next =
         (focusedButton_ == hoveredButton_) ? ButtonInteraction::Hovered : ButtonInteraction::Normal;
     if (focusedButton_->GetInteraction() != next) {
         focusedButton_->SetInteraction(next);
         DirtyButton(focusedButton_);
-        return true;
+        changed = true;
     }
-    return false;
+    if (toggle) {
+        ToggleSidebar();
+        changed = true;
+    }
+    return changed;
 }
 
 bool RoboScene::SetFocusedInput(Input* input) {
@@ -3201,6 +3793,17 @@ bool RoboScene::PointerMove(float x, float y) {
         return true;
     }
 
+    if (pressedSidebarItem_) {
+        const bool inside = FindSidebarItemAt(x, y) == pressedSidebarItem_;
+        const SidebarItemInteraction next = inside ? SidebarItemInteraction::Pressed : SidebarItemInteraction::Normal;
+        if (pressedSidebarItem_->GetInteraction() != next) {
+            pressedSidebarItem_->SetInteraction(next);
+            MarkFullDirty();
+            return true;
+        }
+        return false;
+    }
+
     if (pressedButton_) {
         const bool inside = FindButtonAt(x, y) == pressedButton_;
         const ButtonInteraction next = inside ? ButtonInteraction::Pressed : ButtonInteraction::Normal;
@@ -3213,13 +3816,14 @@ bool RoboScene::PointerMove(float x, float y) {
     }
 
     Scrollbar* scrollbar = FindScrollbarAt(x, y);
-    Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
-    Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
+    SidebarItem* pane = scrollbar ? nullptr : FindSidebarItemAt(x, y);
+    Button* button = (scrollbar || pane) ? nullptr : FindButtonAt(x, y);
+    Input* input = (scrollbar || pane || button) ? nullptr : FindInputAt(x, y);
 
     // Hovering anywhere over a scroll region counts as hovering the region's
     // bar, so auto-hide reveals it and the wheel knows which region to scroll.
     // An interactive child under the pointer keeps the hover it would get.
-    if (!scrollbar && !button && !input) {
+    if (!scrollbar && !pane && !button && !input) {
         if (Container* container = FindContainerAt(x, y)) {
             if (container->GetStyle().showScrollbar && container->GetScrollbar().IsVisible()) {
                 scrollbar = &container->GetScrollbar();
@@ -3228,6 +3832,7 @@ bool RoboScene::PointerMove(float x, float y) {
     }
 
     bool changed = SetHoveredScrollbar(scrollbar);
+    changed = SetHoveredSidebarItem(pane) || changed;
     changed = SetHoveredButton(button) || changed;
     changed = SetHoveredInput(input) || changed;
     VisitSceneMotion(items_, [&](MotionShape& shape) {
@@ -3290,6 +3895,19 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         DirtySelectionVisual();
         return true;
     }
+    if (SidebarItem* pane = FindSidebarItemAt(x, y)) {
+        pressedSidebar_ = SidebarOwning(pane);
+        pressedSidebarIndex_ = pressedSidebar_ ? pressedSidebar_->IndexOf(pane) : -1;
+        SetPressedButton(nullptr);
+        SetFocusedButton(nullptr);
+        SetFocusedInput(nullptr);
+        SetPressedSidebarItem(pane);
+        SetFocusedSidebarItem(pane, false);
+        SetHoveredSidebarItem(pane);
+        return true;
+    }
+    SetPressedSidebarItem(nullptr);
+    SetFocusedSidebarItem(nullptr);
     if (MotionShape* themeMotion = FindThemeMotionScene(items_, x, y)) {
         SetTheme(theme_ == Theme::Dark ? Theme::Light : Theme::Dark);
         MarkFullDirty();
@@ -3449,12 +4067,28 @@ bool RoboScene::PointerUp(float x, float y) {
     releaseArrows(pageVertical_);
     releaseArrows(pageHorizontal_);
 
+    if (pressedSidebarItem_ && FindSidebarItemAt(x, y) == pressedSidebarItem_) {
+        ActivateSidebarItem(pressedSidebarItem_);
+        changed = true;
+    }
+    changed = SetPressedSidebarItem(nullptr) || changed;
+    pressedSidebar_ = nullptr;
+    pressedSidebarIndex_ = -1;
+
+    Button* released = pressedButton_;
+    const bool activate = released && FindButtonAt(x, y) == released && released->CanActivate();
     changed = SetPressedButton(nullptr) || changed;
+    if (activate && IsSidebarToggle(released)) {
+        ToggleSidebar();
+        changed = true;
+    }
     Scrollbar* scrollbar = FindScrollbarAt(x, y);
-    Button* button = scrollbar ? nullptr : FindButtonAt(x, y);
-    Input* input = (scrollbar || button) ? nullptr : FindInputAt(x, y);
+    SidebarItem* pane = scrollbar ? nullptr : FindSidebarItemAt(x, y);
+    Button* button = (scrollbar || pane) ? nullptr : FindButtonAt(x, y);
+    Input* input = (scrollbar || pane || button) ? nullptr : FindInputAt(x, y);
 
     changed = SetHoveredScrollbar(scrollbar) || changed;
+    changed = SetHoveredSidebarItem(pane) || changed;
     changed = SetHoveredButton(button) || changed;
     changed = SetHoveredInput(input) || changed;
     if (changed && !needsRender_) {
@@ -3467,6 +4101,12 @@ bool RoboScene::PointerLeave() {
     bool changed = false;
     if (pressedButton_) {
         changed = SetPressedButton(nullptr) || changed;
+    }
+    if (pressedSidebarItem_) {
+        changed = SetPressedSidebarItem(nullptr) || changed;
+    }
+    if (hoveredSidebarItem_) {
+        changed = SetHoveredSidebarItem(nullptr) || changed;
     }
     if (hoveredButton_) {
         changed = SetHoveredButton(nullptr) || changed;
@@ -3582,6 +4222,23 @@ bool RoboScene::Tick(double deltaMs) {
         if (themeMixing_ || std::fabs(themeMix_ - mixBefore) > 0.0001f) {
             motionChanged = true;
         }
+        if (sidebarAnimating_) {
+            sidebarElapsed_ += static_cast<float>(deltaMs);
+            const float duration = 320.0f;
+            const float t = std::min(1.0f, sidebarElapsed_ / duration);
+            MotionEasing easing;
+            easing.linear = false;
+            easing.x1 = 0.28f;
+            easing.y1 = 0.11f;
+            easing.x2 = 0.32f;
+            easing.y2 = 1.0f;
+            sidebarAmount_ = sidebarFrom_ + (sidebarTo_ - sidebarFrom_) * Ease(t, easing);
+            if (t >= 1.0f) {
+                sidebarAmount_ = sidebarTo_;
+                sidebarAnimating_ = false;
+            }
+            motionChanged = true;
+        }
         VisitSceneMotion(items_, [&](MotionShape& shape) {
             if (!shape.NeedsMotion()) {
                 return;
@@ -3631,7 +4288,7 @@ bool RoboScene::NeedsTick() {
     }
     {
         const FoundationScope foundationScope(ActiveFoundation(), theme_, themeMix_);
-        if (themeMixing_ || !themeMixPrimed_) {
+        if (themeMixing_ || !themeMixPrimed_ || sidebarAnimating_) {
             needsTick = true;
         }
         VisitSceneMotion(items_, [&](MotionShape& shape) {

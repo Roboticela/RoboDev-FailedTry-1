@@ -298,7 +298,13 @@ function WireInteraction() {
     if (!roboModule) {
       return;
     }
-    if (event.key === "Tab" || event.key === "Enter" || event.key === " ") {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "b") {
+      event.preventDefault();
+      roboModule.ShowOrHideSidebar();
+      StartAnimationLoop();
+      return;
+    }
+    if (event.key === "Tab" || event.key === "Enter" || event.key === " " || event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "Home" || event.key === "End") {
       if (roboModule.KeyDown(event.key, event.shiftKey)) {
         event.preventDefault();
         StartAnimationLoop();

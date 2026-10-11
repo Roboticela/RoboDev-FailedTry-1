@@ -218,7 +218,7 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
                 break;
             }
             case PositionItemKind::Sidebar: {
-                SidebarMeasureResult res = SidebarPainter::Measure(0.0f, scale);
+                SidebarMeasureResult res = SidebarPainter::Measure(item.sidebar, 0.0f, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -231,6 +231,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
             }
             case PositionItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::SidebarItem: {
+                SidebarItemMeasureResult res = SidebarPainter::MeasureItem(fonts, item.sidebarItem, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -471,7 +477,7 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 break;
             }
             case PositionItemKind::Sidebar: {
-                SidebarMeasureResult res = SidebarPainter::Measure(0.0f, scale);
+                SidebarMeasureResult res = SidebarPainter::Measure(item.sidebar, 0.0f, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -484,6 +490,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             }
             case PositionItemKind::ThemeIconToggle: {
                 ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::SidebarItem: {
+                SidebarItemMeasureResult res = SidebarPainter::MeasureItem(fonts, item.sidebarItem, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -781,7 +793,10 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 TitleBarPainter::Paint(buffer, fonts, item.titleBar, lc.x, lc.y, lc.width, scale);
                 break;
             case PositionItemKind::Sidebar:
-                SidebarPainter::Paint(buffer, lc.x, lc.y, lc.height, scale);
+                SidebarPainter::Paint(buffer, fonts, item.sidebar, lc.x, lc.y, lc.height, scale, 1.0f);
+                break;
+            case PositionItemKind::SidebarItem:
+                SidebarPainter::PaintItem(buffer, fonts, item.sidebarItem, lc.x, lc.y, lc.width, lc.height, scale, false);
                 break;
             case PositionItemKind::ThemeToggle:
                 ThemeTogglePainter::Paint(buffer, fonts, item.themeToggle, lc.x, lc.y, lc.width, scale);

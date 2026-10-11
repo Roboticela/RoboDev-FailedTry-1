@@ -201,7 +201,7 @@ void MeasureChild(const FontEngine& fonts,
             break;
         }
         case PositionItemKind::Sidebar: {
-            const SidebarMeasureResult res = SidebarPainter::Measure(0.0f, scale);
+            const SidebarMeasureResult res = SidebarPainter::Measure(item.sidebar, 0.0f, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;
@@ -214,6 +214,12 @@ void MeasureChild(const FontEngine& fonts,
         }
         case PositionItemKind::ThemeIconToggle: {
             const ThemeIconToggleMeasureResult res = ThemeIconTogglePainter::Measure(item.themeIconToggle, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::SidebarItem: {
+            const SidebarItemMeasureResult res = SidebarPainter::MeasureItem(fonts, item.sidebarItem, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;

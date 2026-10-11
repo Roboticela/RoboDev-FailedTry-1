@@ -140,6 +140,15 @@ bool PointerUp(float x, float y) {
     return changed;
 }
 
+bool ShowOrHideSidebar() {
+    if (!EnsureApp()) {
+        return false;
+    }
+    const bool changed = gScene.ShowOrHideSidebar();
+    SchedulePresent();
+    return changed;
+}
+
 bool KeyDown(const std::string& key, bool shift) {
     if (!EnsureApp()) {
         return false;
@@ -397,6 +406,7 @@ EMSCRIPTEN_BINDINGS(RoboModule) {
     emscripten::function("MoveSelection", &MoveSelection);
     emscripten::function("PointerUp", &PointerUp);
     emscripten::function("KeyDown", &KeyDown);
+    emscripten::function("ShowOrHideSidebar", &ShowOrHideSidebar);
     emscripten::function("KeyUp", &KeyUp);
     emscripten::function("PointerLeave", &PointerLeave);
     emscripten::function("HitTest", &HitTest);

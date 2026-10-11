@@ -25,6 +25,20 @@ int main(int argc, char** argv) {
         if (slash != std::string::npos) {
             assetDirectory = inputPath.substr(0, slash) + "/Assets";
         }
+        auto packExists = [](const std::string& directory) {
+            std::ifstream pack(directory + "/RoboIcons.pack", std::ios::binary);
+            return static_cast<bool>(pack);
+        };
+        if (!packExists(assetDirectory) && slash != std::string::npos) {
+            const std::string parent = inputPath.substr(0, slash);
+            const std::size_t parentSlash = parent.find_last_of("/\\");
+            if (parentSlash != std::string::npos) {
+                const std::string fallback = parent.substr(0, parentSlash) + "/Assets";
+                if (packExists(fallback)) {
+                    assetDirectory = fallback;
+                }
+            }
+        }
         Robo::XmlToCpp compiler;
         const std::string cpp = compiler.Convert(xml, assetDirectory);
         std::ofstream output(argv[2], std::ios::binary);

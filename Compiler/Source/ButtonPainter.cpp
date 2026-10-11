@@ -1,5 +1,6 @@
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/Foundation.hpp"
+#include "Robo/Svg.hpp"
 #include "Robo/SvgPainter.hpp"
 #include "Robo/TextSelection.hpp"
 
@@ -10,6 +11,40 @@
 namespace Robo {
 
 namespace {
+
+void StrokeRoundedRect(FrameBuffer& buffer, float x, float y, float width, float height, float radius, const Color& color, float thickness, float opacity) {
+    Svg svg;
+    SvgStyle style;
+    style.viewWidth = width;
+    style.viewHeight = height;
+    style.width = width;
+    style.height = height;
+    style.color = color;
+    style.opacity = opacity;
+    svg.SetStyle(style);
+    const float inset = thickness * 0.5f;
+    const float right = width - inset;
+    const float bottom = height - inset;
+    const float rad = std::max(0.0f, radius - inset);
+    const float k = rad * 0.55228475f;
+    SvgShape shape;
+    shape.hasFill = false;
+    shape.hasStroke = true;
+    shape.currentStroke = true;
+    shape.strokeWidth = thickness;
+    shape.commands.push_back(SvgCommand::Move(inset + rad, inset));
+    shape.commands.push_back(SvgCommand::Line(right - rad, inset));
+    shape.commands.push_back(SvgCommand::Cubic(right - rad + k, inset, right, inset + rad - k, right, inset + rad));
+    shape.commands.push_back(SvgCommand::Line(right, bottom - rad));
+    shape.commands.push_back(SvgCommand::Cubic(right, bottom - rad + k, right - rad + k, bottom, right - rad, bottom));
+    shape.commands.push_back(SvgCommand::Line(inset + rad, bottom));
+    shape.commands.push_back(SvgCommand::Cubic(inset + rad - k, bottom, inset, bottom - rad + k, inset, bottom - rad));
+    shape.commands.push_back(SvgCommand::Line(inset, inset + rad));
+    shape.commands.push_back(SvgCommand::Cubic(inset, inset + rad - k, inset + rad - k, inset, inset + rad, inset));
+    shape.commands.push_back(SvgCommand::Close());
+    svg.AddShape(shape);
+    SvgPainter::Paint(buffer, svg, x, y, width, 1.0f);
+}
 
 std::string CollapseToSingleLine(const std::string& input) {
     std::string output;
@@ -107,7 +142,7 @@ ButtonMeasureResult ButtonPainter::Measure(const FontEngine& fonts,
     const float fontSize = static_cast<float>(style.fontSize) * scale;
     const float letterSpacing = static_cast<float>(style.letterSpacing) * scale;
 
-    const bool showLabel = !button.IsIconOnly() || !button.HasIcon();
+    const bool showLabel = !button.IsIconOnly();
     const std::string visibleLabel = showLabel ? label : std::string();
     const float textWidth = visibleLabel.empty() ? 0.0f : fonts.MeasureWidth(visibleLabel, fontSize, faceId, letterSpacing);
     const float ascent = fonts.GetAscent(fontSize, faceId);
@@ -148,7 +183,7 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     const Color backgroundColor = button.ResolveBackgroundColor();
     const Color textColor = button.ResolveTextColor();
 
-    const bool showLabel = !button.IsIconOnly() || !button.HasIcon();
+    const bool showLabel = !button.IsIconOnly();
     const std::string visibleLabel = showLabel ? label : std::string();
     const float textWidth = visibleLabel.empty() ? 0.0f : fonts.MeasureWidth(visibleLabel, fontSize, faceId, letterSpacing);
     const float ascent = fonts.GetAscent(fontSize, faceId);
@@ -193,6 +228,11 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     if (backgroundColor.alpha > 0) {
         FillRoundedRect(buffer, buttonX, buttonY, buttonWidth, buttonHeight, radius, backgroundColor, opacity);
     }
+    if (style.variant == ButtonVariant::Outline) {
+        const Color border = ResolveColor(Color::FromHex("#D2D2D7"), "color.border.default");
+        const float thickness = std::max(1.0f, std::round(scale));
+        StrokeRoundedRect(buffer, buttonX, buttonY, buttonWidth, buttonHeight, radius, border, thickness, opacity);
+    }
 
     float contentX = buttonX + (buttonWidth - contentWidth) * 0.5f;
     if (!button.IsIconOnly() && style.align == TextAlign::Left && buttonWidth > contentWidth + paddingX * 2.0f) {
@@ -203,12 +243,16 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
 
     if (button.HasIcon()) {
         Svg& icon = button.GetIcon();
-        icon.GetStyle().width = iconSize;
-        icon.GetStyle().height = iconSize;
+        icon.GetStyle().width = 20.0f;
+        icon.GetStyle().height = 20.0f;
+        icon.GetStyle().widthSpec.clear();
+        icon.GetStyle().heightSpec.clear();
         icon.GetStyle().color = textColor;
         icon.GetStyle().opacity = opacity;
         const float iconY = buttonY + (buttonHeight - iconSize) * 0.5f;
+        buffer.PushClipRect(buttonX, buttonY, buttonWidth, buttonHeight);
         SvgPainter::Paint(buffer, icon, contentX, iconY, iconSize, scale);
+        buffer.PopClip();
         contentX += iconSize + iconGap;
     }
 

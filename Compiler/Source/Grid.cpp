@@ -121,6 +121,14 @@ void Grid::AddSidebar(Sidebar pane, const GridItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Grid::AddSidebarItem(SidebarItem item, const GridItemProps& props) {
+    GridItem entry;
+    entry.kind = GridItemKind::SidebarItem;
+    entry.props = props;
+    entry.sidebarItem = std::move(item);
+    items_.push_back(std::move(entry));
+}
+
 void Grid::AddThemeToggle(ThemeToggle toggle, const GridItemProps& props) {
     GridItem item;
     item.kind = GridItemKind::ThemeToggle;

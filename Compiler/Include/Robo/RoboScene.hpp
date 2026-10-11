@@ -41,6 +41,7 @@ enum class SceneItemKind {
     BrandLogo,
     TitleBar,
     Sidebar,
+    SidebarItem,
     Separator,
     ThemeToggle,
     ThemeIconToggle,
@@ -69,6 +70,7 @@ struct SceneItem {
     BrandLogo brandLogo;
     Robo::TitleBar titleBar;
     Robo::Sidebar sidebar;
+    Robo::SidebarItem sidebarItem;
     Robo::Separator separator;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
@@ -90,6 +92,7 @@ public:
     void AddBrandLogo(BrandLogo logo);
     void AddTitleBar(Robo::TitleBar bar);
     void AddSidebar(Robo::Sidebar pane);
+    void AddSidebarItem(Robo::SidebarItem item);
     void AddSeparator(Robo::Separator separator);
     void AddThemeToggle(ThemeToggle toggle);
     void AddThemeIconToggle(ThemeIconToggle toggle);
@@ -110,6 +113,7 @@ public:
     bool PointerLeave();
     bool KeyDown(const std::string& key, bool shift);
     bool KeyUp(const std::string& key);
+    bool ShowOrHideSidebar();
 
     // Wheel / touchpad scrolling at a position, in device pixels.
     bool Wheel(float x, float y, float deltaX, float deltaY);
@@ -172,6 +176,14 @@ private:
     bool SetFocusedScrollbar(Scrollbar* scrollbar);
     bool SetPressedButton(Button* button);
     bool SetFocusedButton(Button* button, bool showRing = false);
+    SidebarItem* FindSidebarItemAt(float x, float y);
+    bool SetHoveredSidebarItem(SidebarItem* item);
+    bool SetPressedSidebarItem(SidebarItem* item);
+    bool SetFocusedSidebarItem(SidebarItem* item, bool showRing = false);
+    void ActivateSidebarItem(SidebarItem* item);
+    Sidebar* SidebarOwning(SidebarItem* item);
+    bool IsSidebarToggle(const Button* button) const;
+    void ToggleSidebar();
     void CollectButtons(std::vector<Button*>& out);
     bool SetFocusedInput(Input* input);
     bool RerenderIfPossible();
@@ -241,6 +253,18 @@ private:
     std::string lightFoundation_;
     std::string darkFoundation_;
     Theme theme_ = Theme::Light;
+    bool sidebarVisible_ = true;
+    Sidebar* pressedSidebar_ = nullptr;
+    int pressedSidebarIndex_ = -1;
+    SidebarItem* hoveredSidebarItem_ = nullptr;
+    SidebarItem* pressedSidebarItem_ = nullptr;
+    SidebarItem* focusedSidebarItem_ = nullptr;
+    bool sidebarKeyboardPressed_ = false;
+    bool sidebarAnimating_ = false;
+    float sidebarAmount_ = 1.0f;
+    float sidebarFrom_ = 1.0f;
+    float sidebarTo_ = 1.0f;
+    float sidebarElapsed_ = 0.0f;
     bool themeMixPrimed_ = false;
     bool themeMixing_ = false;
     float themeMix_ = 0.0f;

@@ -12,6 +12,14 @@
 
 namespace Robo {
 
+namespace {
+
+bool IsPaneItem(const std::string& name) {
+    return name == "SidebarItem" || name == "PaneItem" || name == "PaneItems";
+}
+
+}  // namespace
+
 std::string XmlToCpp::Indent(int level) const {
     return std::string(static_cast<std::size_t>(level) * 4, ' ');
 }
@@ -759,6 +767,14 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
         return code.str();
     }
 
+    if (IsPaneItem(node.name)) {
+        code << Indent(indent) << "{\n";
+        EmitSidebarItem(code, node, indent + 1, "sidebarItem");
+        code << Indent(indent + 1) << "scene.AddSidebarItem(std::move(sidebarItem));\n";
+        code << Indent(indent) << "}\n";
+        return code.str();
+    }
+
     if (node.name == "Separator" || node.name == "Divider") {
         code << Indent(indent) << "{\n";
         EmitSeparator(code, node, indent + 1, "separator");
@@ -1358,6 +1374,9 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "Sidebar" || child.name == "Pane") {
         EmitSidebar(code, child, indent + 1, "sidebar");
         code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
+    } else if (IsPaneItem(child.name)) {
+        EmitSidebarItem(code, child, indent + 1, "sidebarItem");
+        code << Indent(indent + 1) << parentVar << ".AddSidebarItem(std::move(sidebarItem), props);\n";
     } else if (child.name == "Separator" || child.name == "Divider") {
         EmitSeparator(code, child, indent + 1, "separator");
         code << Indent(indent + 1) << parentVar << ".AddSeparator(std::move(separator), props);\n";
@@ -1696,6 +1715,9 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
     } else if (child.name == "Sidebar" || child.name == "Pane") {
         EmitSidebar(code, child, indent + 1, "sidebar");
         code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
+    } else if (IsPaneItem(child.name)) {
+        EmitSidebarItem(code, child, indent + 1, "sidebarItem");
+        code << Indent(indent + 1) << parentVar << ".AddSidebarItem(std::move(sidebarItem), props);\n";
     } else if (child.name == "Separator" || child.name == "Divider") {
         EmitSeparator(code, child, indent + 1, "separator");
         code << Indent(indent + 1) << parentVar << ".AddSeparator(std::move(separator), props);\n";
@@ -1959,6 +1981,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     } else if (child.name == "Sidebar" || child.name == "Pane") {
         EmitSidebar(code, child, indent + 1, "sidebar");
         code << Indent(indent + 1) << parentVar << ".AddSidebar(std::move(sidebar), props);\n";
+    } else if (IsPaneItem(child.name)) {
+        EmitSidebarItem(code, child, indent + 1, "sidebarItem");
+        code << Indent(indent + 1) << parentVar << ".AddSidebarItem(std::move(sidebarItem), props);\n";
     } else if (child.name == "Separator" || child.name == "Divider") {
         EmitSeparator(code, child, indent + 1, "separator");
         code << Indent(indent + 1) << parentVar << ".AddSeparator(std::move(separator), props);\n";
@@ -1981,12 +2006,83 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     code << Indent(indent) << "}\n";
 }
 
+void XmlToCpp::EmitSidebarItem(std::ostringstream& code,
+                                 const XmlNode& node,
+                                 int indent,
+                                 const std::string& variable) const {
+    code << Indent(indent) << "Robo::SidebarItem " << variable << ";\n";
+    std::string label;
+    std::string iconName;
+    if (node.attributes.count("label") != 0) {
+        label = node.attributes.at("label");
+    }
+    if (node.attributes.count("icon") != 0) {
+        iconName = node.attributes.at("icon");
+    }
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            label += child.text;
+        }
+    }
+    code << Indent(indent) << variable << ".SetLabel(\"" << EscapeCpp(label) << "\");\n";
+    const auto section = node.attributes.find("section");
+    const auto itemVariant = node.attributes.find("variant");
+    const bool isSection = (section != node.attributes.end() &&
+                            (section->second == "true" || section->second == "1" || section->second == "section")) ||
+                           (itemVariant != node.attributes.end() && itemVariant->second == "section");
+    if (isSection) {
+        code << Indent(indent) << variable << ".SetSection(true);\n";
+    }
+    const auto disabled = node.attributes.find("disabled");
+    if (disabled != node.attributes.end() && (disabled->second == "true" || disabled->second == "1")) {
+        code << Indent(indent) << variable << ".SetDisabled(true);\n";
+    }
+    const auto loading = node.attributes.find("loading");
+    if (loading != node.attributes.end() && (loading->second == "true" || loading->second == "1")) {
+        code << Indent(indent) << variable << ".SetLoading(true);\n";
+    }
+    const auto icon = icons_.find(iconName);
+    if (!iconName.empty() && icon != icons_.end()) {
+        code << Indent(indent) << "{\n";
+        code << Indent(indent + 1) << "Robo::Icon icon;\n";
+        code << Indent(indent + 1) << "icon.SetViewBox(" << FloatLiteral(std::to_string(icon->second.viewX)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewY)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewWidth)) << ", "
+             << FloatLiteral(std::to_string(icon->second.viewHeight)) << ");\n";
+        code << Indent(indent + 1) << "icon.SetWidth(20.0f);\n";
+        code << Indent(indent + 1) << "icon.SetHeight(20.0f);\n";
+        code << EmitCompiledShapes(icon->second.shapes, indent + 1, "icon", true);
+        code << Indent(indent + 1) << variable << ".SetIcon(icon.Bake());\n";
+        code << Indent(indent) << "}\n";
+    }
+    int childIndex = 0;
+    for (const XmlNode& child : node.children) {
+        if (!IsPaneItem(child.name)) {
+            continue;
+        }
+        const std::string childName = variable + "Child" + std::to_string(childIndex++);
+        EmitSidebarItem(code, child, indent, childName);
+        code << Indent(indent) << variable << ".AddChild(std::move(" << childName << "));\n";
+    }
+}
+
 void XmlToCpp::EmitSidebar(std::ostringstream& code,
                              const XmlNode& node,
                              int indent,
                              const std::string& variable) const {
-    (void)node;
     code << Indent(indent) << "Robo::Sidebar " << variable << ";\n";
+    if (node.attributes.count("variant") != 0) {
+        code << Indent(indent) << variable << ".SetVariant(Robo::ParseSidebarVariant(\"" << EscapeCpp(node.attributes.at("variant")) << "\"));\n";
+    }
+    int itemIndex = 0;
+    for (const XmlNode& child : node.children) {
+        if (!IsPaneItem(child.name)) {
+            continue;
+        }
+        const std::string itemName = variable + "Item" + std::to_string(itemIndex++);
+        EmitSidebarItem(code, child, indent, itemName);
+        code << Indent(indent) << variable << ".AddItem(std::move(" << itemName << "));\n";
+    }
 }
 
 void XmlToCpp::EmitSeparator(std::ostringstream& code,
@@ -2044,6 +2140,26 @@ void XmlToCpp::EmitTitleBar(std::ostringstream& code,
         }
     }
     code << Indent(indent) << variable << ".SetTitle(\"" << EscapeCpp(title) << "\");\n";
+
+    const auto shown = icons_.find("Sidebar");
+    const auto hidden = icons_.find("SidebarHidden");
+    if (shown != icons_.end() && hidden != icons_.end()) {
+        auto emitIcon = [&](const CompiledSvg& graphic, const std::string& name) {
+            code << Indent(indent + 1) << "Robo::Icon " << name << ";\n";
+            code << Indent(indent + 1) << name << ".SetViewBox(" << FloatLiteral(std::to_string(graphic.viewX)) << ", "
+                 << FloatLiteral(std::to_string(graphic.viewY)) << ", "
+                 << FloatLiteral(std::to_string(graphic.viewWidth)) << ", "
+                 << FloatLiteral(std::to_string(graphic.viewHeight)) << ");\n";
+            code << Indent(indent + 1) << name << ".SetWidth(20.0f);\n";
+            code << Indent(indent + 1) << name << ".SetHeight(20.0f);\n";
+            code << EmitCompiledShapes(graphic.shapes, indent + 1, name, true);
+        };
+        code << Indent(indent) << "{\n";
+        emitIcon(shown->second, "shown");
+        emitIcon(hidden->second, "hidden");
+        code << Indent(indent + 1) << variable << ".SetSidebarIcons(shown.Bake(), hidden.Bake());\n";
+        code << Indent(indent) << "}\n";
+    }
 }
 
 void XmlToCpp::EmitBrandLogo(std::ostringstream& code,

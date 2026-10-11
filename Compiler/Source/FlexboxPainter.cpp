@@ -283,7 +283,13 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             }
             case FlexItemKind::Sidebar: {
                 const float offered = forcedHeight > 0.0f ? std::max(0.0f, forcedHeight - padT - padB) : 0.0f;
-                SidebarMeasureResult measured = SidebarPainter::Measure(offered, scale);
+                SidebarMeasureResult measured = SidebarPainter::Measure(item.sidebar, offered, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::SidebarItem: {
+                SidebarItemMeasureResult measured = SidebarPainter::MeasureItem(fonts, item.sidebarItem, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
                 break;
@@ -771,7 +777,11 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                     break;
                 }
                 case FlexItemKind::Sidebar: {
-                    SidebarPainter::Paint(buffer, childX, childY, childH, scale);
+                    SidebarPainter::Paint(buffer, fonts, item.sidebar, childX, childY, childH, scale, 1.0f);
+                    break;
+                }
+                case FlexItemKind::SidebarItem: {
+                    SidebarPainter::PaintItem(buffer, fonts, item.sidebarItem, childX, childY, childW, childH, scale, false);
                     break;
                 }
                 case FlexItemKind::ThemeToggle: {

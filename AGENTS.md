@@ -30,8 +30,9 @@ Slider
 List
 Table
 ✅ - BrandLogo
-✅ - TitleBar (also Navbar; Apple bar, 57px, background `color.bg.secondary`, BrandLogo on the left, split ThemeIconToggle on the right)
-✅ - Sidebar (also Pane; 282px wide, background `color.bg.secondary`)
+✅ - TitleBar (also Navbar; 57px, background `color.bg.secondary`, BrandLogo lockup on the left, outline sidebar IconButton beside it, split ThemeIconToggle on the right)
+✅ - Sidebar (also Pane; 282px, `color.bg.secondary`). Two names: **Options** (`variant="options"`) is icon+text and collapses to an icon rail, with no inner panel. **Activity** (`variant="activity"`) keeps the icon rail and opens a wider panel for the selected SidebarItem. Ctrl+B or Command+B shows or hides it.
+✅ - SidebarItem (also PaneItem, PaneItems; icon and label; an Options button, or an Activity that reveals its child items in the wide panel; `section="true"` is a group label; hover, press, keyboard focus ring, disabled, and loading like a button; Tab moves to it, arrows move within its sidebar, Enter or Space activates; can sit in a grid, flex, or position)
 ✅ - Separator (also Divider; 1px foundation rule, optional label, solid / subtle / dashed / dotted / fade)
 ThemeToggle
 ThemeIconToggle
