@@ -19,11 +19,21 @@ void SidebarPainter::Paint(FrameBuffer& buffer, float originX, float originY, fl
     const float width = SIDEBAR_WIDTH * scale;
     const int paintHeight = std::max(1, static_cast<int>(std::ceil(height)));
     const Color background = ResolveColor(Color::FromHex("#F5F5F7"), "color.bg.secondary");
-    buffer.FillRect(static_cast<int>(std::floor(originX)),
+    const Color hairline = ResolveColor(Color::FromHex("#E5E5E7"), "color.border.subtle");
+    const int left = static_cast<int>(std::floor(originX));
+    const int paintWidth = std::max(1, static_cast<int>(std::ceil(width)));
+    buffer.FillRect(left,
                     static_cast<int>(std::floor(originY)),
-                    std::max(1, static_cast<int>(std::ceil(width))),
+                    paintWidth,
                     paintHeight,
                     background,
+                    1.0f);
+    const int line = std::max(1, static_cast<int>(std::round(scale)));
+    buffer.FillRect(left + paintWidth - line,
+                    static_cast<int>(std::floor(originY)),
+                    line,
+                    paintHeight,
+                    hairline,
                     1.0f);
 }
 
