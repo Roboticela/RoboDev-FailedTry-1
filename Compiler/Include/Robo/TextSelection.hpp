@@ -44,6 +44,11 @@ public:
     static std::string SelectedText();
     static bool HasSelection();
     static bool HasCaret();
+    static bool Tick(double deltaMs);
+    static bool CaretIsVisible();
+    static bool NeedsBlink();
+    static float CaretOpacity();
+    static void RestartCaret();
 
     static bool HandleGeometry(float& startX, float& startY, float& endX, float& endY, float& lineHeight);
 };

@@ -2217,6 +2217,9 @@ bool RoboScene::Tick(double deltaMs) {
         }
     };
     VisitSceneScrollbars(items_, visit);
+    if (TextSelection::Tick(deltaMs)) {
+        changed = true;
+    }
     if (TextSelection::IsDragging()) {
         const float margin = 24.0f;
         float dx = 0.0f;
@@ -2285,6 +2288,9 @@ bool RoboScene::NeedsTick() {
             selectX_ > static_cast<float>(surfaceWidth_) - margin) {
             needsTick = true;
         }
+    }
+    if (TextSelection::NeedsBlink()) {
+        needsTick = true;
     }
     return needsTick;
 }

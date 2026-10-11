@@ -43,6 +43,7 @@ int focus = 0;
 bool dragging = false;
 bool handleDragging = false;
 bool showHandles = false;
+double caretMs = 0.0;
 Unit dragUnit = Unit::Character;
 int dragOrigin = 0;
 int dragStart = 0;
@@ -580,6 +581,7 @@ void TextSelection::BeginClick(float x, float y, int clicks) {
     dragEnd = focus;
     dragging = true;
     RememberAffinity(focus);
+    TextSelection::RestartCaret();
 }
 
 void TextSelection::LongPress(float x, float y) {
@@ -604,6 +606,7 @@ void TextSelection::LongPress(float x, float y) {
     handleDragging = false;
     showHandles = true;
     RememberAffinity(focus);
+    TextSelection::RestartCaret();
 }
 
 bool TextSelection::BeginHandleDrag(float x, float y) {
@@ -746,6 +749,7 @@ bool TextSelection::Move(int command, bool extend) {
     if (command != 2 && command != 3) {
         RememberAffinity(focus);
     }
+    RestartCaret();
     return true;
 }
 
@@ -798,6 +802,55 @@ bool TextSelection::HasSelection() {
 
 bool TextSelection::HasCaret() {
     return selectionRoot != nullptr && RootCount(selectionRoot) > 0 && anchor >= 0;
+}
+
+bool TextSelection::CaretIsVisible() {
+    return selectionRoot != nullptr && anchor == focus && !dragging && RootCount(selectionRoot) > 0;
+}
+
+void TextSelection::RestartCaret() {
+    caretMs = 0.0;
+}
+
+bool TextSelection::Tick(double deltaMs) {
+    if (!CaretIsVisible()) {
+        return false;
+    }
+    const float before = CaretOpacity();
+    caretMs += std::max(0.0, deltaMs);
+    constexpr double kPeriod = 1060.0;
+    if (caretMs >= kPeriod) {
+        caretMs = std::fmod(caretMs, kPeriod);
+    }
+    return std::fabs(CaretOpacity() - before) > 0.02f;
+}
+
+bool TextSelection::NeedsBlink() {
+    return CaretIsVisible();
+}
+
+float TextSelection::CaretOpacity() {
+    if (!CaretIsVisible()) {
+        return 0.0f;
+    }
+    // Solid, then a short fade out, a rest, and a short fade in. Same rhythm as the macOS caret.
+    constexpr double kSolid = 460.0;
+    constexpr double kFade = 90.0;
+    constexpr double kHidden = 420.0;
+    const double t = caretMs;
+    if (t < kSolid) {
+        return 1.0f;
+    }
+    if (t < kSolid + kFade) {
+        const float u = static_cast<float>((t - kSolid) / kFade);
+        return 1.0f - u * u * (3.0f - 2.0f * u);
+    }
+    if (t < kSolid + kFade + kHidden) {
+        return 0.0f;
+    }
+    const float u = static_cast<float>((t - (kSolid + kFade + kHidden)) / kFade);
+    const float s = std::max(0.0f, std::min(1.0f, u));
+    return s * s * (3.0f - 2.0f * s);
 }
 
 bool TextSelection::HandleGeometry(float& startX, float& startY, float& endX, float& endY, float& lineHeight) {

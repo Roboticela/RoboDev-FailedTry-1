@@ -80,6 +80,14 @@ function CursorForHit(kind) {
   return "default";
 }
 
+function CursorAt(point) {
+  if (roboModule.SelectableAt(point.x, point.y)) {
+    return "text";
+  }
+  const kind = roboModule.HitTestKind(point.x, point.y);
+  return kind === "scrollbar" ? "default" : CursorForHit(kind);
+}
+
 function IsTouch(event) {
   return event.pointerType === "touch";
 }
@@ -98,7 +106,26 @@ function WireInteraction() {
   let touchY = 0;
   let longPressTimer = 0;
   let longSelecting = false;
+  let clickSeries = 0;
+  let lastClickTime = 0;
+  let lastClickX = 0;
+  let lastClickY = 0;
   const pointers = new Map();
+
+  function SelectionClicks(event, point) {
+    const now = performance.now();
+    const onText = roboModule.SelectableAt(point.x, point.y);
+    const near = Math.hypot(event.clientX - lastClickX, event.clientY - lastClickY) <= 8;
+    if (onText && near && now - lastClickTime <= 500) {
+      clickSeries += 1;
+    } else {
+      clickSeries = 1;
+    }
+    lastClickTime = now;
+    lastClickX = event.clientX;
+    lastClickY = event.clientY;
+    return clickSeries;
+  }
 
   function ClearLongPress() {
     if (longPressTimer) {
@@ -165,12 +192,7 @@ function WireInteraction() {
       return;
     }
     roboModule.PointerMove(point.x, point.y);
-    const kind = roboModule.HitTestKind(point.x, point.y);
-    if (roboModule.SelectableAt(point.x, point.y)) {
-      canvas.style.cursor = "text";
-    } else {
-      canvas.style.cursor = kind === "scrollbar" ? "default" : CursorForHit(kind);
-    }
+    canvas.style.cursor = CursorAt(point);
   });
 
   canvas.addEventListener("pointerdown", (event) => {
@@ -209,8 +231,8 @@ function WireInteraction() {
     if (canvas.setPointerCapture) {
       canvas.setPointerCapture(event.pointerId);
     }
-    roboModule.PointerDown(point.x, point.y, touch && !touchPage, event.detail || 1);
-    canvas.style.cursor = "default";
+    roboModule.PointerDown(point.x, point.y, touch && !touchPage, SelectionClicks(event, point));
+    canvas.style.cursor = CursorAt(point);
     StartAnimationLoop();
   });
 
@@ -224,8 +246,7 @@ function WireInteraction() {
     touchPage = false;
     const point = CanvasPoint(event);
     roboModule.PointerUp(point.x, point.y);
-    const kind = roboModule.HitTestKind(point.x, point.y);
-    canvas.style.cursor = kind === "scrollbar" ? "default" : CursorForHit(kind);
+    canvas.style.cursor = CursorAt(point);
     StartAnimationLoop();
   });
 
@@ -282,6 +303,7 @@ function WireInteraction() {
       if (move >= 0) {
         event.preventDefault();
         roboModule.MoveSelection(move, extend);
+        StartAnimationLoop();
         return;
       }
     }

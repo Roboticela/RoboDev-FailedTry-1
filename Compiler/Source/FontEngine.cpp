@@ -294,6 +294,15 @@ void FontEngine::DrawString(FrameBuffer& buffer,
     int previousGlyph = -1;
     bool drewGlyph = false;
 
+    struct LaidGlyph {
+        int glyph = 0;
+        float x = 0.0f;
+        float width = 0.0f;
+        int index = -1;
+    };
+    std::vector<LaidGlyph> laid;
+    laid.reserve(utf8.size());
+
     while (cursor < end) {
         const int codepoint = DecodeUtf8(cursor, end);
         if (codepoint < 0) {
@@ -321,37 +330,54 @@ void FontEngine::DrawString(FrameBuffer& buffer,
         int lsb = 0;
         stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &lsb);
         const float glyphWidth = std::max(0.0f, scale * static_cast<float>(advance));
+        LaidGlyph item;
+        item.glyph = glyph;
+        item.x = penX;
+        item.width = glyphWidth;
         if (TextSelection::IsOpen()) {
-            const int index = TextSelection::AddCodepoint(static_cast<char32_t>(codepoint),
-                                                          penX,
-                                                          baselineY - ascent,
-                                                          std::max(1.0f, glyphWidth),
-                                                          glyphHeight);
-            if (TextSelection::Covers(index)) {
-                buffer.FillRect(static_cast<int>(std::floor(penX)),
-                                static_cast<int>(std::floor(baselineY - ascent)),
-                                std::max(1, static_cast<int>(std::ceil(glyphWidth))),
-                                std::max(1, static_cast<int>(std::ceil(glyphHeight))),
-                                Color::FromRgba(0, 122, 255, 255),
-                                0.28f);
-            }
-            if (TextSelection::IsCaretBefore(index) || TextSelection::IsCaretAfter(index)) {
-                const float caretX = TextSelection::IsCaretAfter(index) ? penX + glyphWidth : penX;
-                buffer.FillRect(static_cast<int>(std::floor(caretX)),
-                                static_cast<int>(std::floor(baselineY - ascent)),
-                                std::max(1, static_cast<int>(std::round(std::max(1.0f, scale)))),
-                                std::max(1, static_cast<int>(std::ceil(glyphHeight))),
-                                Color::FromHex("#007AFF"),
-                                1.0f);
-            }
+            item.index = TextSelection::AddCodepoint(static_cast<char32_t>(codepoint),
+                                                     penX,
+                                                     baselineY - ascent,
+                                                     std::max(1.0f, glyphWidth),
+                                                     glyphHeight);
         }
+        laid.push_back(item);
 
-        const float shiftX = penX - std::floor(penX);
-        const float shiftY = baselineY - std::floor(baselineY);
-        const bool onScreen = baselineY > -fontSize * 2.0f && baselineY < static_cast<float>(buffer.GetHeight()) + fontSize * 2.0f;
+        penX += glyphWidth;
+        drewGlyph = true;
+        previousGlyph = glyph;
+    }
+
+    const float bandTop = baselineY - ascent;
+    std::size_t run = 0;
+    while (run < laid.size()) {
+        if (laid[run].index < 0 || !TextSelection::Covers(laid[run].index)) {
+            ++run;
+            continue;
+        }
+        const float left = laid[run].x;
+        float right = laid[run].x + laid[run].width;
+        std::size_t next = run + 1;
+        while (next < laid.size() && laid[next].index >= 0 && TextSelection::Covers(laid[next].index)) {
+            right = laid[next].x + laid[next].width;
+            ++next;
+        }
+        const int x0 = static_cast<int>(std::floor(left));
+        const int x1 = static_cast<int>(std::ceil(right));
+        const int y0 = static_cast<int>(std::floor(bandTop));
+        const int y1 = static_cast<int>(std::ceil(bandTop + glyphHeight));
+        buffer.FillRect(x0, y0, std::max(1, x1 - x0), std::max(1, y1 - y0),
+                        Color::FromRgba(0, 122, 255, 255), 0.28f);
+        run = next;
+    }
+
+    const bool onScreen = baselineY > -fontSize * 2.0f && baselineY < static_cast<float>(buffer.GetHeight()) + fontSize * 2.0f;
+    const float shiftY = baselineY - std::floor(baselineY);
+    for (const LaidGlyph& item : laid) {
         if (onScreen) {
-            const CachedGlyph& cached = CachedGlyphFor(FaceIndex(faceId), glyph, fontSize, shiftX, shiftY);
-            const int destX = static_cast<int>(std::floor(penX)) + cached.xOff;
+            const float shiftX = item.x - std::floor(item.x);
+            const CachedGlyph& cached = CachedGlyphFor(FaceIndex(faceId), item.glyph, fontSize, shiftX, shiftY);
+            const int destX = static_cast<int>(std::floor(item.x)) + cached.xOff;
             const int destY = static_cast<int>(std::floor(baselineY)) + cached.yOff;
             for (int row = 0; row < cached.height; ++row) {
                 const int py = destY + row;
@@ -368,9 +394,19 @@ void FontEngine::DrawString(FrameBuffer& buffer,
             }
         }
 
-        penX += glyphWidth;
-        drewGlyph = true;
-        previousGlyph = glyph;
+        if (item.index >= 0 && (TextSelection::IsCaretBefore(item.index) || TextSelection::IsCaretAfter(item.index))) {
+            const float caretOpacity = TextSelection::CaretOpacity();
+            if (caretOpacity > 0.004f) {
+                const float boundary = TextSelection::IsCaretAfter(item.index) ? item.x + item.width : item.x;
+                const float caretWidth = std::max(2.0f, fontSize * 0.085f);
+                const float inset = std::min(glyphHeight * 0.06f, caretWidth);
+                const float caretX = boundary - caretWidth * 0.5f;
+                const float caretY = baselineY - ascent + inset;
+                const float caretHeight = std::max(caretWidth, glyphHeight - inset * 2.0f);
+                buffer.FillRoundedRect(caretX, caretY, caretWidth, caretHeight, caretWidth * 0.5f,
+                                       Color::FromHex("#007AFF"), caretOpacity);
+            }
+        }
     }
 }
 
