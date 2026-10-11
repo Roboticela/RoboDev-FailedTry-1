@@ -1,4 +1,5 @@
 #include "Robo/SvgPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 
 #include <algorithm>
@@ -31,7 +32,8 @@ float ResolveLength(const std::string& spec, float fallback, float container, fl
 }
 
 void GraphicSize(const Svg& svg, float containerWidth, float scale, float& outWidth, float& outHeight) {
-    const SvgStyle& style = svg.GetStyle();
+    SvgStyle style = svg.GetStyle();
+    Resolve(style);
     const float viewW = style.viewWidth > 0.0f ? style.viewWidth : 24.0f;
     const float viewH = style.viewHeight > 0.0f ? style.viewHeight : 24.0f;
     const float cssWidth = style.width > 0.0f ? style.width : 24.0f;
@@ -304,12 +306,22 @@ void PaintShape(FrameBuffer& buffer, const SvgShape& shape, const SvgStyle& styl
     const float opacity = style.opacity * shape.opacity;
     if (shape.hasFill) {
         FillMask(paths, shape.fillRule, originX, originY, maskW, maskH, sample, mask);
-        const Color fill = shape.currentFill ? style.color : shape.fill;
+        Color fill = shape.fill;
+        if (!shape.fillToken.empty()) {
+            fill = ResolveColor(shape.fill, shape.fillToken);
+        } else if (shape.currentFill) {
+            fill = style.color;
+        }
         BlitMask(buffer, mask, originX, originY, maskW, maskH, sample, fill, opacity);
     }
     if (shape.hasStroke && radius > 0.0f) {
         StrokeMask(paths, radius, originX, originY, maskW, maskH, sample, mask);
-        const Color stroke = shape.currentStroke ? style.color : shape.stroke;
+        Color stroke = shape.stroke;
+        if (!shape.strokeToken.empty()) {
+            stroke = ResolveColor(shape.stroke, shape.strokeToken);
+        } else if (shape.currentStroke) {
+            stroke = style.color;
+        }
         BlitMask(buffer, mask, originX, originY, maskW, maskH, sample, stroke, opacity);
     }
 }
@@ -333,7 +345,8 @@ SvgPaintResult SvgPainter::Paint(FrameBuffer& buffer,
                                  float containerWidth,
                                  float pixelScale) {
     const SelectableScope selection(&svg, svg.GetStyle().selectable);
-    const SvgStyle& style = svg.GetStyle();
+    SvgStyle style = svg.GetStyle();
+    Resolve(style);
     float width = 0.0f;
     float height = 0.0f;
     GraphicSize(svg, containerWidth, pixelScale, width, height);

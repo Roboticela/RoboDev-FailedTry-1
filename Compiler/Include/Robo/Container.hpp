@@ -65,6 +65,7 @@ struct ContainerStyle {
     double viewportExtent = 0.0;
 
     ScrollbarStyle scrollbarStyle;
+    std::map<std::string, std::string> tokens;
 };
 
 // A clipped, scrollable region. The container itself holds no scroll state: the

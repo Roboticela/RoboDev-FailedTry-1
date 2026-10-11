@@ -1,4 +1,5 @@
 #include "Robo/Button.hpp"
+#include "Robo/Foundation.hpp"
 
 #include <algorithm>
 
@@ -57,72 +58,94 @@ const ButtonBounds& Button::GetBounds() const {
 }
 
 void Button::ApplyVariantDefaults() {
+    if (style_.tokens.find("fontSize") == style_.tokens.end()) {
+        style_.tokens["fontSize"] = "type.button.size";
+    }
+    if (style_.tokens.find("fontWeight") == style_.tokens.end()) {
+        style_.tokens["fontWeight"] = "type.button.weight";
+    }
+    if (style_.tokens.find("letterSpacing") == style_.tokens.end()) {
+        style_.tokens["letterSpacing"] = "type.button.tracking";
+    }
+    if (style_.tokens.find("cornerRadius") == style_.tokens.end()) {
+        style_.tokens["cornerRadius"] = "radius.pill";
+    }
+    if (style_.tokens.find("paddingX") == style_.tokens.end()) {
+        style_.tokens["paddingX"] = "space.4";
+    }
+    if (style_.tokens.find("paddingY") == style_.tokens.end()) {
+        style_.tokens["paddingY"] = "space.3";
+    }
+
     switch (style_.variant) {
         case ButtonVariant::Tinted:
             if (!style_.hasCustomBackground) {
-                style_.backgroundColor = Color::FromHex("#E5F1FF");
+                style_.tokens["backgroundColor"] = "color.brand.primary.subtle";
             }
             if (!style_.hasCustomTextColor) {
-                style_.textColor = Color::FromHex("#007AFF");
+                style_.tokens["textColor"] = "color.brand.primary";
             }
             break;
         case ButtonVariant::Gray:
             if (!style_.hasCustomBackground) {
-                style_.backgroundColor = Color::FromHex("#E5E5EA");
+                style_.tokens["backgroundColor"] = "color.bg.tertiary";
             }
             if (!style_.hasCustomTextColor) {
-                style_.textColor = Color::FromHex("#1C1C1E");
+                style_.tokens["textColor"] = "color.text.primary";
             }
             break;
         case ButtonVariant::Plain:
             if (!style_.hasCustomBackground) {
                 style_.backgroundColor = Color::FromRgba(0, 0, 0, 0);
+                style_.tokens["backgroundColor"] = "";
             }
             if (!style_.hasCustomTextColor) {
-                style_.textColor = Color::FromHex("#007AFF");
+                style_.tokens["textColor"] = "color.brand.primary";
             }
             break;
         case ButtonVariant::Filled:
         default:
             if (!style_.hasCustomBackground) {
-                style_.backgroundColor = Color::FromHex("#007AFF");
+                style_.tokens["backgroundColor"] = "color.brand.primary";
             }
             if (!style_.hasCustomTextColor) {
-                style_.textColor = Color::FromHex("#FFFFFF");
+                style_.tokens["textColor"] = "color.text.on-brand";
             }
             break;
     }
 }
 
 Color Button::ResolveBackgroundColor() const {
-    Color background = style_.backgroundColor;
+    ButtonStyle style = style_;
+    Resolve(style);
+    Color background = style.backgroundColor;
+    const Color brand = ResolveColor(Color::FromHex("#0E7AFF"), "color.brand.primary");
+    const Color onBrand = ResolveColor(Color::FromHex("#FFFFFF"), "color.text.on-brand");
+    const Color subtle = ResolveColor(Color::FromHex("#0E7AFF1A"), "color.brand.primary.subtle");
 
-    if (style_.variant == ButtonVariant::Plain) {
-        if (interaction_ == ButtonInteraction::Hovered) {
-            return Color::FromHex("#E5F1FF");
-        }
-        if (interaction_ == ButtonInteraction::Pressed) {
-            return Color::FromHex("#D6E9FF");
+    if (style.variant == ButtonVariant::Plain) {
+        if (interaction_ == ButtonInteraction::Hovered || interaction_ == ButtonInteraction::Pressed) {
+            return subtle;
         }
         return background;
     }
 
     if (interaction_ == ButtonInteraction::Hovered) {
-        if (style_.variant == ButtonVariant::Filled) {
-            return MixToward(background, Color::FromHex("#FFFFFF"), 0.12f);
+        if (style.variant == ButtonVariant::Filled) {
+            return MixToward(background, onBrand, 0.12f);
         }
-        if (style_.variant == ButtonVariant::Tinted) {
-            return MixToward(background, Color::FromHex("#007AFF"), 0.12f);
+        if (style.variant == ButtonVariant::Tinted) {
+            return MixToward(background, brand, 0.12f);
         }
         return MixToward(background, Color::FromHex("#000000"), 0.08f);
     }
 
     if (interaction_ == ButtonInteraction::Pressed) {
-        if (style_.variant == ButtonVariant::Filled) {
+        if (style.variant == ButtonVariant::Filled) {
             return MixToward(background, Color::FromHex("#000000"), 0.18f);
         }
-        if (style_.variant == ButtonVariant::Tinted) {
-            return MixToward(background, Color::FromHex("#007AFF"), 0.22f);
+        if (style.variant == ButtonVariant::Tinted) {
+            return MixToward(background, brand, 0.22f);
         }
         return MixToward(background, Color::FromHex("#000000"), 0.16f);
     }
@@ -131,13 +154,12 @@ Color Button::ResolveBackgroundColor() const {
 }
 
 Color Button::ResolveTextColor() const {
-    if (style_.variant == ButtonVariant::Plain && interaction_ == ButtonInteraction::Pressed) {
-        return MixToward(style_.textColor, Color::FromHex("#003D80"), 0.2f);
+    ButtonStyle style = style_;
+    Resolve(style);
+    if (style.variant == ButtonVariant::Plain && interaction_ == ButtonInteraction::Pressed) {
+        return MixToward(style.textColor, ResolveColor(style.textColor, "color.brand.primary.active"), 0.35f);
     }
-    if (interaction_ == ButtonInteraction::Pressed && style_.variant == ButtonVariant::Filled) {
-        return MixToward(style_.textColor, Color::FromHex("#FFFFFF"), 0.0f);
-    }
-    return style_.textColor;
+    return style.textColor;
 }
 
 float Button::ResolveOpacity() const {

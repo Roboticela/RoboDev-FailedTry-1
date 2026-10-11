@@ -26,6 +26,8 @@ struct CompiledShape {
     bool currentStroke = false;
     std::string fillHex = "#000000";
     std::string strokeHex = "#000000";
+    std::string fillToken;
+    std::string strokeToken;
     float strokeWidth = 1.0f;
     float opacity = 1.0f;
     bool evenOdd = false;

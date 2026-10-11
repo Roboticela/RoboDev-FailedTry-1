@@ -1,4 +1,5 @@
 #include "Robo/InputPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/TextPainter.hpp"
 
@@ -162,7 +163,8 @@ InputMeasureResult InputPainter::Measure(const FontEngine& fonts,
                                         float containerWidth,
                                         float pixelScale) {
     const float scale = std::max(0.5f, pixelScale);
-    const InputStyle& style = input.GetStyle();
+    InputStyle style = input.GetStyle();
+    Resolve(style);
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
     const float fontSize = static_cast<float>(style.fontSize) * scale;
 
@@ -197,7 +199,8 @@ InputPaintResult InputPainter::Paint(FrameBuffer& buffer,
                                      float forcedHeight) {
     const SelectableScope selection(&input, input.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const InputStyle& style = input.GetStyle();
+    InputStyle style = input.GetStyle();
+    Resolve(style);
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
     const float fontSize = static_cast<float>(style.fontSize) * scale;
     const float letterSpacing = static_cast<float>(style.letterSpacing) * scale;

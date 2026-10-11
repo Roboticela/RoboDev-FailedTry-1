@@ -30,6 +30,10 @@ void Icon::SetAlign(TextAlign align) {
     align_ = align;
 }
 
+void Icon::SetToken(const std::string& key, const std::string& token) {
+    tokens_[key] = token;
+}
+
 void Icon::SetViewBox(float x, float y, float width, float height) {
     viewX_ = x;
     viewY_ = y;
@@ -55,6 +59,7 @@ Svg Icon::Bake() const {
     style.color = color_;
     style.opacity = opacity_;
     style.align = align_;
+    style.tokens = tokens_;
     svg.SetStyle(style);
     for (const SvgShape& shape : shapes_) {
         svg.AddShape(shape);

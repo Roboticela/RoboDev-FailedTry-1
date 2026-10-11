@@ -1,4 +1,5 @@
 #include "Robo/ScrollbarPainter.hpp"
+#include "Robo/Foundation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -236,7 +237,8 @@ ScrollbarMeasureResult ScrollbarPainter::Measure(const Scrollbar& scrollbar,
                                                  float containerWidth,
                                                  float pixelScale) {
     const float scale = std::max(0.5f, pixelScale);
-    const ScrollbarStyle& style = scrollbar.GetStyle();
+    ScrollbarStyle style = scrollbar.GetStyle();
+    Resolve(style);
 
     ScrollbarMeasureResult result;
     // A scrollbar that is invisible because nothing overflows must not reserve
@@ -272,7 +274,8 @@ ScrollbarPaintResult ScrollbarPainter::Paint(FrameBuffer& buffer,
                                              float forcedWidth,
                                              float forcedHeight) {
     const float scale = std::max(0.5f, pixelScale);
-    const ScrollbarStyle& style = scrollbar.GetStyle();
+    ScrollbarStyle style = scrollbar.GetStyle();
+    Resolve(style);
 
     const ScrollbarMeasureResult natural = Measure(scrollbar, containerWidth, scale);
 

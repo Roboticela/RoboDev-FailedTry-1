@@ -110,6 +110,7 @@ struct PositionStyle {
     float cornerRadius = 0.0f;
     float opacity = 1.0f;
     SelectableMode selectable = SelectableMode::Inherit;
+    std::map<std::string, std::string> tokens;
 };
 
 struct PositionItem {

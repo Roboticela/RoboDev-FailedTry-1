@@ -1,4 +1,5 @@
 #include "Robo/ButtonPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 
 #include <algorithm>
@@ -98,7 +99,8 @@ ButtonMeasureResult ButtonPainter::Measure(const FontEngine& fonts,
                                            const Button& button,
                                            float pixelScale) {
     const float scale = std::max(0.5f, pixelScale);
-    const ButtonStyle& style = button.GetStyle();
+    ButtonStyle style = button.GetStyle();
+    Resolve(style);
     const std::string label = CollapseToSingleLine(button.GetLabel());
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
     const float fontSize = static_cast<float>(style.fontSize) * scale;
@@ -130,7 +132,8 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
                                        float forcedHeight) {
     const SelectableScope selection(&button, button.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const ButtonStyle& style = button.GetStyle();
+    ButtonStyle style = button.GetStyle();
+    Resolve(style);
     const std::string label = CollapseToSingleLine(button.GetLabel());
     const FontFaceId faceId = fonts.ResolveFace(style.fontWeight, style.fontStyle);
     const float fontSize = static_cast<float>(style.fontSize) * scale;

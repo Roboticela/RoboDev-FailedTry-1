@@ -4,6 +4,7 @@
 #include "Selectable.hpp"
 #include "TextAlign.hpp"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,8 @@ struct SvgShape {
     float strokeWidth = 1.0f;
     float opacity = 1.0f;
     SvgFillRule fillRule = SvgFillRule::NonZero;
+    std::string fillToken;
+    std::string strokeToken;
 };
 
 struct SvgStyle {
@@ -64,6 +67,7 @@ struct SvgStyle {
     float opacity = 1.0f;
     TextAlign align = TextAlign::Left;
     SelectableMode selectable = SelectableMode::Inherit;
+    std::map<std::string, std::string> tokens;
 };
 
 struct SvgBounds {

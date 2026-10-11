@@ -1,4 +1,5 @@
 #include "Robo/PositionPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/ContainerPainter.hpp"
@@ -168,7 +169,8 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
                                                float forcedWidth,
                                                float forcedHeight) {
     const float scale = std::max(0.5f, pixelScale);
-    const PositionStyle& style = position.GetStyle();
+    PositionStyle style = position.GetStyle();
+    Resolve(style);
 
     const float padL = style.paddingLeft * scale;
     const float padR = style.paddingRight * scale;
@@ -369,7 +371,8 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                                            float forcedHeight) {
     const SelectableScope selection(&position, position.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const PositionStyle& style = position.GetStyle();
+    PositionStyle style = position.GetStyle();
+    Resolve(style);
 
     const float padL = style.paddingLeft * scale;
     const float padR = style.paddingRight * scale;

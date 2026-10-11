@@ -1,8 +1,12 @@
 #include "SvgPath.hpp"
 
+#include "Robo/Foundation.hpp"
+
 #include <cmath>
 #include <cstdlib>
+#include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <cctype>
 
 namespace Robo {
@@ -22,9 +26,11 @@ struct Paint {
     bool hasFill = true;
     bool currentFill = false;
     std::string fillHex = "#000000";
+    std::string fillToken;
     bool hasStroke = false;
     bool currentStroke = false;
     std::string strokeHex = "#000000";
+    std::string strokeToken;
     float strokeWidth = 1.0f;
     float opacity = 1.0f;
     bool evenOdd = false;
@@ -507,13 +513,28 @@ void ApplyPaint(const XmlNode& node, Paint& paint, bool defaultCurrentFill) {
         if (IsNone(fill)) {
             paint.hasFill = false;
             paint.currentFill = false;
+            paint.fillToken.clear();
         } else if (IsCurrent(fill)) {
             paint.hasFill = true;
             paint.currentFill = true;
+            paint.fillToken.clear();
+        } else if (fill.size() >= 2 && fill.front() == '{' && fill.back() == '}') {
+            const std::string token = fill.substr(1, fill.size() - 2);
+            if (!Foundation::IsKnownToken(token)) {
+                throw std::runtime_error("Unknown foundation token {" + token + "}");
+            }
+            paint.hasFill = true;
+            paint.currentFill = false;
+            paint.fillToken = token;
         } else {
+            if (!defaultCurrentFill) {
+                std::cerr << "warning: custom value \"" << fill << "\" used for fill on <" << node.name
+                          << ">; use a RoboFoundation token\n";
+            }
             paint.hasFill = true;
             paint.currentFill = false;
             paint.fillHex = fill;
+            paint.fillToken.clear();
         }
     } else if (defaultCurrentFill && paint.hasFill && paint.fillHex == "#000000" && !paint.currentFill) {
         paint.currentFill = true;
@@ -525,10 +546,24 @@ void ApplyPaint(const XmlNode& node, Paint& paint, bool defaultCurrentFill) {
         } else if (IsCurrent(stroke)) {
             paint.hasStroke = true;
             paint.currentStroke = true;
+            paint.strokeToken.clear();
+        } else if (stroke.size() >= 2 && stroke.front() == '{' && stroke.back() == '}') {
+            const std::string token = stroke.substr(1, stroke.size() - 2);
+            if (!Foundation::IsKnownToken(token)) {
+                throw std::runtime_error("Unknown foundation token {" + token + "}");
+            }
+            paint.hasStroke = true;
+            paint.currentStroke = false;
+            paint.strokeToken = token;
         } else {
+            if (!defaultCurrentFill) {
+                std::cerr << "warning: custom value \"" << stroke << "\" used for stroke on <" << node.name
+                          << ">; use a RoboFoundation token\n";
+            }
             paint.hasStroke = true;
             paint.currentStroke = false;
             paint.strokeHex = stroke;
+            paint.strokeToken.clear();
         }
     }
     const std::string width = Attribute(node, "stroke-width", Attribute(node, "strokeWidth"));
@@ -646,6 +681,8 @@ void EmitLeaf(std::vector<CompiledCommand> commands, const Affine& matrix, const
     shape.currentStroke = paint.currentStroke;
     shape.fillHex = paint.fillHex;
     shape.strokeHex = paint.strokeHex;
+    shape.fillToken = paint.fillToken;
+    shape.strokeToken = paint.strokeToken;
     shape.strokeWidth = paint.strokeWidth;
     shape.opacity = paint.opacity;
     shape.evenOdd = paint.evenOdd;
@@ -665,7 +702,7 @@ void CompileNode(const XmlNode& node, const Affine& matrix, const Paint& inherit
     }
     if (EqualName(node.name, "g") || EqualName(node.name, "svg")) {
         for (const XmlNode& child : node.children) {
-            CompileNode(child, local, paint, false, shapes);
+            CompileNode(child, local, paint, defaultCurrentFill, shapes);
         }
         return;
     }
@@ -751,7 +788,7 @@ CompiledSvg CompileSvgElement(const XmlNode& svgNode, bool defaultCurrentFill) {
     }
     ApplyPaint(svgNode, paint, defaultCurrentFill);
     for (const XmlNode& child : svgNode.children) {
-        CompileNode(child, Affine{}, paint, false, graphic.shapes);
+        CompileNode(child, Affine{}, paint, defaultCurrentFill, graphic.shapes);
     }
     return graphic;
 }
@@ -768,10 +805,14 @@ std::string EmitCompiledShapes(const std::vector<CompiledShape>& shapes, int ind
         code << Indent(indent + 1) << name << ".hasStroke = " << (shape.hasStroke ? "true" : "false") << ";\n";
         code << Indent(indent + 1) << name << ".currentFill = " << (shape.currentFill ? "true" : "false") << ";\n";
         code << Indent(indent + 1) << name << ".currentStroke = " << (shape.currentStroke ? "true" : "false") << ";\n";
-        if (!shape.currentFill) {
+        if (!shape.fillToken.empty()) {
+            code << Indent(indent + 1) << name << ".fillToken = \"" << shape.fillToken << "\";\n";
+        } else if (!shape.currentFill) {
             code << Indent(indent + 1) << name << ".fill = Robo::Color::FromHex(\"" << shape.fillHex << "\");\n";
         }
-        if (!shape.currentStroke) {
+        if (!shape.strokeToken.empty()) {
+            code << Indent(indent + 1) << name << ".strokeToken = \"" << shape.strokeToken << "\";\n";
+        } else if (!shape.currentStroke) {
             code << Indent(indent + 1) << name << ".stroke = Robo::Color::FromHex(\"" << shape.strokeHex << "\");\n";
         }
         code << Indent(indent + 1) << name << ".strokeWidth = " << FloatCpp(shape.strokeWidth) << ";\n";

@@ -6,6 +6,7 @@
 #include "TextAlign.hpp"
 #include "TextRun.hpp"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,8 @@ struct TextStyle {
     SelectableMode selectable = SelectableMode::Inherit;
     std::string width = "100%";
     std::string maxWidth;
+    // Empty token value means the attribute was set to a custom literal.
+    std::map<std::string, std::string> tokens;
 };
 
 class Text {

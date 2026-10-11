@@ -1,6 +1,7 @@
 #include "Robo/Heading.hpp"
 
 #include <algorithm>
+#include <string>
 
 namespace Robo {
 
@@ -13,45 +14,35 @@ TextStyle Heading::DefaultStyle(int level) {
     style.wrap = true;
     style.width = "100%";
     style.align = TextAlign::Left;
-    style.color = Color::FromHex("#102A43");
-    style.fontWeight = FontWeight::SemiBold;
     style.fontStyle = FontStyleKind::Normal;
-    style.letterSpacing = 0.0;
+    style.tokens["color"] = "color.text.primary";
 
+    const char* role = "type.h1";
     switch (ClampLevel(level)) {
         case 1:
-            style.fontSize = 40.0;
-            style.lineHeight = 1.15;
-            style.fontWeight = FontWeight::Bold;
+            role = "type.h1";
             break;
         case 2:
-            style.fontSize = 32.0;
-            style.lineHeight = 1.2;
-            style.fontWeight = FontWeight::SemiBold;
+            role = "type.h2";
             break;
         case 3:
-            style.fontSize = 28.0;
-            style.lineHeight = 1.25;
-            style.fontWeight = FontWeight::SemiBold;
+            role = "type.h3";
             break;
         case 4:
-            style.fontSize = 24.0;
-            style.lineHeight = 1.3;
-            style.fontWeight = FontWeight::SemiBold;
+            role = "type.subhead";
             break;
         case 5:
-            style.fontSize = 20.0;
-            style.lineHeight = 1.35;
-            style.fontWeight = FontWeight::Medium;
+            role = "type.bodyLg";
             break;
         case 6:
         default:
-            style.fontSize = 18.0;
-            style.lineHeight = 1.4;
-            style.fontWeight = FontWeight::Medium;
-            style.color = Color::FromHex("#243B53");
+            role = "type.body";
             break;
     }
+    style.tokens["fontSize"] = std::string(role) + ".size";
+    style.tokens["lineHeight"] = std::string(role) + ".leading";
+    style.tokens["fontWeight"] = std::string(role) + ".weight";
+    style.tokens["letterSpacing"] = std::string(role) + ".tracking";
     return style;
 }
 

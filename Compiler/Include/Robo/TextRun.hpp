@@ -3,6 +3,7 @@
 #include "Color.hpp"
 #include "FontStyle.hpp"
 
+#include <map>
 #include <string>
 
 namespace Robo {
@@ -23,6 +24,7 @@ struct TextRun {
     bool hasTextDecoration = false;
     bool hasLetterSpacing = false;
     bool hasOpacity = false;
+    std::map<std::string, std::string> tokens;
 };
 
 }  // namespace Robo

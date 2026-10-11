@@ -2,6 +2,7 @@
 
 #include "Color.hpp"
 
+#include <map>
 #include <string>
 
 namespace Robo {
@@ -63,6 +64,7 @@ struct ScrollbarStyle {
     double fadeDuration = 160.0;    // Milliseconds for one fade step.
     double hiddenOpacity = 0.0;     // Resting opacity while auto-hidden.
     ScrollbarVisibility visibility = ScrollbarVisibility::Always;
+    std::map<std::string, std::string> tokens;
 };
 
 struct ScrollbarBounds {

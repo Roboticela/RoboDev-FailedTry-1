@@ -4,6 +4,7 @@
 #include "Container.hpp"
 #include "Flexbox.hpp"
 #include "FontEngine.hpp"
+#include "Foundation.hpp"
 #include "FrameBuffer.hpp"
 #include "Grid.hpp"
 #include "IPlatform.hpp"
@@ -65,6 +66,11 @@ public:
     void AddPosition(Position position);
     void AddSvg(Svg svg);
     void Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding);
+
+    void SetFoundation(const std::string& name);
+    void SetFoundationForTheme(Theme theme, const std::string& name);
+    void SetTheme(Theme theme);
+    const Foundation& ActiveFoundation() const;
 
     bool PointerMove(float x, float y);
     bool PointerDown(float x, float y, bool fromTouch = false, int clicks = 1);
@@ -191,6 +197,10 @@ private:
     int paintedHeight_ = 0;
     float paintedVerticalReserve_ = 0.0f;
     float paintedHorizontalReserve_ = 0.0f;
+    std::string foundation_ = "RoboFoundation";
+    std::string lightFoundation_;
+    std::string darkFoundation_;
+    Theme theme_ = Theme::Light;
 };
 
 }  // namespace Robo

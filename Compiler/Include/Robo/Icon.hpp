@@ -2,6 +2,9 @@
 
 #include "Svg.hpp"
 
+#include <map>
+#include <string>
+
 namespace Robo {
 
 // A pack icon. The page XML can resize it and change its color.
@@ -15,6 +18,7 @@ public:
     void SetColor(const Color& color);
     void SetOpacity(float opacity);
     void SetAlign(TextAlign align);
+    void SetToken(const std::string& key, const std::string& token);
     void SetViewBox(float x, float y, float width, float height);
 
     // Used only by the compiler when it bakes a pack icon. XML cannot add shapes.
@@ -34,6 +38,7 @@ private:
     float viewY_ = 0.0f;
     float viewWidth_ = 24.0f;
     float viewHeight_ = 24.0f;
+    std::map<std::string, std::string> tokens_;
     std::vector<SvgShape> shapes_;
 };
 

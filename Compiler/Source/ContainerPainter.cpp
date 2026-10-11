@@ -1,4 +1,5 @@
 #include "Robo/ContainerPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ButtonPainter.hpp"
 #include "Robo/FlexboxPainter.hpp"
@@ -256,7 +257,8 @@ float StackChildren(const FontEngine& fonts,
                     float innerAvailW,
                     float crossExtent,
                     float scale) {
-    const ContainerStyle& style = container.GetStyle();
+    ContainerStyle style = container.GetStyle();
+    Resolve(style);
     const bool vertical = IsVertical(style);
     const float gap = std::max(0.0f, style.gap * scale);
 
@@ -324,7 +326,8 @@ BodyLayout ResolveBody(const FontEngine& fonts,
                        float scale,
                        float forcedWidth,
                        float forcedHeight) {
-    const ContainerStyle& style = container.GetStyle();
+    ContainerStyle style = container.GetStyle();
+    Resolve(style);
     BodyLayout out;
     out.scale = scale;
     out.vertical = IsVertical(style);
@@ -454,7 +457,8 @@ ContainerPaintResult ContainerPainter::Paint(FrameBuffer& buffer,
                                              float forcedHeight) {
     const SelectableScope selection(&container, container.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const ContainerStyle& style = container.GetStyle();
+    ContainerStyle style = container.GetStyle();
+    Resolve(style);
     const BodyLayout body = ResolveBody(fonts, container, containerWidth, scale, forcedWidth, forcedHeight);
 
     const float padL = style.paddingLeft * scale;

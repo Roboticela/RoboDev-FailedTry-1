@@ -6,6 +6,7 @@
 #include "TextAlign.hpp"
 
 #include <cstddef>
+#include <map>
 #include <string>
 
 namespace Robo {
@@ -49,6 +50,7 @@ struct InputStyle {
     bool hasCustomPlaceholderColor = false;
     bool hasCustomBackground = false;
     bool hasCustomBorder = false;
+    std::map<std::string, std::string> tokens;
 };
 
 struct InputBounds {

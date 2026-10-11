@@ -5,6 +5,7 @@
 #include "Selectable.hpp"
 #include "TextAlign.hpp"
 
+#include <map>
 #include <string>
 
 namespace Robo {
@@ -38,6 +39,7 @@ struct ButtonStyle {
     TextAlign align = TextAlign::Left;
     bool hasCustomTextColor = false;
     bool hasCustomBackground = false;
+    std::map<std::string, std::string> tokens;
 };
 
 struct ButtonBounds {

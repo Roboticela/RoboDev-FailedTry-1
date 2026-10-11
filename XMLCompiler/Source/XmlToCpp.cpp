@@ -2,9 +2,13 @@
 #include "IconPack.hpp"
 #include "XmlParser.hpp"
 
+#include "Robo/Foundation.hpp"
+
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
+#include <vector>
 
 namespace Robo {
 
@@ -57,17 +61,351 @@ std::string XmlToCpp::FloatLiteral(const std::string& value) const {
     return trimmed + "f";
 }
 
+std::string XmlToCpp::ExtractToken(const std::string& value) const {
+    std::string trimmed = value;
+    const std::size_t first = trimmed.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+        return {};
+    }
+    trimmed.erase(0, first);
+    trimmed.erase(trimmed.find_last_not_of(" \t\r\n") + 1);
+    if (trimmed.size() < 2 || trimmed.front() != '{' || trimmed.back() != '}') {
+        return {};
+    }
+    std::string token = trimmed.substr(1, trimmed.size() - 2);
+    const std::size_t tokenFirst = token.find_first_not_of(" \t");
+    if (tokenFirst == std::string::npos) {
+        throw std::runtime_error("Unknown foundation token " + trimmed);
+    }
+    token.erase(0, tokenFirst);
+    token.erase(token.find_last_not_of(" \t") + 1);
+    if (!Foundation::IsKnownToken(token)) {
+        throw std::runtime_error("Unknown foundation token {" + token + "}");
+    }
+    return token;
+}
+
+void XmlToCpp::WarnLiteral(const std::string& element, const std::string& attribute, const std::string& value) const {
+    std::cerr << "warning: custom value \"" << value << "\" used for " << attribute;
+    if (!element.empty()) {
+        std::cerr << " on <" << element << ">";
+    }
+    std::cerr << "; use a RoboFoundation token\n";
+}
+
+bool XmlToCpp::IsFreeLength(const std::string& value) const {
+    std::string trimmed = value;
+    const std::size_t first = trimmed.find_first_not_of(" \t");
+    if (first == std::string::npos) {
+        return true;
+    }
+    trimmed.erase(0, first);
+    trimmed.erase(trimmed.find_last_not_of(" \t") + 1);
+    return trimmed == "auto" || trimmed.find('%') != std::string::npos;
+}
+
+std::string XmlToCpp::BindColor(int indent,
+                                const std::string& object,
+                                const std::string& field,
+                                const std::string& value,
+                                const std::string& element) const {
+    const std::string token = ExtractToken(value);
+    if (!token.empty()) {
+        return Indent(indent) + object + ".tokens[\"" + field + "\"] = \"" + EscapeCpp(token) + "\";\n";
+    }
+    WarnLiteral(element, field, value);
+    return Indent(indent) + object + ".tokens[\"" + field + "\"] = \"\";\n" + Indent(indent) + object + "." + field +
+           " = Robo::Color::FromHex(\"" + EscapeCpp(value) + "\");\n";
+}
+
+std::string XmlToCpp::BindFloat(int indent,
+                                const std::string& object,
+                                const std::string& field,
+                                const std::string& value,
+                                const std::string& element) const {
+    const std::string token = ExtractToken(value);
+    if (!token.empty()) {
+        return Indent(indent) + object + ".tokens[\"" + field + "\"] = \"" + EscapeCpp(token) + "\";\n";
+    }
+    WarnLiteral(element, field, value);
+    return Indent(indent) + object + ".tokens[\"" + field + "\"] = \"\";\n" + Indent(indent) + object + "." + field +
+           " = " + FloatLiteral(value) + ";\n";
+}
+
+std::string XmlToCpp::BindLength(int indent,
+                                 const std::string& object,
+                                 const std::string& field,
+                                 const std::string& value,
+                                 const std::string& element) const {
+    const std::string token = ExtractToken(value);
+    if (!token.empty()) {
+        return Indent(indent) + object + ".tokens[\"" + field + "\"] = \"" + EscapeCpp(token) + "\";\n";
+    }
+    if (!IsFreeLength(value)) {
+        WarnLiteral(element, field, value);
+    }
+    return Indent(indent) + object + ".tokens[\"" + field + "\"] = \"\";\n" + Indent(indent) + object + "." + field +
+           " = \"" + EscapeCpp(value) + "\";\n";
+}
+
+std::string XmlToCpp::BindWeight(int indent, const std::string& object, const std::string& value, const std::string& element) const {
+    const std::string token = ExtractToken(value);
+    if (!token.empty()) {
+        return Indent(indent) + object + ".tokens[\"fontWeight\"] = \"" + EscapeCpp(token) + "\";\n";
+    }
+    WarnLiteral(element, "fontWeight", value);
+    return Indent(indent) + object + ".tokens[\"fontWeight\"] = \"\";\n" + Indent(indent) + object +
+           ".fontWeight = Robo::ParseFontWeight(\"" + EscapeCpp(value) + "\");\n";
+}
+
+std::string XmlToCpp::BindSides(int indent,
+                                const std::string& object,
+                                const std::string& kind,
+                                const std::string& value,
+                                const std::string& element) const {
+    std::vector<std::string> fields;
+    if (kind == "paddingX") {
+        fields = {"paddingLeft", "paddingRight"};
+    } else if (kind == "paddingY") {
+        fields = {"paddingTop", "paddingBottom"};
+    } else if (kind == "margin") {
+        fields = {"marginTop", "marginBottom", "marginLeft", "marginRight"};
+    } else {
+        fields = {"paddingTop", "paddingBottom", "paddingLeft", "paddingRight"};
+    }
+    const std::string token = ExtractToken(value);
+    std::string code;
+    if (!token.empty()) {
+        for (const std::string& field : fields) {
+            code += Indent(indent) + object + ".tokens[\"" + field + "\"] = \"" + EscapeCpp(token) + "\";\n";
+        }
+        return code;
+    }
+    WarnLiteral(element, kind, value);
+    for (const std::string& field : fields) {
+        code += Indent(indent) + object + ".tokens[\"" + field + "\"] = \"\";\n";
+        code += Indent(indent) + object + "." + field + " = " + FloatLiteral(value) + ";\n";
+    }
+    return code;
+}
+
+void XmlToCpp::CollectFoundations(const XmlNode& node) const {
+    if (node.name == "Foundation") {
+        const auto name = node.attributes.find("name");
+        if (name == node.attributes.end() || name->second.empty()) {
+            throw std::runtime_error("Foundation requires a name");
+        }
+        if (name->second == "RoboFoundation") {
+            throw std::runtime_error("RoboFoundation is sealed and cannot be redefined");
+        }
+        foundations_.insert(name->second);
+    }
+    for (const XmlNode& child : node.children) {
+        CollectFoundations(child);
+    }
+}
+
+std::string XmlToCpp::EmitFoundation(const XmlNode& node, int indent) const {
+    const auto nameAttribute = node.attributes.find("name");
+    if (nameAttribute == node.attributes.end() || nameAttribute->second.empty()) {
+        throw std::runtime_error("Foundation requires a name");
+    }
+    if (nameAttribute->second == "RoboFoundation") {
+        throw std::runtime_error("RoboFoundation is sealed and cannot be redefined");
+    }
+    const std::string name = nameAttribute->second;
+    std::string from = "RoboFoundation";
+    bool hasFrom = false;
+    const auto fromAttribute = node.attributes.find("from");
+    if (fromAttribute != node.attributes.end() && !fromAttribute->second.empty()) {
+        from = fromAttribute->second;
+        hasFrom = true;
+        if (emittedFoundations_.count(from) == 0 && from != "RoboFoundation") {
+            throw std::runtime_error("Foundation " + name + " copies " + from + " before it is defined");
+        }
+    }
+
+    std::ostringstream code;
+    const std::string variable = "foundation" + name;
+    code << Indent(indent) << "Robo::Foundation " << variable << " = Robo::Foundation::CopyOf(\"" << EscapeCpp(from)
+         << "\");\n";
+    code << Indent(indent) << variable << ".SetName(\"" << EscapeCpp(name) << "\");\n";
+
+    auto requireSource = [&](const std::string& source) {
+        if (emittedFoundations_.count(source) == 0 && source != "RoboFoundation") {
+            throw std::runtime_error("Foundation layer copies " + source + " before it is defined");
+        }
+    };
+
+    bool sawLayer = hasFrom;
+    for (const XmlNode& child : node.children) {
+        if (child.isText) {
+            continue;
+        }
+        const auto layerFrom = child.attributes.find("from");
+        const bool copyLayer = layerFrom != child.attributes.end() && !layerFrom->second.empty();
+        if (child.name == "Colors" || child.name == "Typography" || child.name == "Spacing" || child.name == "Radius" ||
+            child.name == "Layout") {
+            sawLayer = true;
+            if (copyLayer) {
+                requireSource(layerFrom->second);
+                std::string method = "CopyColorsFrom";
+                if (child.name == "Typography") {
+                    method = "CopyTypographyFrom";
+                } else if (child.name == "Spacing") {
+                    method = "CopySpacingFrom";
+                } else if (child.name == "Radius") {
+                    method = "CopyRadiusFrom";
+                } else if (child.name == "Layout") {
+                    method = "CopyLayoutFrom";
+                }
+                code << Indent(indent) << "{\n";
+                code << Indent(indent + 1) << "const Robo::Foundation* source = Robo::Foundation::Find(\""
+                     << EscapeCpp(layerFrom->second) << "\");\n";
+                code << Indent(indent + 1) << "if (source != nullptr) " << variable << "." << method << "(*source);\n";
+                code << Indent(indent) << "}\n";
+            }
+            for (const XmlNode& item : child.children) {
+                if (item.isText) {
+                    continue;
+                }
+                if (item.name == "Color") {
+                    const std::string colorName = item.attributes.count("name") ? item.attributes.at("name") : "";
+                    const std::string light = item.attributes.count("light") ? item.attributes.at("light") : "";
+                    const std::string dark = item.attributes.count("dark") ? item.attributes.at("dark") : light;
+                    if (colorName.empty() || !Foundation::IsKnownToken("color." + colorName)) {
+                        throw std::runtime_error("Unknown color token " + colorName);
+                    }
+                    code << Indent(indent) << variable << ".SetColor(\"" << EscapeCpp(colorName)
+                         << "\", Robo::Color::FromHex(\"" << EscapeCpp(light) << "\"), Robo::Color::FromHex(\""
+                         << EscapeCpp(dark) << "\"));\n";
+                }
+            }
+        } else if (child.name == "Color") {
+            sawLayer = true;
+            const std::string colorName = child.attributes.count("name") ? child.attributes.at("name") : "";
+            const std::string light = child.attributes.count("light") ? child.attributes.at("light") : "";
+            const std::string dark = child.attributes.count("dark") ? child.attributes.at("dark") : light;
+            if (colorName.empty() || !Foundation::IsKnownToken("color." + colorName)) {
+                throw std::runtime_error("Unknown color token " + colorName);
+            }
+            code << Indent(indent) << variable << ".SetColor(\"" << EscapeCpp(colorName) << "\", Robo::Color::FromHex(\""
+                 << EscapeCpp(light) << "\"), Robo::Color::FromHex(\"" << EscapeCpp(dark) << "\"));\n";
+        } else if (child.name == "Space") {
+            sawLayer = true;
+            const std::string spaceName = child.attributes.count("name") ? child.attributes.at("name") : "";
+            const std::string spaceValue = child.attributes.count("value") ? child.attributes.at("value") : "";
+            if (!Foundation::IsKnownToken("space." + spaceName)) {
+                throw std::runtime_error("Unknown space token " + spaceName);
+            }
+            code << Indent(indent) << variable << ".SetSpace(\"" << EscapeCpp(spaceName) << "\", " << FloatLiteral(spaceValue)
+                 << ");\n";
+        } else if (child.name == "Radius") {
+            sawLayer = true;
+            const std::string radiusName = child.attributes.count("name") ? child.attributes.at("name") : "";
+            const std::string radiusValue = child.attributes.count("value") ? child.attributes.at("value") : "";
+            if (!Foundation::IsKnownToken("radius." + radiusName)) {
+                throw std::runtime_error("Unknown radius token " + radiusName);
+            }
+            code << Indent(indent) << variable << ".SetRadius(\"" << EscapeCpp(radiusName) << "\", "
+                 << FloatLiteral(radiusValue) << ");\n";
+        } else if (child.name == "Type") {
+            sawLayer = true;
+            const std::string role = child.attributes.count("name") ? child.attributes.at("name") : "";
+            if (!Foundation::IsKnownToken("type." + role + ".size")) {
+                throw std::runtime_error("Unknown type role " + role);
+            }
+            const Foundation& base = Foundation::RoboFoundation();
+            float size = 16.0f;
+            float mobile = 16.0f;
+            float weight = 400.0f;
+            float tracking = 0.0f;
+            float leading = 1.4f;
+            base.LookupFloat("type." + role + ".size", size);
+            base.LookupFloat("type." + role + ".mobile", mobile);
+            base.LookupFloat("type." + role + ".weight", weight);
+            base.LookupFloat("type." + role + ".tracking", tracking);
+            base.LookupFloat("type." + role + ".leading", leading);
+            auto number = [&](const char* attribute, float fallback) {
+                const auto found = child.attributes.find(attribute);
+                if (found == child.attributes.end()) {
+                    return FloatLiteral(std::to_string(fallback));
+                }
+                return FloatLiteral(found->second);
+            };
+            code << Indent(indent) << variable << ".SetType(\"" << EscapeCpp(role) << "\", " << number("size", size)
+                 << ", " << number("mobile", mobile) << ", static_cast<int>(" << number("weight", weight) << "), "
+                 << number("tracking", tracking) << ", " << number("leading", leading) << ");\n";
+        } else if (child.name == "LayoutValue") {
+            sawLayer = true;
+            const std::string layoutName = child.attributes.count("name") ? child.attributes.at("name") : "";
+            const std::string layoutValue = child.attributes.count("value") ? child.attributes.at("value") : "";
+            if (!Foundation::IsKnownToken("layout." + layoutName)) {
+                throw std::runtime_error("Unknown layout token " + layoutName);
+            }
+            code << Indent(indent) << variable << ".SetLayout(\"" << EscapeCpp(layoutName) << "\", "
+                 << FloatLiteral(layoutValue) << ");\n";
+        }
+    }
+    if (!sawLayer && !hasFrom) {
+        throw std::runtime_error("Foundation " + name + " must copy RoboFoundation or name the layers it copies");
+    }
+    code << Indent(indent) << "Robo::Foundation::Register(" << variable << ");\n";
+    emittedFoundations_.insert(name);
+    return code.str();
+}
+
+std::string XmlToCpp::EmitFoundationUse(const XmlNode& node, int indent) const {
+    const auto nameAttribute = node.attributes.find("name");
+    if (nameAttribute == node.attributes.end() || foundations_.count(nameAttribute->second) == 0) {
+        throw std::runtime_error("FoundationUse names a foundation that does not exist");
+    }
+    const std::string when = node.attributes.count("when") ? node.attributes.at("when") : "";
+    std::ostringstream code;
+    if (when.empty()) {
+        code << Indent(indent) << "scene.SetFoundation(\"" << EscapeCpp(nameAttribute->second) << "\");\n";
+    } else if (when == "dark") {
+        code << Indent(indent) << "scene.SetFoundationForTheme(Robo::Theme::Dark, \"" << EscapeCpp(nameAttribute->second)
+             << "\");\n";
+    } else if (when == "light") {
+        code << Indent(indent) << "scene.SetFoundationForTheme(Robo::Theme::Light, \"" << EscapeCpp(nameAttribute->second)
+             << "\");\n";
+    } else {
+        throw std::runtime_error("FoundationUse when must be light or dark");
+    }
+    return code.str();
+}
+
 std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
     std::ostringstream code;
     if (node.isText) {
         return code.str();
     }
 
+    if (node.name == "Foundation") {
+        return EmitFoundation(node, indent);
+    }
+    if (node.name == "FoundationUse") {
+        return EmitFoundationUse(node, indent);
+    }
+
     if (node.name == "Robo") {
         code << Indent(indent) << "// Generated from Robo XML\n";
         code << Indent(indent) << "void BuildPage(Robo::RoboScene& scene) {\n";
         for (const XmlNode& child : node.children) {
-            code << ConvertNode(child, indent + 1);
+            if (child.name == "Foundation") {
+                code << ConvertNode(child, indent + 1);
+            }
+        }
+        for (const XmlNode& child : node.children) {
+            if (child.name == "FoundationUse") {
+                code << ConvertNode(child, indent + 1);
+            }
+        }
+        for (const XmlNode& child : node.children) {
+            if (child.name != "Foundation" && child.name != "FoundationUse") {
+                code << ConvertNode(child, indent + 1);
+            }
         }
         code << Indent(indent) << "}\n";
         return code.str();
@@ -80,10 +418,9 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
 
         for (const auto& attribute : node.attributes) {
             if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, node.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, node.name);
             } else if (attribute.first == "align") {
                 code << Indent(indent + 1) << "style.align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
@@ -91,8 +428,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 const bool wrap = !(attribute.second == "false" || attribute.second == "0" || attribute.second == "no");
                 code << Indent(indent + 1) << "style.wrap = " << (wrap ? "true" : "false") << ";\n";
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, node.name);
             } else if (attribute.first == "fontStyle") {
                 code << Indent(indent + 1) << "style.fontStyle = Robo::ParseFontStyle(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
@@ -100,13 +436,13 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 code << Indent(indent + 1) << "style.textDecoration = Robo::ParseTextDecoration(\""
                      << EscapeCpp(attribute.second) << "\");\n";
             } else if (attribute.first == "lineHeight") {
-                code << Indent(indent + 1) << "style.lineHeight = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "lineHeight", attribute.second, node.name);
             } else if (attribute.first == "letterSpacing") {
-                code << Indent(indent + 1) << "style.letterSpacing = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "letterSpacing", attribute.second, node.name);
             } else if (attribute.first == "opacity") {
                 code << Indent(indent + 1) << "style.opacity = " << attribute.second << ";\n";
             } else if (attribute.first == "width") {
-                code << Indent(indent + 1) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+                code << BindLength(indent + 1, "style", "width", attribute.second, node.name);
             } else if (attribute.first == "maxWidth") {
                 code << Indent(indent + 1) << "style.maxWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
             }
@@ -133,8 +469,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                         code << Indent(indent + 2) << "run.fontSize = " << attribute.second << ";\n";
                         code << Indent(indent + 2) << "run.hasFontSize = true;\n";
                     } else if (attribute.first == "color") {
-                        code << Indent(indent + 2) << "run.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                             << "\");\n";
+                        code << BindColor(indent + 2, "run", "color", attribute.second, node.name);
                         code << Indent(indent + 2) << "run.hasColor = true;\n";
                     } else if (attribute.first == "fontWeight") {
                         code << Indent(indent + 2) << "run.fontWeight = Robo::ParseFontWeight(\""
@@ -201,10 +536,9 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
 
         for (const auto& attribute : node.attributes) {
             if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, node.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, node.name);
             } else if (attribute.first == "align") {
                 code << Indent(indent + 1) << "style.align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
@@ -212,12 +546,11 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 const bool wrap = !(attribute.second == "false" || attribute.second == "0" || attribute.second == "no");
                 code << Indent(indent + 1) << "style.wrap = " << (wrap ? "true" : "false") << ";\n";
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, node.name);
             } else if (attribute.first == "lineHeight") {
-                code << Indent(indent + 1) << "style.lineHeight = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "lineHeight", attribute.second, node.name);
             } else if (attribute.first == "width") {
-                code << Indent(indent + 1) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+                code << BindLength(indent + 1, "style", "width", attribute.second, node.name);
             } else if (attribute.first == "maxWidth") {
                 code << Indent(indent + 1) << "style.maxWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
             }
@@ -261,24 +594,21 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseButtonVariant(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
             } else if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, node.name);
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, node.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, node.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, node.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, node.name);
             } else if (attribute.first == "paddingX") {
-                code << Indent(indent + 1) << "style.paddingX = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "paddingX", attribute.second, node.name);
             } else if (attribute.first == "paddingY") {
-                code << Indent(indent + 1) << "style.paddingY = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "paddingY", attribute.second, node.name);
             } else if (attribute.first == "align") {
                 code << Indent(indent + 1) << "style.align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
@@ -318,22 +648,19 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseInputVariant(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
             } else if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, node.name);
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, node.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, node.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second)
-                     << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, node.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, node.name);
             } else if (attribute.first == "width") {
-                code << Indent(indent + 1) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+                code << BindLength(indent + 1, "style", "width", attribute.second, node.name);
             } else if (attribute.first == "align") {
                 code << Indent(indent + 1) << "style.align = Robo::ParseTextAlign(\"" << EscapeCpp(attribute.second)
                      << "\");\n";
@@ -428,24 +755,20 @@ void XmlToCpp::EmitScrollbar(std::ostringstream& code, const XmlNode& node, int 
         } else if (attribute.first == "length" || attribute.first == "trackLength") {
             code << Indent(indent) << "style.length = " << attribute.second << ";\n";
         } else if (attribute.first == "cornerRadius" || attribute.first == "radius") {
-            code << Indent(indent) << "style.cornerRadius = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "cornerRadius", attribute.second, node.name);
         } else if (attribute.first == "minThumbLength" || attribute.first == "minThumb") {
             code << Indent(indent) << "style.minThumbLength = " << attribute.second << ";\n";
         } else if (attribute.first == "trackColor" || attribute.first == "track") {
-            code << Indent(indent) << "style.trackColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "trackColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomTrackColor = true;\n";
         } else if (attribute.first == "thumbColor" || attribute.first == "color") {
-            code << Indent(indent) << "style.thumbColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "thumbColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomThumbColor = true;\n";
         } else if (attribute.first == "thumbHoverColor") {
-            code << Indent(indent) << "style.thumbHoverColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "thumbHoverColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomThumbHoverColor = true;\n";
         } else if (attribute.first == "thumbActiveColor") {
-            code << Indent(indent) << "style.thumbActiveColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "thumbActiveColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomThumbActiveColor = true;\n";
         } else if (attribute.first == "opacity") {
             code << Indent(indent) << "style.opacity = " << attribute.second << ";\n";
@@ -461,16 +784,13 @@ void XmlToCpp::EmitScrollbar(std::ostringstream& code, const XmlNode& node, int 
         } else if (attribute.first == "arrowGap") {
             code << Indent(indent) << "style.arrowGap = " << attribute.second << ";\n";
         } else if (attribute.first == "arrowColor") {
-            code << Indent(indent) << "style.arrowColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "arrowColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomArrowColor = true;\n";
         } else if (attribute.first == "arrowHoverColor") {
-            code << Indent(indent) << "style.arrowHoverColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "arrowHoverColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomArrowHoverColor = true;\n";
         } else if (attribute.first == "arrowActiveColor") {
-            code << Indent(indent) << "style.arrowActiveColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "arrowActiveColor", attribute.second, node.name);
             code << Indent(indent) << "style.hasCustomArrowActiveColor = true;\n";
         } else if (attribute.first == "autoHide" || attribute.first == "autohide") {
             code << Indent(indent) << "style.autoHide = Robo::ParseScrollbarFlag(\""
@@ -532,9 +852,9 @@ void XmlToCpp::EmitContainer(std::ostringstream& code,
             code << Indent(indent) << "style.orientation = Robo::ParseContainerOrientation(\""
                  << EscapeCpp(attribute.second) << "\");\n";
         } else if (attribute.first == "width") {
-            code << Indent(indent) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "width", attribute.second, node.name);
         } else if (attribute.first == "height") {
-            code << Indent(indent) << "style.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "height", attribute.second, node.name);
         } else if (attribute.first == "minWidth") {
             code << Indent(indent) << "style.minWidth = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "maxWidth") {
@@ -544,28 +864,21 @@ void XmlToCpp::EmitContainer(std::ostringstream& code,
         } else if (attribute.first == "maxHeight") {
             code << Indent(indent) << "style.maxHeight = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "padding") {
-            code << Indent(indent) << "style.paddingTop = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingLeft = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << FloatLiteral(attribute.second) << ";\n";
+code << BindSides(indent, "style", "padding", attribute.second, node.name);
         } else if (attribute.first == "paddingX") {
-            code << Indent(indent) << "style.paddingLeft = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << FloatLiteral(attribute.second) << ";\n";
+code << BindSides(indent, "style", "paddingX", attribute.second, node.name);
         } else if (attribute.first == "paddingY") {
-            code << Indent(indent) << "style.paddingTop = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << FloatLiteral(attribute.second) << ";\n";
+code << BindSides(indent, "style", "paddingY", attribute.second, node.name);
         } else if (attribute.first == "gap" || attribute.first == "itemGap") {
-            code << Indent(indent) << "style.gap = " << FloatLiteral(attribute.second) << ";\n";
+            code << BindFloat(indent, "style", "gap", attribute.second, node.name);
         } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-            code << Indent(indent) << "style.backgroundColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "backgroundColor", attribute.second, node.name);
         } else if (attribute.first == "borderColor") {
-            code << Indent(indent) << "style.borderColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "borderColor", attribute.second, node.name);
         } else if (attribute.first == "borderWidth") {
             code << Indent(indent) << "style.borderWidth = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "cornerRadius" || attribute.first == "borderRadius") {
-            code << Indent(indent) << "style.cornerRadius = " << FloatLiteral(attribute.second) << ";\n";
+            code << BindFloat(indent, "style", "cornerRadius", attribute.second, node.name);
         } else if (attribute.first == "opacity") {
             code << Indent(indent) << "style.opacity = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "clip" || attribute.first == "clipToBounds") {
@@ -590,27 +903,22 @@ void XmlToCpp::EmitContainer(std::ostringstream& code,
         } else if (attribute.first == "minThumbLength") {
             code << Indent(indent) << "style.scrollbarStyle.minThumbLength = " << attribute.second << ";\n";
         } else if (attribute.first == "trackColor") {
-            code << Indent(indent) << "style.scrollbarStyle.trackColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style.scrollbarStyle", "trackColor", attribute.second, node.name);
             code << Indent(indent) << "style.scrollbarStyle.hasCustomTrackColor = true;\n";
         } else if (attribute.first == "thumbColor") {
-            code << Indent(indent) << "style.scrollbarStyle.thumbColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style.scrollbarStyle", "thumbColor", attribute.second, node.name);
             code << Indent(indent) << "style.scrollbarStyle.hasCustomThumbColor = true;\n";
         } else if (attribute.first == "thumbHoverColor") {
-            code << Indent(indent) << "style.scrollbarStyle.thumbHoverColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style.scrollbarStyle", "thumbHoverColor", attribute.second, node.name);
             code << Indent(indent) << "style.scrollbarStyle.hasCustomThumbHoverColor = true;\n";
         } else if (attribute.first == "thumbActiveColor") {
-            code << Indent(indent) << "style.scrollbarStyle.thumbActiveColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style.scrollbarStyle", "thumbActiveColor", attribute.second, node.name);
             code << Indent(indent) << "style.scrollbarStyle.hasCustomThumbActiveColor = true;\n";
         } else if (attribute.first == "arrows" || attribute.first == "showArrows" || attribute.first == "arrow") {
             code << Indent(indent) << "style.scrollbarStyle.showArrows = Robo::ParseBool(\""
                  << EscapeCpp(attribute.second) << "\", false);\n";
         } else if (attribute.first == "arrowColor") {
-            code << Indent(indent) << "style.scrollbarStyle.arrowColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style.scrollbarStyle", "arrowColor", attribute.second, node.name);
             code << Indent(indent) << "style.scrollbarStyle.hasCustomArrowColor = true;\n";
         } else if (attribute.first == "autoHide" || attribute.first == "autohide") {
             code << Indent(indent) << "style.scrollbarStyle.autoHide = Robo::ParseBool(\""
@@ -699,45 +1007,35 @@ void XmlToCpp::EmitFlexbox(std::ostringstream& code, const XmlNode& node, int in
             code << Indent(indent) << "style.wrap = Robo::ParseFlexWrap(\""
                  << EscapeCpp(attribute.second) << "\");\n";
         } else if (attribute.first == "gap") {
-            code << Indent(indent) << "style.gap = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "gap", attribute.second, node.name);
         } else if (attribute.first == "gapX" || attribute.first == "columnGap") {
-            code << Indent(indent) << "style.columnGap = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "columnGap", attribute.second, node.name);
         } else if (attribute.first == "gapY" || attribute.first == "rowGap") {
-            code << Indent(indent) << "style.rowGap = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "rowGap", attribute.second, node.name);
         } else if (attribute.first == "width") {
-            code << Indent(indent) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "width", attribute.second, node.name);
         } else if (attribute.first == "height") {
-            code << Indent(indent) << "style.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "height", attribute.second, node.name);
         } else if (attribute.first == "minWidth") {
             code << Indent(indent) << "style.minWidth = " << attribute.second << ";\n";
         } else if (attribute.first == "maxWidth") {
             code << Indent(indent) << "style.maxWidth = " << attribute.second << ";\n";
         } else if (attribute.first == "padding") {
-            code << Indent(indent) << "style.paddingTop = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingLeft = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "padding", attribute.second, node.name);
         } else if (attribute.first == "paddingX") {
-            code << Indent(indent) << "style.paddingLeft = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "paddingX", attribute.second, node.name);
         } else if (attribute.first == "paddingY") {
-            code << Indent(indent) << "style.paddingTop = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "paddingY", attribute.second, node.name);
         } else if (attribute.first == "margin") {
-            code << Indent(indent) << "style.marginTop = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.marginBottom = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.marginLeft = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.marginRight = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "margin", attribute.second, node.name);
         } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-            code << Indent(indent) << "style.backgroundColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "backgroundColor", attribute.second, node.name);
         } else if (attribute.first == "borderColor") {
-            code << Indent(indent) << "style.borderColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "borderColor", attribute.second, node.name);
         } else if (attribute.first == "borderWidth") {
             code << Indent(indent) << "style.borderWidth = " << attribute.second << ";\n";
         } else if (attribute.first == "cornerRadius" || attribute.first == "borderRadius") {
-            code << Indent(indent) << "style.cornerRadius = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "cornerRadius", attribute.second, node.name);
         } else if (attribute.first == "opacity") {
             code << Indent(indent) << "style.opacity = " << attribute.second << ";\n";
         }
@@ -792,9 +1090,19 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
             code << Indent(indent + 1) << "props.alignSelf = Robo::ParseFlexAlign(\""
                  << EscapeCpp(attribute.second) << "\");\n";
         } else if (attribute.first == "width") {
-            code << Indent(indent + 1) << "props.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            if (ExtractToken(attribute.second).empty()) {
+                if (!IsFreeLength(attribute.second)) {
+                    WarnLiteral(child.name, "width", attribute.second);
+                }
+                code << Indent(indent + 1) << "props.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
         } else if (attribute.first == "height") {
-            code << Indent(indent + 1) << "props.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            if (ExtractToken(attribute.second).empty()) {
+                if (!IsFreeLength(attribute.second)) {
+                    WarnLiteral(child.name, "height", attribute.second);
+                }
+                code << Indent(indent + 1) << "props.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
         } else if (attribute.first == "minWidth") {
             code << Indent(indent + 1) << "props.minWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
         } else if (attribute.first == "maxWidth") {
@@ -821,21 +1129,21 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
             } else if (attribute.first == "variant" || attribute.first == "style") {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseButtonVariant(\"" << EscapeCpp(attribute.second) << "\");\n";
             } else if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, child.name);
             } else if (attribute.first == "paddingX") {
-                code << Indent(indent + 1) << "style.paddingX = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "paddingX", attribute.second, child.name);
             } else if (attribute.first == "paddingY") {
-                code << Indent(indent + 1) << "style.paddingY = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "paddingY", attribute.second, child.name);
             }
         }
         if (label.empty()) {
@@ -863,15 +1171,15 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
             } else if (attribute.first == "variant" || attribute.first == "style") {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseInputVariant(\"" << EscapeCpp(attribute.second) << "\");\n";
             } else if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, child.name);
             }
         }
         if (value.empty()) {
@@ -900,11 +1208,11 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "Robo::TextStyle style;\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -934,7 +1242,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "Robo::TextStyle style = heading.GetStyle();\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -950,7 +1258,7 @@ void XmlToCpp::EmitFlexChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "Robo::TextStyle style = paragraph.GetStyle();\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -997,11 +1305,11 @@ void XmlToCpp::EmitGrid(std::ostringstream& code, const XmlNode& node, int inden
         } else if (attribute.first == "rowCount") {
             code << Indent(indent) << "style.rowCount = " << attribute.second << ";\n";
         } else if (attribute.first == "gap") {
-            code << Indent(indent) << "style.gap = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "gap", attribute.second, node.name);
         } else if (attribute.first == "gapX" || attribute.first == "columnGap") {
-            code << Indent(indent) << "style.columnGap = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "columnGap", attribute.second, node.name);
         } else if (attribute.first == "gapY" || attribute.first == "rowGap") {
-            code << Indent(indent) << "style.rowGap = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "rowGap", attribute.second, node.name);
         } else if (attribute.first == "autoFlow") {
             code << Indent(indent) << "style.autoFlow = Robo::ParseGridAutoFlow(\""
                  << EscapeCpp(attribute.second) << "\");\n";
@@ -1015,9 +1323,9 @@ void XmlToCpp::EmitGrid(std::ostringstream& code, const XmlNode& node, int inden
             code << Indent(indent) << "style.justifyContent = Robo::ParseGridJustifyContent(\""
                  << EscapeCpp(attribute.second) << "\");\n";
         } else if (attribute.first == "width") {
-            code << Indent(indent) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "width", attribute.second, node.name);
         } else if (attribute.first == "height") {
-            code << Indent(indent) << "style.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "height", attribute.second, node.name);
         } else if (attribute.first == "minWidth") {
             code << Indent(indent) << "style.minWidth = " << attribute.second << ";\n";
         } else if (attribute.first == "maxWidth") {
@@ -1027,31 +1335,21 @@ void XmlToCpp::EmitGrid(std::ostringstream& code, const XmlNode& node, int inden
         } else if (attribute.first == "maxHeight") {
             code << Indent(indent) << "style.maxHeight = " << attribute.second << ";\n";
         } else if (attribute.first == "padding") {
-            code << Indent(indent) << "style.paddingTop = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingLeft = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "padding", attribute.second, node.name);
         } else if (attribute.first == "paddingX") {
-            code << Indent(indent) << "style.paddingLeft = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "paddingX", attribute.second, node.name);
         } else if (attribute.first == "paddingY") {
-            code << Indent(indent) << "style.paddingTop = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "paddingY", attribute.second, node.name);
         } else if (attribute.first == "margin") {
-            code << Indent(indent) << "style.marginTop = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.marginBottom = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.marginLeft = " << attribute.second << ";\n";
-            code << Indent(indent) << "style.marginRight = " << attribute.second << ";\n";
+code << BindSides(indent, "style", "margin", attribute.second, node.name);
         } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-            code << Indent(indent) << "style.backgroundColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "backgroundColor", attribute.second, node.name);
         } else if (attribute.first == "borderColor") {
-            code << Indent(indent) << "style.borderColor = Robo::Color::FromHex(\""
-                 << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "borderColor", attribute.second, node.name);
         } else if (attribute.first == "borderWidth") {
             code << Indent(indent) << "style.borderWidth = " << attribute.second << ";\n";
         } else if (attribute.first == "cornerRadius" || attribute.first == "borderRadius") {
-            code << Indent(indent) << "style.cornerRadius = " << attribute.second << ";\n";
+            code << BindFloat(indent, "style", "cornerRadius", attribute.second, node.name);
         } else if (attribute.first == "opacity") {
             code << Indent(indent) << "style.opacity = " << attribute.second << ";\n";
         }
@@ -1107,9 +1405,19 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
             code << Indent(indent + 1) << "props.alignSelf = Robo::ParseGridAlignment(\""
                  << EscapeCpp(attribute.second) << "\");\n";
         } else if (attribute.first == "width") {
-            code << Indent(indent + 1) << "props.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            if (ExtractToken(attribute.second).empty()) {
+                if (!IsFreeLength(attribute.second)) {
+                    WarnLiteral(child.name, "width", attribute.second);
+                }
+                code << Indent(indent + 1) << "props.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
         } else if (attribute.first == "height") {
-            code << Indent(indent + 1) << "props.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            if (ExtractToken(attribute.second).empty()) {
+                if (!IsFreeLength(attribute.second)) {
+                    WarnLiteral(child.name, "height", attribute.second);
+                }
+                code << Indent(indent + 1) << "props.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
         } else if (attribute.first == "minWidth") {
             code << Indent(indent + 1) << "props.minWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
         } else if (attribute.first == "maxWidth") {
@@ -1136,21 +1444,21 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
             } else if (attribute.first == "variant" || attribute.first == "style") {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseButtonVariant(\"" << EscapeCpp(attribute.second) << "\");\n";
             } else if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, child.name);
             } else if (attribute.first == "paddingX") {
-                code << Indent(indent + 1) << "style.paddingX = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "paddingX", attribute.second, child.name);
             } else if (attribute.first == "paddingY") {
-                code << Indent(indent + 1) << "style.paddingY = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "paddingY", attribute.second, child.name);
             }
         }
         if (label.empty()) {
@@ -1178,15 +1486,15 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
             } else if (attribute.first == "variant" || attribute.first == "style") {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseInputVariant(\"" << EscapeCpp(attribute.second) << "\");\n";
             } else if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, child.name);
             }
         }
         if (value.empty()) {
@@ -1215,11 +1523,11 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "Robo::TextStyle style;\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             } else if (attribute.first == "fontWeight") {
-                code << Indent(indent + 1) << "style.fontWeight = Robo::ParseFontWeight(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindWeight(indent + 1, "style", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -1249,7 +1557,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "Robo::TextStyle style = heading.GetStyle();\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -1265,7 +1573,7 @@ void XmlToCpp::EmitGridChild(std::ostringstream& code, const XmlNode& child, int
         code << Indent(indent + 1) << "Robo::TextStyle style = paragraph.GetStyle();\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -1316,9 +1624,9 @@ void XmlToCpp::EmitPosition(std::ostringstream& code, const XmlNode& node, int i
             code << Indent(indent) << "style.hasBottom = true;\n";
             code << Indent(indent) << "style.bottom = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "width") {
-            code << Indent(indent) << "style.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "width", attribute.second, node.name);
         } else if (attribute.first == "height") {
-            code << Indent(indent) << "style.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            code << BindLength(indent, "style", "height", attribute.second, node.name);
         } else if (attribute.first == "minWidth") {
             code << Indent(indent) << "style.minWidth = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "maxWidth") {
@@ -1330,18 +1638,15 @@ void XmlToCpp::EmitPosition(std::ostringstream& code, const XmlNode& node, int i
         } else if (attribute.first == "zIndex") {
             code << Indent(indent) << "style.zIndex = " << attribute.second << ";\n";
         } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-            code << Indent(indent) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "backgroundColor", attribute.second, node.name);
         } else if (attribute.first == "borderColor") {
-            code << Indent(indent) << "style.borderColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+            code << BindColor(indent, "style", "borderColor", attribute.second, node.name);
         } else if (attribute.first == "borderWidth") {
             code << Indent(indent) << "style.borderWidth = " << FloatLiteral(attribute.second) << ";\n";
         } else if (attribute.first == "cornerRadius" || attribute.first == "borderRadius") {
-            code << Indent(indent) << "style.cornerRadius = " << FloatLiteral(attribute.second) << ";\n";
+            code << BindFloat(indent, "style", "cornerRadius", attribute.second, node.name);
         } else if (attribute.first == "padding") {
-            code << Indent(indent) << "style.paddingTop = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingBottom = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingLeft = " << FloatLiteral(attribute.second) << ";\n";
-            code << Indent(indent) << "style.paddingRight = " << FloatLiteral(attribute.second) << ";\n";
+code << BindSides(indent, "style", "padding", attribute.second, node.name);
         }
     }
 
@@ -1379,9 +1684,19 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         } else if (attribute.first == "zIndex") {
             code << Indent(indent + 1) << "props.zIndex = " << attribute.second << ";\n";
         } else if (attribute.first == "width") {
-            code << Indent(indent + 1) << "props.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            if (ExtractToken(attribute.second).empty()) {
+                if (!IsFreeLength(attribute.second)) {
+                    WarnLiteral(child.name, "width", attribute.second);
+                }
+                code << Indent(indent + 1) << "props.width = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
         } else if (attribute.first == "height") {
-            code << Indent(indent + 1) << "props.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            if (ExtractToken(attribute.second).empty()) {
+                if (!IsFreeLength(attribute.second)) {
+                    WarnLiteral(child.name, "height", attribute.second);
+                }
+                code << Indent(indent + 1) << "props.height = \"" << EscapeCpp(attribute.second) << "\";\n";
+            }
         } else if (attribute.first == "minWidth") {
             code << Indent(indent + 1) << "props.minWidth = \"" << EscapeCpp(attribute.second) << "\";\n";
         } else if (attribute.first == "maxWidth") {
@@ -1405,13 +1720,13 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
             if (attribute.first == "variant") {
                 code << Indent(indent + 1) << "style.variant = Robo::ParseButtonVariant(\"" << EscapeCpp(attribute.second) << "\");\n";
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.textColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "textColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomTextColor = true;\n";
             } else if (attribute.first == "background" || attribute.first == "backgroundColor") {
-                code << Indent(indent + 1) << "style.backgroundColor = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "backgroundColor", attribute.second, child.name);
                 code << Indent(indent + 1) << "style.hasCustomBackground = true;\n";
             } else if (attribute.first == "cornerRadius") {
-                code << Indent(indent + 1) << "style.cornerRadius = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "cornerRadius", attribute.second, child.name);
             } else if (attribute.first == "label") {
                 label = attribute.second;
             }
@@ -1468,9 +1783,9 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         code << Indent(indent + 1) << "Robo::TextStyle style;\n";
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "fontSize") {
-                code << Indent(indent + 1) << "style.fontSize = " << attribute.second << ";\n";
+                code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
             } else if (attribute.first == "color") {
-                code << Indent(indent + 1) << "style.color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             }
         }
         EmitSelectable(code, indent + 1, "style", child);
@@ -1561,19 +1876,19 @@ bool XmlToCpp::TryEmitGraphic(std::ostringstream& code,
                 if (attribute.second.find('%') != std::string::npos) {
                     code << Indent(indent) << styleName << ".widthSpec = \"" << EscapeCpp(attribute.second) << "\";\n";
                 } else {
-                    code << Indent(indent) << styleName << ".width = " << FloatLiteral(attribute.second) << ";\n";
+                    code << BindFloat(indent, styleName, "width", attribute.second, node.name);
                 }
             } else if (attribute.first == "height") {
                 if (attribute.second.find('%') != std::string::npos) {
                     code << Indent(indent) << styleName << ".heightSpec = \"" << EscapeCpp(attribute.second) << "\";\n";
                 } else {
-                    code << Indent(indent) << styleName << ".height = " << FloatLiteral(attribute.second) << ";\n";
+                    code << BindFloat(indent, styleName, "height", attribute.second, node.name);
                 }
             } else if (attribute.first == "size") {
                 code << Indent(indent) << styleName << ".width = " << FloatLiteral(attribute.second) << ";\n";
                 code << Indent(indent) << styleName << ".height = " << FloatLiteral(attribute.second) << ";\n";
             } else if (attribute.first == "color") {
-                code << Indent(indent) << styleName << ".color = Robo::Color::FromHex(\"" << EscapeCpp(attribute.second) << "\");\n";
+                code << BindColor(indent, styleName, "color", attribute.second, node.name);
             } else if (attribute.first == "opacity") {
                 code << Indent(indent) << styleName << ".opacity = " << FloatLiteral(attribute.second) << ";\n";
             } else if (attribute.first == "align") {
@@ -1595,6 +1910,7 @@ bool XmlToCpp::TryEmitGraphic(std::ostringstream& code,
         code << Indent(indent) << "if (packedStyle.height > 0.0f) icon.SetHeight(packedStyle.height);\n";
         code << Indent(indent) << "if (!packedStyle.widthSpec.empty()) icon.SetWidthSpec(packedStyle.widthSpec);\n";
         code << Indent(indent) << "if (!packedStyle.heightSpec.empty()) icon.SetHeightSpec(packedStyle.heightSpec);\n";
+        code << Indent(indent) << "for (const auto& token : packedStyle.tokens) icon.SetToken(token.first, token.second);\n";
         code << Indent(indent) << "icon.SetColor(packedStyle.color);\n";
         code << Indent(indent) << "icon.SetOpacity(packedStyle.opacity);\n";
         code << Indent(indent) << "icon.SetAlign(packedStyle.align);\n";
@@ -1624,10 +1940,16 @@ bool XmlToCpp::TryEmitGraphic(std::ostringstream& code,
 
 std::string XmlToCpp::Convert(const std::string& xml, const std::string& assetDirectory) const {
     icons_ = LoadIconPacks(assetDirectory);
+    foundations_.clear();
+    emittedFoundations_.clear();
+    foundations_.insert("RoboFoundation");
+    emittedFoundations_.insert("RoboFoundation");
     XmlParser parser;
     const XmlNode root = parser.Parse(xml);
+    CollectFoundations(root);
     std::ostringstream code;
     code << "#include \"Robo/Text.hpp\"\n";
+    code << "#include \"Robo/Foundation.hpp\"\n";
     code << "#include \"Robo/Svg.hpp\"\n";
     code << "#include \"Robo/Icon.hpp\"\n";
     code << "#include \"Robo/Heading.hpp\"\n";

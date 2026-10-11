@@ -1,4 +1,5 @@
 #include "Robo/GridPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -204,7 +205,8 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
                                 float forcedWidth,
                                 float forcedHeight) {
     const float scale = std::max(0.5f, pixelScale);
-    const GridStyle& style = grid.GetStyle();
+    GridStyle style = grid.GetStyle();
+    Resolve(style);
 
     float resolvedW = containerWidth;
     if (forcedWidth > 0.0f) {
@@ -642,7 +644,8 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
                                   float forcedHeight) {
     const SelectableScope selection(&grid, grid.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const GridStyle& style = grid.GetStyle();
+    GridStyle style = grid.GetStyle();
+    Resolve(style);
 
     ComputedGridLayout layout =
         ComputeLayout(fonts, grid, containerWidth, pixelScale, forcedWidth, forcedHeight);

@@ -1,4 +1,5 @@
 #include "Robo/Input.hpp"
+#include "Robo/Foundation.hpp"
 
 #include <algorithm>
 
@@ -113,72 +114,101 @@ std::size_t Input::GetCaretIndex() const {
 }
 
 void Input::ApplyVariantDefaults() {
+    if (style_.tokens.find("fontSize") == style_.tokens.end()) {
+        style_.tokens["fontSize"] = "type.body.size";
+    }
+    if (style_.tokens.find("fontWeight") == style_.tokens.end()) {
+        style_.tokens["fontWeight"] = "type.body.weight";
+    }
+    if (style_.tokens.find("paddingX") == style_.tokens.end()) {
+        style_.tokens["paddingX"] = "space.3";
+    }
+    if (style_.tokens.find("paddingY") == style_.tokens.end()) {
+        style_.tokens["paddingY"] = "space.2";
+    }
+    if (style_.tokens.find("focusBorderColor") == style_.tokens.end()) {
+        style_.tokens["focusBorderColor"] = "color.border.focus";
+    }
+    if (style_.tokens.find("caretColor") == style_.tokens.end()) {
+        style_.tokens["caretColor"] = "color.brand.primary";
+    }
+
     switch (style_.variant) {
         case InputVariant::Bordered:
             if (!style_.hasCustomBackground) {
-                style_.backgroundColor = Color::FromHex("#FFFFFF");
+                style_.tokens["backgroundColor"] = "color.bg.elevated";
             }
             if (!style_.hasCustomBorder) {
-                style_.borderColor = Color::FromHex("#C6C6C8");
+                style_.tokens["borderColor"] = "color.border.default";
             }
             style_.borderWidth = 1.0;
-            style_.cornerRadius = 8.0;
+            if (style_.tokens.find("cornerRadius") == style_.tokens.end()) {
+                style_.tokens["cornerRadius"] = "radius.control";
+            }
             break;
         case InputVariant::Plain:
             if (!style_.hasCustomBackground) {
                 style_.backgroundColor = Color::FromRgba(0, 0, 0, 0);
+                style_.tokens["backgroundColor"] = "";
             }
             if (!style_.hasCustomBorder) {
-                style_.borderColor = Color::FromHex("#C6C6C8");
+                style_.borderColor = Color::FromRgba(0, 0, 0, 0);
+                style_.tokens["borderColor"] = "";
             }
             style_.borderWidth = 0.0;
-            style_.cornerRadius = 0.0;
+            if (style_.tokens.find("cornerRadius") == style_.tokens.end()) {
+                style_.cornerRadius = 0.0;
+                style_.tokens["cornerRadius"] = "";
+            }
             break;
         case InputVariant::Filled:
         default:
             if (!style_.hasCustomBackground) {
-                style_.backgroundColor = Color::FromHex("#F2F2F7");
+                style_.tokens["backgroundColor"] = "color.bg.secondary";
             }
             if (!style_.hasCustomBorder) {
-                style_.borderColor = Color::FromHex("#F2F2F7");
+                style_.tokens["borderColor"] = "color.bg.secondary";
             }
             style_.borderWidth = 0.0;
-            style_.cornerRadius = 10.0;
+            if (style_.tokens.find("cornerRadius") == style_.tokens.end()) {
+                style_.tokens["cornerRadius"] = "radius.control";
+            }
             break;
     }
 
     if (!style_.hasCustomTextColor) {
-        style_.textColor = Color::FromHex("#1C1C1E");
+        style_.tokens["textColor"] = "color.text.primary";
     }
     if (!style_.hasCustomPlaceholderColor) {
-        style_.placeholderColor = Color::FromHex("#8E8E93");
+        style_.tokens["placeholderColor"] = "color.text.tertiary";
     }
 }
 
 Color Input::ResolveBackgroundColor() const {
-    Color background = style_.backgroundColor;
+    InputStyle style = style_;
+    Resolve(style);
+    Color background = style.backgroundColor;
     if (interaction_ == InputInteraction::Hovered) {
-        if (style_.variant == InputVariant::Filled) {
+        if (style.variant == InputVariant::Filled) {
             return MixToward(background, Color::FromHex("#000000"), 0.04f);
         }
-        if (style_.variant == InputVariant::Bordered) {
-            return MixToward(background, Color::FromHex("#F2F2F7"), 0.5f);
+        if (style.variant == InputVariant::Bordered) {
+            return MixToward(background, ResolveColor(background, "color.bg.secondary"), 0.5f);
         }
     }
-    if (interaction_ == InputInteraction::Focused && style_.variant == InputVariant::Filled) {
+    if (interaction_ == InputInteraction::Focused && style.variant == InputVariant::Filled) {
         return MixToward(background, Color::FromHex("#FFFFFF"), 0.35f);
     }
     return background;
 }
 
 Color Input::ResolveBorderColor() const {
+    InputStyle style = style_;
+    Resolve(style);
     if (interaction_ == InputInteraction::Focused) {
-        return style_.focusBorderColor;
+        return style.focusBorderColor;
     }
-    if (style_.variant == InputVariant::Plain) {
-        return style_.borderColor;
-    }
-    return style_.borderColor;
+    return style.borderColor;
 }
 
 float Input::ResolveBorderWidth() const {

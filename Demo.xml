@@ -1,4 +1,7 @@
 <Robo>
+  <Foundation name="Demo" from="RoboFoundation"/>
+  <FoundationUse name="Demo"/>
+
   <Heading level="1" align="center">Robo</Heading>
   <Paragraph align="center">
     This page is Demo.xml, compiled to C++, then compiled for the browser.
@@ -22,14 +25,14 @@
   <Input variant="plain" placeholder="Search" width="100%" />
 
   <H2>Flex</H2>
-  <Flexbox direction="row" justify="space-between" align="center" gap="12" width="100%">
+  <Flexbox direction="row" justify="space-between" align="center" gap="{space.3}" width="100%">
     <Button>Left</Button>
     <Button variant="tinted">Middle</Button>
     <Button>Right</Button>
   </Flexbox>
 
   <H2>Grid</H2>
-  <Grid columns="1fr 1fr" gap="12" width="100%">
+  <Grid columns="1fr 1fr" gap="{space.3}" width="100%">
     <Button>A</Button>
     <Button variant="gray">B</Button>
     <Button variant="tinted">C</Button>
@@ -37,14 +40,14 @@
   </Grid>
 
   <H2>Position</H2>
-  <Position width="100%" height="150" background="#1C1C1E" cornerRadius="14">
+  <Position width="100%" height="{space.10}" background="{color.text.primary}" cornerRadius="{radius.lg}">
     <Button left="16" top="16">Top left</Button>
     <Button right="16" bottom="16" variant="tinted">Bottom right</Button>
   </Position>
 
   <H2>Container</H2>
   <Paragraph>Wheel, drag, or use the arrow keys. The cursor stays an arrow.</Paragraph>
-  <Container height="220" gap="10" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1" variant="thin" arrows="true" autoHide="false">
+  <Container height="{space.10}" gap="{space.3}" padding="{space.4}" background="{color.bg.primary}" cornerRadius="{radius.lg}" borderColor="{color.border.subtle}" borderWidth="1" variant="thin" arrows="true" autoHide="false">
     <H3>Inside the container</H3>
     <Paragraph selectable="true">The first row of a clipped, scrolling region.</Paragraph>
     <Paragraph>Buttons and fields inside stay interactive.</Paragraph>
@@ -58,31 +61,31 @@
 
   <H2>Icons</H2>
   <Paragraph>Pack icons resize and recolor. Their paths stay in the pack.</Paragraph>
-  <Flexbox direction="row" align="center" gap="16">
-    <Search size="28" color="#007AFF" />
-    <Plus size="28" color="#1C1C1E" />
-    <Check size="28" color="#34C759" />
-    <Close size="28" color="#FF3B30" />
+  <Flexbox direction="row" align="center" gap="{space.4}">
+    <Search size="28" color="{color.brand.primary}" />
+    <Plus size="28" color="{color.text.primary}" />
+    <Check size="28" color="{color.success}" />
+    <Close size="28" color="{color.danger}" />
     <Home size="28" />
-    <Heart size="28" color="#FF2D55" />
-    <FlagFrance width="36" height="24" />
-    <FlagJapan width="36" height="24" />
-    <FlagGermany width="36" height="24" />
+    <Heart size="28" color="{color.danger}" />
+    <FlagFrance width="{space.6}" height="{space.5}" />
+    <FlagJapan width="{space.6}" height="{space.5}" />
+    <FlagGermany width="{space.6}" height="{space.5}" />
   </Flexbox>
 
   <H2>SVG</H2>
   <Paragraph>This graphic is written in the page XML.</Paragraph>
-  <svg width="220" height="88" viewBox="0 0 220 88">
-    <rect x="2" y="8" width="216" height="72" rx="14" fill="#F2F2F7" stroke="#C7C7CC" stroke-width="2"/>
-    <circle cx="44" cy="44" r="18" fill="#007AFF"/>
-    <path d="M80 32 H196" fill="none" stroke="#1C1C1E" stroke-width="4"/>
-    <path d="M80 46 H168" fill="none" stroke="#8E8E93" stroke-width="4"/>
-    <path d="M80 60 H140" fill="none" stroke="#C7C7CC" stroke-width="4"/>
+  <svg width="{space.10}" height="{space.8}" viewBox="0 0 220 88">
+    <rect x="2" y="8" width="216" height="72" rx="14" fill="{color.bg.secondary}" stroke="{color.border.default}" stroke-width="2"/>
+    <circle cx="44" cy="44" r="18" fill="{color.brand.primary}"/>
+    <path d="M80 32 H196" fill="none" stroke="{color.text.primary}" stroke-width="4"/>
+    <path d="M80 46 H168" fill="none" stroke="{color.text.tertiary}" stroke-width="4"/>
+    <path d="M80 60 H140" fill="none" stroke="{color.border.strong}" stroke-width="4"/>
   </svg>
 
   <H2>Horizontal</H2>
   <Paragraph>Swipe sideways, drag the thumb, or press Left and Right.</Paragraph>
-  <Container orientation="horizontal" height="92" width="100%" gap="10" padding="16" background="#FFFFFF" cornerRadius="14" borderColor="#E5E5EA" borderWidth="1" arrows="true" autoHide="false">
+  <Container orientation="horizontal" height="{space.9}" width="100%" gap="{space.3}" padding="{space.4}" background="{color.bg.primary}" cornerRadius="{radius.lg}" borderColor="{color.border.subtle}" borderWidth="1" arrows="true" autoHide="false">
     <Button>Alpha</Button>
     <Button variant="tinted">Beta</Button>
     <Button variant="gray">Gamma</Button>

@@ -1,4 +1,5 @@
 #include "Robo/TextPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 
 #include <algorithm>
@@ -162,7 +163,8 @@ TextMeasureResult TextPainter::Measure(const FontEngine& fonts,
                                        float containerWidth,
                                        float pixelScale) {
     const float scale = std::max(0.5f, pixelScale);
-    const TextStyle& style = text.GetStyle();
+    TextStyle style = text.GetStyle();
+    Resolve(style);
     const float logicalWidth = containerWidth / scale;
     float blockWidth = ResolveWidthValue(style.width, logicalWidth) * scale;
     if (!style.maxWidth.empty()) {
@@ -175,7 +177,9 @@ TextMeasureResult TextPainter::Measure(const FontEngine& fonts,
         if (run.content.empty()) {
             continue;
         }
-        ResolvedRun resolved = ResolveRun(run, style, fonts, scale);
+        TextRun runStyle = run;
+        Resolve(runStyle);
+        ResolvedRun resolved = ResolveRun(runStyle, style, fonts, scale);
         resolved.content = NormalizeXmlText(run.content);
         if (!resolved.content.empty()) {
             runs.push_back(resolved);
@@ -293,7 +297,8 @@ float TextPainter::Paint(FrameBuffer& buffer,
                        float pixelScale) {
     const SelectableScope selection(&text, text.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const TextStyle& style = text.GetStyle();
+    TextStyle style = text.GetStyle();
+    Resolve(style);
     const float logicalWidth = containerWidth / scale;
     float blockWidth = ResolveWidthValue(style.width, logicalWidth) * scale;
     if (!style.maxWidth.empty()) {
@@ -306,7 +311,9 @@ float TextPainter::Paint(FrameBuffer& buffer,
         if (run.content.empty()) {
             continue;
         }
-        ResolvedRun resolved = ResolveRun(run, style, fonts, scale);
+        TextRun runStyle = run;
+        Resolve(runStyle);
+        ResolvedRun resolved = ResolveRun(runStyle, style, fonts, scale);
         resolved.content = NormalizeXmlText(run.content);
         if (!resolved.content.empty()) {
             runs.push_back(resolved);

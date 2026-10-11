@@ -1,4 +1,5 @@
 #include "Robo/FlexboxPainter.hpp"
+#include "Robo/Foundation.hpp"
 #include "Robo/SvgPainter.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
@@ -212,7 +213,8 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
                                 float forcedWidth,
                                 float forcedHeight) {
     const float scale = std::max(0.5f, pixelScale);
-    const FlexboxStyle& style = flexbox.GetStyle();
+    FlexboxStyle style = flexbox.GetStyle();
+    Resolve(style);
 
     float resolvedW = containerWidth;
     if (forcedWidth > 0.0f) {
@@ -658,7 +660,8 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                                         float forcedHeight) {
     const SelectableScope selection(&flexbox, flexbox.GetStyle().selectable);
     const float scale = std::max(0.5f, pixelScale);
-    const FlexboxStyle& style = flexbox.GetStyle();
+    FlexboxStyle style = flexbox.GetStyle();
+    Resolve(style);
 
     ComputedFlexLayout layout =
         ComputeLayout(fonts, flexbox, containerWidth, scale, forcedWidth, forcedHeight);

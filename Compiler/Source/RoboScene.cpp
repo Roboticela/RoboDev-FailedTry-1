@@ -1272,7 +1272,44 @@ bool RoboScene::PageBarDriving(const Scrollbar& bar) const {
     return bar.IsDragging() || bar.NeedsAnimation() || bar.GetPressedArrow() != ScrollbarArrow::None;
 }
 
+void RoboScene::SetFoundation(const std::string& name) {
+    foundation_ = name;
+    MarkFullDirty();
+}
+
+void RoboScene::SetFoundationForTheme(Theme theme, const std::string& name) {
+    if (theme == Theme::Dark) {
+        darkFoundation_ = name;
+    } else {
+        lightFoundation_ = name;
+    }
+    MarkFullDirty();
+}
+
+void RoboScene::SetTheme(Theme theme) {
+    if (theme_ == theme) {
+        return;
+    }
+    theme_ = theme;
+    MarkFullDirty();
+}
+
+const Foundation& RoboScene::ActiveFoundation() const {
+    const std::string* name = &foundation_;
+    if (theme_ == Theme::Dark && !darkFoundation_.empty()) {
+        name = &darkFoundation_;
+    } else if (theme_ == Theme::Light && !lightFoundation_.empty()) {
+        name = &lightFoundation_;
+    }
+    const Foundation* found = Foundation::Find(*name);
+    if (found == nullptr) {
+        return Foundation::RoboFoundation();
+    }
+    return *found;
+}
+
 void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& background, float padding) {
+    const FoundationScope foundationScope(ActiveFoundation(), theme_);
     platform_ = &platform;
     fonts_ = &fonts;
     background_ = background;
