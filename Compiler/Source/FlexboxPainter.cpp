@@ -4,6 +4,7 @@
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/TitleBarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -268,6 +269,12 @@ ComputedFlexLayout ComputeLayout(const FontEngine& fonts,
             }
             case FlexItemKind::BrandLogo: {
                 BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
+                child.baseWidth = measured.width;
+                child.baseHeight = measured.height;
+                break;
+            }
+            case FlexItemKind::TitleBar: {
+                TitleBarMeasureResult measured = TitleBarPainter::Measure(fonts, item.titleBar, innerW, scale);
                 child.baseWidth = measured.width;
                 child.baseHeight = measured.height;
                 break;
@@ -741,6 +748,10 @@ FlexboxPaintResult FlexboxPainter::Paint(FrameBuffer& buffer,
                 }
                 case FlexItemKind::BrandLogo: {
                     BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, childX, childY, scale);
+                    break;
+                }
+                case FlexItemKind::TitleBar: {
+                    TitleBarPainter::Paint(buffer, fonts, item.titleBar, childX, childY, childW, scale);
                     break;
                 }
                 case FlexItemKind::ThemeToggle: {

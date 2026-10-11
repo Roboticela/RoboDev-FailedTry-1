@@ -3,6 +3,7 @@
 #include "Robo/TextSelection.hpp"
 #include "Robo/ContainerPainter.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/TitleBarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -337,6 +338,12 @@ ComputedGridLayout ComputeLayout(const FontEngine& fonts,
                 SvgMeasureResult measured = SvgPainter::Measure(item.svg, scale);
                 child.measuredWidth = hasExplicitWidth ? ParseDimension(item.props.width, innerW, measured.width, scale) : measured.width;
                 child.measuredHeight = hasExplicitHeight ? ParseDimension(item.props.height, innerW, measured.height, scale) : measured.height;
+                break;
+            }
+            case GridItemKind::TitleBar: {
+                TitleBarMeasureResult measured = TitleBarPainter::Measure(fonts, item.titleBar, innerW, scale);
+                child.measuredWidth = measured.width;
+                child.measuredHeight = measured.height;
                 break;
             }
             case GridItemKind::BrandLogo: {
@@ -724,6 +731,10 @@ GridPaintResult GridPainter::Paint(FrameBuffer& buffer,
             }
             case GridItemKind::BrandLogo: {
                 BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, childX, childY, scale);
+                break;
+            }
+            case GridItemKind::TitleBar: {
+                TitleBarPainter::Paint(buffer, fonts, item.titleBar, childX, childY, childW, scale);
                 break;
             }
             case GridItemKind::ThemeToggle: {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BrandLogo.hpp"
+#include "TitleBar.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -36,6 +37,7 @@ enum class SceneItemKind {
     Position,
     Svg,
     BrandLogo,
+    TitleBar,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -61,6 +63,7 @@ struct SceneItem {
     Position position;
     Svg svg;
     BrandLogo brandLogo;
+    Robo::TitleBar titleBar;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -79,6 +82,7 @@ public:
     void AddPosition(Position position);
     void AddSvg(Svg svg);
     void AddBrandLogo(BrandLogo logo);
+    void AddTitleBar(Robo::TitleBar bar);
     void AddThemeToggle(ThemeToggle toggle);
     void AddThemeIconToggle(ThemeIconToggle toggle);
     void AddMotionShape(MotionShape shape);
@@ -87,6 +91,7 @@ public:
     void SetFoundation(const std::string& name);
     void SetFoundationForTheme(Theme theme, const std::string& name);
     void SetTheme(Theme theme);
+    void SetPagePadding(float padding);
     const Foundation& ActiveFoundation() const;
     Color GetBackground() const;
 
@@ -185,6 +190,7 @@ private:
 
     Color background_ = Color::FromHex("#F7F3EB");
     float padding_ = 28.0f;
+    bool pagePaddingSet_ = false;
     float scrollX_ = 0.0f;
     float scrollY_ = 0.0f;
     float appZoom_ = 1.0f;

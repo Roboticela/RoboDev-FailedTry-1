@@ -2,6 +2,7 @@
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/TitleBarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -204,6 +205,12 @@ PositionMeasureResult PositionPainter::Measure(const FontEngine& fonts,
             }
             case PositionItemKind::BrandLogo: {
                 BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
+                childW = res.width;
+                childH = res.height;
+                break;
+            }
+            case PositionItemKind::TitleBar: {
+                TitleBarMeasureResult res = TitleBarPainter::Measure(fonts, item.titleBar, innerAvailW, scale);
                 childW = res.width;
                 childH = res.height;
                 break;
@@ -439,6 +446,12 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
             }
             case PositionItemKind::BrandLogo: {
                 BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
+                lc.width = res.width;
+                lc.height = res.height;
+                break;
+            }
+            case PositionItemKind::TitleBar: {
+                TitleBarMeasureResult res = TitleBarPainter::Measure(fonts, item.titleBar, innerAvailW, scale);
                 lc.width = res.width;
                 lc.height = res.height;
                 break;
@@ -737,6 +750,9 @@ PositionPaintResult PositionPainter::Paint(FrameBuffer& buffer,
                 break;
             case PositionItemKind::BrandLogo:
                 BrandLogoPainter::Paint(buffer, fonts, item.brandLogo, lc.x, lc.y, scale);
+                break;
+            case PositionItemKind::TitleBar:
+                TitleBarPainter::Paint(buffer, fonts, item.titleBar, lc.x, lc.y, lc.width, scale);
                 break;
             case PositionItemKind::ThemeToggle:
                 ThemeTogglePainter::Paint(buffer, fonts, item.themeToggle, lc.x, lc.y, lc.width, scale);

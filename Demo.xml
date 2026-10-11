@@ -2,6 +2,8 @@
   <Foundation name="Demo" from="RoboFoundation"/>
   <FoundationUse name="Demo"/>
 
+  <TitleBar title="Robo"/>
+
   <Heading level="1" align="center">Robo</Heading>
   <Paragraph align="center">
     This page is Demo.xml, compiled to C++, then compiled for the browser.

@@ -1,3 +1,8 @@
+param(
+    [ValidateSet("Demo", "DevKit")]
+    [string]$App = "Demo"
+)
+
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -41,6 +46,8 @@ function Get-CoreSources {
         (Join-Path $Root "Compiler\Source\SvgPainter.cpp"),
         (Join-Path $Root "Compiler\Source\BrandLogo.cpp"),
         (Join-Path $Root "Compiler\Source\BrandLogoPainter.cpp"),
+        (Join-Path $Root "Compiler\Source\TitleBar.cpp"),
+        (Join-Path $Root "Compiler\Source\TitleBarPainter.cpp"),
         (Join-Path $Root "Compiler\Source\ThemeToggle.cpp"),
         (Join-Path $Root "Compiler\Source\ThemeTogglePainter.cpp"),
         (Join-Path $Root "Compiler\Source\ThemeIconToggle.cpp"),
@@ -120,7 +127,13 @@ function Ensure-Emsdk {
 }
 
 function Invoke-XmlCompile {
-    Write-Step "Compiling Demo.xml to C++"
+    $pageXml = Join-Path $Root "Demo.xml"
+    $pageCppName = "DemoPage.cpp"
+    if ($App -eq "DevKit") {
+        $pageXml = Join-Path $Root "DevKit\DevKit.xml"
+        $pageCppName = "DevKitPage.cpp"
+    }
+    Write-Step "Compiling $App to C++"
     $vcvars = Find-VcVars64
     if (-not $vcvars) {
         throw "Visual Studio C++ toolchain not found (need vcvars64.bat)"
@@ -169,27 +182,32 @@ exit /b %ERRORLEVEL%
         throw "XmlCompile build failed with exit code $LASTEXITCODE"
     }
 
-    $demoXml = Join-Path $Root "Demo.xml"
-    $demoCpp = Join-Path $generatedDir "DemoPage.cpp"
-    & $toolExe $demoXml $demoCpp
+    $pageCpp = Join-Path $generatedDir $pageCppName
+    & $toolExe $pageXml $pageCpp
     if ($LASTEXITCODE -ne 0) {
-        throw "XmlCompile failed to compile Demo.xml"
+        throw "XmlCompile failed to compile $pageXml"
     }
-    Write-Host "Built: $demoCpp"
+    Write-Host "Built: $pageCpp"
 }
 
 function Invoke-WebBuild {
-    Write-Step "Compiling Demo C++ to WebAssembly"
-    Ensure-Directory $BuildWeb
+    $outputDir = $BuildWeb
+    $pageCppName = "DemoPage.cpp"
+    if ($App -eq "DevKit") {
+        $outputDir = Join-Path $Root "Build\DevKit"
+        $pageCppName = "DevKitPage.cpp"
+    }
+    Write-Step "Compiling $App C++ to WebAssembly"
+    Ensure-Directory $outputDir
 
     $sources = (Get-CoreSources) + @(
-        (Join-Path $Root "Build\Generated\DemoPage.cpp"),
+        (Join-Path $Root "Build\Generated\$pageCppName"),
         (Join-Path $Root "RoboPlatforms\Web\WebPlatform.cpp"),
         (Join-Path $Root "RoboPlatforms\Web\Main.cpp")
     )
 
     $fontsDir = Join-Path $Root "Assets\Fonts"
-    $outputJs = Join-Path $BuildWeb "Robo.js"
+    $outputJs = Join-Path $outputDir "Robo.js"
 
     $emccArgs = @(
         "-O2",
@@ -213,7 +231,7 @@ function Invoke-WebBuild {
     }
 
     Write-Host "Built: $outputJs"
-    Write-Host "Built: $(Join-Path $BuildWeb 'Robo.wasm')"
+    Write-Host "Built: $(Join-Path $outputDir 'Robo.wasm')"
 }
 
 function Find-VcVars64 {
@@ -243,7 +261,7 @@ function Find-VcVars64 {
     return $null
 }
 
-Write-Step "RoboDev build (Demo.xml to WebAssembly)"
+Write-Step "RoboDev build ($App to WebAssembly)"
 Invoke-XmlCompile
 Ensure-Emsdk
 Invoke-WebBuild

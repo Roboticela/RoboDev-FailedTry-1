@@ -47,6 +47,14 @@ void Flexbox::AddBrandLogo(BrandLogo logo, const FlexItemProps& props) {
     items_.push_back(std::move(item));
 }
 
+void Flexbox::AddTitleBar(TitleBar bar, const FlexItemProps& props) {
+    FlexboxItem item;
+    item.kind = FlexItemKind::TitleBar;
+    item.titleBar = std::move(bar);
+    item.props = props;
+    items_.push_back(std::move(item));
+}
+
 void Flexbox::AddThemeToggle(ThemeToggle toggle, const FlexItemProps& props) {
     FlexboxItem item;
     item.kind = FlexItemKind::ThemeToggle;

@@ -1,0 +1,6 @@
+<Robo padding="0">
+  <Foundation name="DevKit" from="RoboFoundation"/>
+  <FoundationUse name="DevKit"/>
+
+  <TitleBar title="DevKit"/>
+</Robo>

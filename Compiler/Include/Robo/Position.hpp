@@ -6,6 +6,7 @@
 #include "Input.hpp"
 #include "Scrollbar.hpp"
 #include "BrandLogo.hpp"
+#include "TitleBar.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -51,6 +52,7 @@ enum class PositionItemKind {
     Position,
     Svg,
     BrandLogo,
+    TitleBar,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -134,6 +136,7 @@ struct PositionItem {
     std::shared_ptr<Position> position;
     Svg svg;
     BrandLogo brandLogo;
+    Robo::TitleBar titleBar;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -165,6 +168,7 @@ public:
     void AddPosition(Position position, const PositionItemProps& props = {});
     void AddSvg(Svg svg, const PositionItemProps& props = {});
     void AddBrandLogo(BrandLogo logo, const PositionItemProps& props = {});
+    void AddTitleBar(Robo::TitleBar bar, const PositionItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const PositionItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const PositionItemProps& props = {});
     void AddMotionShape(MotionShape shape, const PositionItemProps& props = {});

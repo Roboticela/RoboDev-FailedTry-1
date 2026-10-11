@@ -6,6 +6,7 @@
 #include "Input.hpp"
 #include "Scrollbar.hpp"
 #include "BrandLogo.hpp"
+#include "TitleBar.hpp"
 #include "ThemeIconToggle.hpp"
 #include "MotionShape.hpp"
 #include "ThemeToggle.hpp"
@@ -67,6 +68,7 @@ enum class GridItemKind {
     Grid,
     Svg,
     BrandLogo,
+    TitleBar,
     ThemeToggle,
     ThemeIconToggle,
     MotionShape
@@ -158,6 +160,7 @@ struct GridItem {
     std::shared_ptr<Grid> grid;
     Svg svg;
     BrandLogo brandLogo;
+    Robo::TitleBar titleBar;
     ThemeToggle themeToggle;
     ThemeIconToggle themeIconToggle;
     MotionShape motionShape;
@@ -180,6 +183,7 @@ public:
     void AddGrid(Grid grid, const GridItemProps& props = {});
     void AddSvg(Svg svg, const GridItemProps& props = {});
     void AddBrandLogo(BrandLogo logo, const GridItemProps& props = {});
+    void AddTitleBar(Robo::TitleBar bar, const GridItemProps& props = {});
     void AddThemeToggle(ThemeToggle toggle, const GridItemProps& props = {});
     void AddThemeIconToggle(ThemeIconToggle toggle, const GridItemProps& props = {});
     void AddMotionShape(MotionShape shape, const GridItemProps& props = {});

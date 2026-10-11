@@ -2,6 +2,7 @@
 #include "Robo/Foundation.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/TitleBarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -187,6 +188,12 @@ void MeasureChild(const FontEngine& fonts,
         }
         case PositionItemKind::BrandLogo: {
             const BrandLogoMeasureResult res = BrandLogoPainter::Measure(fonts, item.brandLogo, scale);
+            outWidth = res.width;
+            outHeight = res.height;
+            break;
+        }
+        case PositionItemKind::TitleBar: {
+            const TitleBarMeasureResult res = TitleBarPainter::Measure(fonts, item.titleBar, innerAvailW, scale);
             outWidth = res.width;
             outHeight = res.height;
             break;

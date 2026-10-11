@@ -29,6 +29,7 @@ Slider
 List
 Table
 ✅ - BrandLogo
+✅ - TitleBar (also Navbar; Apple bar, 57px, background `color.bg.secondary`)
 ThemeToggle
 ThemeIconToggle
 ✅ - Shape (rect, ellipse, or path). Theme pairs (`darkX`, `darkY`, `darkBottom`, `darkFill`, `darkOpacity`, `darkScale`, `darkRotate`), `transition="0.5s cubic-bezier(0, -0.02, 0.4, 1.25)"`, hover (`hoverX`, `darkHoverX`, `hoverY`, `hoverScale`, `hoverRotate`, `hoverFill`, `hoverWithin`), `clip`, and `toggle="theme"` animate and transition any shape. `animation="name"` plus `animationDelay` plays a Keyframes clip.
@@ -37,4 +38,4 @@ ThemeIconToggle
 
 Use the current which already exists as folders to make everything and put everything correctly in these structure. I want to build first for the web so build it for the web platform first but the implementation must be independant of everything so we will just need to put implementation in RoboPlatforms and must not need any other changes to the code. Use the WebAssembly for web and on request of the page the HTMl will be provided too which will be made of the XML so we can get the best SEO.
 
-Programmer writes XML. The compiler turns that XML into C++. That C++ is compiled for the platform. There is no XML interpreter and no IDE. Demo.xml is the page. Run it in the browser with RunDemo.ps1.
+Programmer writes XML. The compiler turns that XML into C++. That C++ is compiled for the platform. There is no XML interpreter and no IDE. Demo.xml is the page. Run it in the browser with RunDemo.ps1. DevKit/DevKit.xml is the component app. Run it with RunDevKit.ps1. A root `padding` attribute sets the page inset; DevKit uses `0` so the TitleBar meets the window edge.

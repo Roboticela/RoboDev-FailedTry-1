@@ -2,6 +2,7 @@
 #include "Robo/Motion.hpp"
 #include "Robo/TextSelection.hpp"
 #include "Robo/BrandLogoPainter.hpp"
+#include "Robo/TitleBarPainter.hpp"
 #include "Robo/ThemeIconTogglePainter.hpp"
 #include "Robo/ThemeTogglePainter.hpp"
 #include "Robo/ButtonPainter.hpp"
@@ -1443,6 +1444,13 @@ void RoboScene::AddBrandLogo(BrandLogo logo) {
     items_.push_back(std::move(item));
 }
 
+void RoboScene::AddTitleBar(TitleBar bar) {
+    SceneItem item;
+    item.kind = SceneItemKind::TitleBar;
+    item.titleBar = std::move(bar);
+    items_.push_back(std::move(item));
+}
+
 void RoboScene::AddThemeToggle(ThemeToggle toggle) {
     SceneItem item;
     item.kind = SceneItemKind::ThemeToggle;
@@ -1610,6 +1618,11 @@ void RoboScene::SetFoundationForTheme(Theme theme, const std::string& name) {
     MarkFullDirty();
 }
 
+void RoboScene::SetPagePadding(float padding) {
+    padding_ = std::max(0.0f, padding);
+    pagePaddingSet_ = true;
+}
+
 void RoboScene::SetTheme(Theme theme) {
     if (theme_ == theme) {
         return;
@@ -1657,7 +1670,9 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     Color darkPage = Color::FromHex("#000000");
     ActiveFoundation().LookupColor("bg.primary", Theme::Dark, darkPage);
     background_ = LerpPageColor(background, darkPage, themeMix_);
-    padding_ = padding;
+    if (!pagePaddingSet_) {
+        padding_ = padding;
+    }
     hasRenderContext_ = true;
     needsRender_ = false;
     ConfigurePageBars();
@@ -1679,7 +1694,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
         }
     }
     lastPaintScale_ = paintScale;
-    const float pad = padding * paintScale;
+    const float pad = padding_ * paintScale;
     const float barThickness = 14.0f * paintScale;
     const float edge = 3.0f * paintScale;
 
@@ -1789,6 +1804,11 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 cursorY += painted.advanceY;
                 const BrandLogoMeasureResult measured = BrandLogoPainter::Measure(fonts, item.brandLogo, paintScale);
                 contentRight = std::max(contentRight, originX + measured.width + scrollX_);
+            } else if (item.kind == SceneItemKind::TitleBar) {
+                const TitleBarPaintResult painted =
+                    TitleBarPainter::Paint(frame, fonts, item.titleBar, originX, cursorY, contentWidth, paintScale);
+                cursorY += painted.advanceY;
+                contentRight = std::max(contentRight, originX + contentWidth + scrollX_);
             } else if (item.kind == SceneItemKind::ThemeToggle) {
                 const ThemeTogglePaintResult painted =
                     ThemeTogglePainter::Paint(frame, fonts, item.themeToggle, originX, cursorY, contentWidth, paintScale);

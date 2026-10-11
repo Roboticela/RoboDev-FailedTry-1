@@ -434,8 +434,9 @@ async function Boot() {
     document.body.textContent = "Build missing. Run RunDemo.ps1.";
     return;
   }
+  const moduleScript = document.querySelector("script[src$='Robo.js']");
   roboModule = await CreateRoboModule({
-    locateFile: (path) => `../Build/Web/${path}`,
+    locateFile: (path) => new URL(path, moduleScript.src).href,
   });
   WireInteraction();
   RenderPage();
