@@ -3,7 +3,7 @@ The filenames must be PascalCase. The functions, classes, and structs must be Pa
 # Components:
 Screen -> Screen will be the page in browser which will be identified uniquely for example /login and in native it will be also one screen which show in the window like login screen. The user can create multiple screens and even at once they can open multiple screens like how the paint tool has tools screen, main screen etc at the same time. The screen will have also the same layout options, we can grow it, we can align it and so on.
 Board -> The board will not be containing anything by default it will be just a plain board. user can put anything inside it. It will be like a canvas. It will be having all other components and then user can connect any board with any screen to display things. It will be the main component for layout.
-✅ - Container (clipped scroll region; layout stack, flex, grid, or position)
+✅ - Container (clipped scroll region; layout stack, flex, grid, or position). `when="id"` shows that container only while the PaneItem with the same `id` is selected.
 ✅ - Text (This component is going to support the rich text with multiple font sizes at same text and multiple colors. Options like wrap, left, center, right etc. Basically, all the features which text supports must come in this component and user must be able to tweak and play with the component using XML code.)
 ✅ - Heading (1 to 6; derives from Text with semantic size/weight defaults)
 ✅ - Paragraph (derives from Text with body copy defaults)
@@ -32,7 +32,7 @@ Table
 ✅ - BrandLogo
 ✅ - TitleBar (also Navbar; 57px, background `color.bg.secondary`, BrandLogo lockup on the left, outline sidebar IconButton beside it, split ThemeIconToggle on the right)
 ✅ - Sidebar (also Pane; 282px, `color.bg.secondary`). Two names: **Options** (`variant="options"`) is icon+text and collapses to an icon rail, with no inner panel. **Activity** (`variant="activity"`) keeps the icon rail and opens a wider panel for the selected SidebarItem. Ctrl+B or Command+B shows or hides it.
-✅ - SidebarItem (also PaneItem, PaneItems; icon and label; an Options button, or an Activity that reveals its child items in the wide panel; `section="true"` is a group label; hover, press, keyboard focus ring, disabled, and loading like a button; Tab moves to it, arrows move within its sidebar, Enter or Space activates; can sit in a grid, flex, or position)
+✅ - SidebarItem (also PaneItem, PaneItems; icon and label; an Options button, or an Activity that reveals its child items in the wide panel; `id` names the page a Container `when` shows; `selected="true"` opens that page; `section="true"` is a group label; hover, press, keyboard focus ring, disabled, and loading like a button; Tab moves to it, arrows move within its sidebar, Enter or Space activates; can sit in a grid, flex, or position)
 ✅ - Separator (also Divider; 1px foundation rule, optional label, solid / subtle / dashed / dotted / fade)
 ThemeToggle
 ThemeIconToggle

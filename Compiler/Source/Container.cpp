@@ -34,6 +34,14 @@ const ContainerStyle& Container::GetStyle() const {
     return style_;
 }
 
+void Container::SetShownWhen(const std::string& paneId) {
+    shownWhen_ = paneId;
+}
+
+const std::string& Container::ShownWhen() const {
+    return shownWhen_;
+}
+
 ContainerStyle& Container::GetStyle() {
     return style_;
 }

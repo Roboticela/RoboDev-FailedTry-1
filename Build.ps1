@@ -224,6 +224,7 @@ function Invoke-WebBuild {
         "-sMODULARIZE=1",
         "-sEXPORT_NAME=CreateRoboModule",
         "-sALLOW_MEMORY_GROWTH=1",
+        "-sSTACK_SIZE=2097152",
         "-sENVIRONMENT=web",
         "-sFORCE_FILESYSTEM=1",
         "-o", $outputJs

@@ -17,6 +17,14 @@ const std::string& SidebarItem::GetLabel() const {
     return label_;
 }
 
+void SidebarItem::SetId(const std::string& id) {
+    id_ = id;
+}
+
+const std::string& SidebarItem::GetId() const {
+    return id_;
+}
+
 void SidebarItem::SetSection(bool section) {
     section_ = section;
 }
@@ -144,9 +152,16 @@ void Sidebar::Select(int index) {
     if (items_[static_cast<std::size_t>(index)].IsSection()) {
         return;
     }
+    if (selected_ != index) {
+        scroll_ = 0.0f;
+    }
     selected_ = index;
-    for (SidebarItem& item : items_) {
+    for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
+        SidebarItem& item = items_[static_cast<std::size_t>(i)];
         item.SetSelected(false);
+        if (i == index) {
+            continue;
+        }
         for (SidebarItem& child : item.Children()) {
             child.SetSelected(false);
         }
@@ -185,12 +200,16 @@ int Sidebar::Selected() const {
 }
 
 int Sidebar::HitIndex(float x, float y) const {
+    if (HitRailArrow(x, y) != SidebarRailArrow::None) {
+        return -1;
+    }
     for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
         const SidebarItem& item = items_[static_cast<std::size_t>(i)];
         if (!item.CanActivate()) {
             continue;
         }
-        if (item.GetBounds().Contains(x, y)) {
+        if (item.GetBounds().Contains(x, y) &&
+            (paneH_ <= 1.0f || (y >= paneY_ && y < paneY_ + paneH_))) {
             return i;
         }
     }
@@ -198,6 +217,9 @@ int Sidebar::HitIndex(float x, float y) const {
 }
 
 SidebarItem* Sidebar::HitItem(float x, float y) {
+    if (HitRailArrow(x, y) != SidebarRailArrow::None) {
+        return nullptr;
+    }
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
         SidebarItem& item = items_[static_cast<std::size_t>(i)];
         for (int c = static_cast<int>(item.Children().size()) - 1; c >= 0; --c) {
@@ -207,7 +229,8 @@ SidebarItem* Sidebar::HitItem(float x, float y) {
                 return &child;
             }
         }
-        if (item.CanActivate() && item.GetBounds().Contains(x, y)) {
+        if (item.CanActivate() && item.GetBounds().Contains(x, y) &&
+            (paneH_ <= 1.0f || (y >= paneY_ && y < paneY_ + paneH_))) {
             return &item;
         }
     }
@@ -226,11 +249,149 @@ void Sidebar::SetPanel(float paneX, float paneY, float paneWidth, float paneHeig
     scroll_ = std::max(0.0f, std::min(scroll_, maxScroll));
 }
 
+void Sidebar::SetRail(float railWidth, float contentHeight, float viewportHeight, float step) {
+    railWidth_ = std::max(0.0f, railWidth);
+    railContent_ = std::max(0.0f, contentHeight);
+    railViewport_ = std::max(0.0f, viewportHeight);
+    railStep_ = std::max(1.0f, step);
+    const float maxScroll = RailMaxScroll();
+    railTarget_ = std::max(0.0f, std::min(railTarget_, maxScroll));
+    railScroll_ = std::max(0.0f, std::min(railScroll_, maxScroll));
+}
+
+void Sidebar::SetRailArrows(const SidebarItemBounds& up, const SidebarItemBounds& down) {
+    railUp_ = up;
+    railDown_ = down;
+    if (hotRail_ == SidebarRailArrow::Up && railUp_.width <= 1.0f) {
+        hotRail_ = SidebarRailArrow::None;
+    }
+    if (hotRail_ == SidebarRailArrow::Down && railDown_.width <= 1.0f) {
+        hotRail_ = SidebarRailArrow::None;
+    }
+    if (pressedRail_ == SidebarRailArrow::Up && railUp_.width <= 1.0f) {
+        pressedRail_ = SidebarRailArrow::None;
+    }
+    if (pressedRail_ == SidebarRailArrow::Down && railDown_.width <= 1.0f) {
+        pressedRail_ = SidebarRailArrow::None;
+    }
+}
+
+SidebarRailArrow Sidebar::HitRailArrow(float x, float y) const {
+    if (railUp_.width > 1.0f && railUp_.Contains(x, y)) {
+        return SidebarRailArrow::Up;
+    }
+    if (railDown_.width > 1.0f && railDown_.Contains(x, y)) {
+        return SidebarRailArrow::Down;
+    }
+    return SidebarRailArrow::None;
+}
+
+bool Sidebar::SetHotRailArrow(SidebarRailArrow arrow) {
+    if (hotRail_ == arrow) {
+        return false;
+    }
+    hotRail_ = arrow;
+    return true;
+}
+
+bool Sidebar::SetPressedRailArrow(SidebarRailArrow arrow) {
+    if (pressedRail_ == arrow) {
+        return false;
+    }
+    pressedRail_ = arrow;
+    railRepeatMs_ = 0.0;
+    railRepeatArmed_ = false;
+    return true;
+}
+
+SidebarRailArrow Sidebar::HotRailArrow() const {
+    return hotRail_;
+}
+
+SidebarRailArrow Sidebar::PressedRailArrow() const {
+    return pressedRail_;
+}
+
+float Sidebar::RailMaxScroll() const {
+    return std::max(0.0f, railContent_ - railViewport_);
+}
+
+bool Sidebar::CanScrollRailUp() const {
+    return railScroll_ > 1.0f;
+}
+
+bool Sidebar::CanScrollRailDown() const {
+    return railScroll_ < RailMaxScroll() - 1.0f;
+}
+
+bool Sidebar::MoveRailTarget(float delta) {
+    if (std::fabs(delta) < 0.5f) {
+        return false;
+    }
+    const float next = std::max(0.0f, std::min(RailMaxScroll(), railTarget_ + delta));
+    if (std::fabs(next - railTarget_) < 0.5f) {
+        return false;
+    }
+    railTarget_ = next;
+    return true;
+}
+
+bool Sidebar::StepRail(SidebarRailArrow arrow) {
+    if (arrow == SidebarRailArrow::Up) {
+        return MoveRailTarget(-railStep_);
+    }
+    if (arrow == SidebarRailArrow::Down) {
+        return MoveRailTarget(railStep_);
+    }
+    return false;
+}
+
+bool Sidebar::TickRail(double deltaMs) {
+    const double delta = std::max(0.0, deltaMs);
+    bool changed = false;
+    if (pressedRail_ != SidebarRailArrow::None) {
+        railRepeatMs_ += delta;
+        const double interval = railRepeatArmed_ ? 70.0 : 280.0;
+        if (railRepeatMs_ >= interval) {
+            railRepeatMs_ = 0.0;
+            railRepeatArmed_ = true;
+            if (StepRail(pressedRail_)) {
+                changed = true;
+            }
+        }
+    } else {
+        railRepeatMs_ = 0.0;
+        railRepeatArmed_ = false;
+    }
+
+    const float gap = railTarget_ - railScroll_;
+    if (std::fabs(gap) > 0.5f) {
+        const float blend = static_cast<float>(1.0 - std::exp(-delta / 70.0));
+        railScroll_ += gap * std::max(0.0f, blend);
+        if (std::fabs(railTarget_ - railScroll_) < 0.5f) {
+            railScroll_ = railTarget_;
+        }
+        changed = true;
+    } else if (railScroll_ != railTarget_) {
+        railScroll_ = railTarget_;
+        changed = true;
+    }
+    return changed || pressedRail_ != SidebarRailArrow::None;
+}
+
+bool Sidebar::RailNeedsTick() const {
+    return pressedRail_ != SidebarRailArrow::None || std::fabs(railTarget_ - railScroll_) > 0.5f;
+}
+
 bool Sidebar::Contains(float x, float y) const {
     return paneW_ > 1.0f && paneH_ > 1.0f && x >= paneX_ && y >= paneY_ && x < paneX_ + paneW_ && y < paneY_ + paneH_;
 }
 
-bool Sidebar::ScrollBy(float delta) {
+bool Sidebar::ScrollBy(float delta, float x) {
+    const bool onRail = variant_ == SidebarVariant::Activity && railWidth_ > 1.0f && x < paneX_ + railWidth_;
+    if (onRail) {
+        return MoveRailTarget(delta);
+    }
     const float maxScroll = std::max(0.0f, contentHeight_ - viewH_);
     const float next = std::max(0.0f, std::min(maxScroll, scroll_ + delta));
     if (std::fabs(next - scroll_) < 0.5f) {
@@ -253,8 +414,25 @@ void Sidebar::Reveal(float itemY, float itemHeight) {
     scroll_ = std::max(0.0f, std::min(scroll_, maxScroll));
 }
 
+void Sidebar::RevealRail(float itemY, float itemHeight) {
+    if (railViewport_ <= 1.0f) {
+        return;
+    }
+    if (itemY < paneY_) {
+        railScroll_ -= paneY_ - itemY;
+    } else if (itemY + itemHeight > paneY_ + railViewport_) {
+        railScroll_ += itemY + itemHeight - (paneY_ + railViewport_);
+    }
+    railScroll_ = std::max(0.0f, std::min(railScroll_, RailMaxScroll()));
+    railTarget_ = railScroll_;
+}
+
 float Sidebar::Scroll() const {
     return scroll_;
+}
+
+float Sidebar::RailScroll() const {
+    return railScroll_;
 }
 
 float Sidebar::LayoutWidth(float openAmount) const {

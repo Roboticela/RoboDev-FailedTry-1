@@ -4,6 +4,7 @@
 #include "Robo/SvgPainter.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Robo {
 
@@ -19,6 +20,79 @@ const float SECTION_SIZE = 12.0f;
 
 float LabelFade(float openAmount) {
     return std::max(0.0f, std::min(1.0f, (openAmount - 0.08f) / 0.42f));
+}
+
+float SegmentDistance(float px, float py, float ax, float ay, float bx, float by) {
+    const float vx = bx - ax;
+    const float vy = by - ay;
+    const float lengthSq = vx * vx + vy * vy;
+    float t = 0.0f;
+    if (lengthSq > 0.0001f) {
+        t = std::max(0.0f, std::min(1.0f, ((px - ax) * vx + (py - ay) * vy) / lengthSq));
+    }
+    const float dx = px - (ax + vx * t);
+    const float dy = py - (ay + vy * t);
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+void PaintStroke(FrameBuffer& buffer, float x0, float y0, float x1, float y1, float thickness, const Color& color) {
+    const float radius = std::max(0.5f, thickness * 0.5f);
+    const int left = static_cast<int>(std::floor(std::min(x0, x1) - radius));
+    const int top = static_cast<int>(std::floor(std::min(y0, y1) - radius));
+    const int right = static_cast<int>(std::ceil(std::max(x0, x1) + radius));
+    const int bottom = static_cast<int>(std::ceil(std::max(y0, y1) + radius));
+    for (int py = top; py < bottom; ++py) {
+        for (int px = left; px < right; ++px) {
+            const float distance = SegmentDistance(static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f, x0, y0, x1, y1);
+            if (distance >= radius) {
+                continue;
+            }
+            const float coverage = std::min(1.0f, radius - distance);
+            buffer.BlendPixel(px, py, color, coverage);
+        }
+    }
+}
+
+void PaintRailChevron(FrameBuffer& buffer, float centerX, float centerY, float size, bool up, const Color& color) {
+    const float half = size * 0.42f;
+    const float rise = size * 0.28f;
+    const float yOuter = up ? centerY + rise : centerY - rise;
+    const float yInner = up ? centerY - rise : centerY + rise;
+    const float thickness = std::max(1.5f, size * 0.16f);
+    PaintStroke(buffer, centerX - half, yOuter, centerX, yInner, thickness, color);
+    PaintStroke(buffer, centerX, yInner, centerX + half, yOuter, thickness, color);
+}
+
+void PaintRailArrowButton(FrameBuffer& buffer,
+                          Sidebar& sidebar,
+                          float x,
+                          float y,
+                          float width,
+                          float height,
+                          float scale,
+                          bool up) {
+    const SidebarRailArrow arrow = up ? SidebarRailArrow::Up : SidebarRailArrow::Down;
+    const bool pressed = sidebar.PressedRailArrow() == arrow;
+    const bool hot = sidebar.HotRailArrow() == arrow;
+    const Color hairline = ResolveColor(Color::FromHex("#E5E5E7"), "color.border.subtle");
+    Color fill = ResolveColor(Color::FromHex("#F5F5F7"), "color.bg.secondary");
+    if (pressed) {
+        fill = ResolveColor(Color::FromHex("#EDEDEF"), "color.bg.tertiary");
+        fill.red = static_cast<std::uint8_t>(fill.red * 0.92f);
+        fill.green = static_cast<std::uint8_t>(fill.green * 0.92f);
+        fill.blue = static_cast<std::uint8_t>(fill.blue * 0.92f);
+    } else if (hot) {
+        fill = ResolveColor(Color::FromHex("#EDEDEF"), "color.bg.tertiary");
+    }
+    const int line = std::max(1, static_cast<int>(std::round(scale)));
+    const int left = static_cast<int>(std::floor(x));
+    const int top = static_cast<int>(std::floor(y));
+    const int boxW = std::max(1, static_cast<int>(std::ceil(width)));
+    const int boxH = std::max(1, static_cast<int>(std::ceil(height)));
+    buffer.FillRect(left, top, boxW, boxH, hairline, 1.0f);
+    buffer.FillRect(left + line, top + line, std::max(1, boxW - line * 2), std::max(1, boxH - line * 2), fill, 1.0f);
+    const Color ink = ResolveColor(Color::FromHex("#6E6E73"), "color.text.secondary");
+    PaintRailChevron(buffer, x + width * 0.5f, y + height * 0.5f, 10.0f * scale, up, ink);
 }
 
 void PaintIcon(FrameBuffer& buffer, SidebarItem& item, float x, float y, float size, const Color& ink, float opacity, float scale) {
@@ -219,8 +293,21 @@ void SidebarPainter::Paint(FrameBuffer& buffer,
     const float rail = SIDEBAR_RAIL * scale;
     const bool activity = sidebar.GetVariant() == SidebarVariant::Activity && !sidebar.Items().empty();
     const float labelOpacity = activity ? 0.0f : LabelFade(openAmount);
-    float cursor = originY + ROW_PAD * scale;
     std::vector<SidebarItem>& items = sidebar.Items();
+    float railContent = ROW_PAD * scale;
+    if (activity) {
+        for (const SidebarItem& item : items) {
+            if (!item.IsSection()) {
+                railContent += row;
+            }
+        }
+        railContent += ROW_PAD * scale;
+        sidebar.SetRail(rail, railContent, height, 96.0f * scale);
+        buffer.PushClipRect(originX, originY, rail, height);
+    } else {
+        sidebar.SetRailArrows(SidebarItemBounds{}, SidebarItemBounds{});
+    }
+    float cursor = originY + ROW_PAD * scale - (activity ? sidebar.RailScroll() : 0.0f);
     for (int i = 0; i < static_cast<int>(items.size()); ++i) {
         SidebarItem& item = items[static_cast<std::size_t>(i)];
         if (item.IsSection()) {
@@ -234,6 +321,27 @@ void SidebarPainter::Paint(FrameBuffer& buffer,
         PaintRow(buffer, fonts, item, originX, cursor, rowWidth, row, scale, i == sidebar.Selected() || item.IsSelected(), labelOpacity);
         cursor += row;
     }
+    if (activity) {
+        buffer.PopClip();
+        const float buttonH = 22.0f * scale;
+        SidebarItemBounds up{};
+        SidebarItemBounds down{};
+        if (sidebar.CanScrollRailUp()) {
+            up.x = originX;
+            up.y = originY;
+            up.width = rail;
+            up.height = buttonH;
+            PaintRailArrowButton(buffer, sidebar, up.x, up.y, rail, buttonH, scale, true);
+        }
+        if (sidebar.CanScrollRailDown()) {
+            down.x = originX;
+            down.y = originY + height - buttonH;
+            down.width = rail;
+            down.height = buttonH;
+            PaintRailArrowButton(buffer, sidebar, down.x, down.y, rail, buttonH, scale, false);
+        }
+        sidebar.SetRailArrows(up, down);
+    }
     if (!activity || openAmount < 0.08f) {
         for (SidebarItem& item : items) {
             for (SidebarItem& child : item.Children()) {
@@ -246,6 +354,14 @@ void SidebarPainter::Paint(FrameBuffer& buffer,
         return;
     }
     const int selected = std::max(0, std::min(sidebar.Selected(), static_cast<int>(items.size()) - 1));
+    for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+        if (i == selected) {
+            continue;
+        }
+        for (SidebarItem& child : items[static_cast<std::size_t>(i)].Children()) {
+            child.SetBounds(SidebarItemBounds{});
+        }
+    }
     SidebarItem& current = items[static_cast<std::size_t>(selected)];
     const float panelX = originX + rail;
     const float panelW = std::max(0.0f, width - rail);

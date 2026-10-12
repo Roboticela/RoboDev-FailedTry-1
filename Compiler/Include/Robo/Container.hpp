@@ -78,6 +78,9 @@ public:
 
     void SetStyle(const ContainerStyle& style);
     const ContainerStyle& GetStyle() const;
+
+    void SetShownWhen(const std::string& paneId);
+    const std::string& ShownWhen() const;
     ContainerStyle& GetStyle();
 
     // Stack and Position layouts keep children here. Flex and Grid keep them
@@ -136,6 +139,7 @@ private:
     Grid grid_;
     Scrollbar scrollbar_;
     InputBounds bounds_;
+    std::string shownWhen_;
     double resolvedContentExtent_ = 0.0;
     float pixelScale_ = 1.0f;
 };

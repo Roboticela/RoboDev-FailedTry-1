@@ -23,6 +23,13 @@ enum class SidebarItemInteraction {
     Pressed
 };
 
+// The icon-rail scroll buttons. Up is the top of the rail, Down is the bottom.
+enum class SidebarRailArrow {
+    None,
+    Up,
+    Down
+};
+
 struct SidebarItemBounds {
     float x = 0.0f;
     float y = 0.0f;
@@ -36,6 +43,9 @@ class SidebarItem {
 public:
     void SetLabel(const std::string& label);
     const std::string& GetLabel() const;
+
+    void SetId(const std::string& id);
+    const std::string& GetId() const;
 
     void SetSection(bool section);
     bool IsSection() const;
@@ -71,6 +81,7 @@ public:
 
 private:
     std::string label_;
+    std::string id_;
     bool section_ = false;
     SidebarItemInteraction interaction_ = SidebarItemInteraction::Normal;
     bool disabled_ = false;
@@ -103,10 +114,24 @@ public:
     float LayoutWidth(float openAmount) const;
 
     void SetPanel(float paneX, float paneY, float paneWidth, float paneHeight, float viewY, float viewHeight, float contentHeight);
+    void SetRail(float railWidth, float contentHeight, float viewportHeight, float step);
+    void SetRailArrows(const SidebarItemBounds& up, const SidebarItemBounds& down);
+    SidebarRailArrow HitRailArrow(float x, float y) const;
+    bool SetHotRailArrow(SidebarRailArrow arrow);
+    bool SetPressedRailArrow(SidebarRailArrow arrow);
+    SidebarRailArrow HotRailArrow() const;
+    SidebarRailArrow PressedRailArrow() const;
+    bool CanScrollRailUp() const;
+    bool CanScrollRailDown() const;
+    bool StepRail(SidebarRailArrow arrow);
+    bool TickRail(double deltaMs);
+    bool RailNeedsTick() const;
     bool Contains(float x, float y) const;
-    bool ScrollBy(float delta);
+    bool ScrollBy(float delta, float x);
     void Reveal(float itemY, float itemHeight);
+    void RevealRail(float itemY, float itemHeight);
     float Scroll() const;
+    float RailScroll() const;
 
 private:
     SidebarVariant variant_ = SidebarVariant::Normal;
@@ -120,6 +145,21 @@ private:
     float viewH_ = 0.0f;
     float contentHeight_ = 0.0f;
     float scroll_ = 0.0f;
+    float railWidth_ = 0.0f;
+    float railContent_ = 0.0f;
+    float railViewport_ = 0.0f;
+    float railStep_ = 96.0f;
+    float railScroll_ = 0.0f;
+    float railTarget_ = 0.0f;
+    SidebarItemBounds railUp_{};
+    SidebarItemBounds railDown_{};
+    SidebarRailArrow hotRail_ = SidebarRailArrow::None;
+    SidebarRailArrow pressedRail_ = SidebarRailArrow::None;
+    double railRepeatMs_ = 0.0;
+    bool railRepeatArmed_ = false;
+
+    float RailMaxScroll() const;
+    bool MoveRailTarget(float delta);
 };
 
 SidebarVariant ParseSidebarVariant(const std::string& value);

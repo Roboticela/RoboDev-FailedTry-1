@@ -181,7 +181,13 @@ private:
     bool SetPressedSidebarItem(SidebarItem* item);
     bool SetFocusedSidebarItem(SidebarItem* item, bool showRing = false);
     void ActivateSidebarItem(SidebarItem* item);
+    const std::string& ActivePaneId();
+    void RememberPane(const SidebarItem* item);
+    void OpenSelectedChild(Sidebar* owner, int index);
     Sidebar* SidebarOwning(SidebarItem* item);
+    bool UpdateRailArrows(float x, float y);
+    bool PressRailArrow(float x, float y);
+    bool ReleaseRailArrows();
     bool IsSidebarToggle(const Button* button) const;
     void ToggleSidebar();
     void CollectButtons(std::vector<Button*>& out);
@@ -254,6 +260,7 @@ private:
     std::string darkFoundation_;
     Theme theme_ = Theme::Light;
     bool sidebarVisible_ = true;
+    std::string activePaneId_;
     Sidebar* pressedSidebar_ = nullptr;
     int pressedSidebarIndex_ = -1;
     SidebarItem* hoveredSidebarItem_ = nullptr;

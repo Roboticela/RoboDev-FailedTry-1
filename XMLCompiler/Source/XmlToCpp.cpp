@@ -402,6 +402,44 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
     }
 
     if (node.name == "Robo") {
+        std::ostringstream parts;
+        std::ostringstream calls;
+        int part = 0;
+        for (const XmlNode& child : node.children) {
+            if (child.name == "Foundation" || child.name == "FoundationUse" || child.name == "Keyframes" || child.isText) {
+                continue;
+            }
+            if (child.name == "Sidebar" || child.name == "Pane") {
+                int itemIndex = 0;
+                std::ostringstream body;
+                body << Indent(indent + 1) << "Robo::Sidebar sidebar;\n";
+                if (child.attributes.count("variant") != 0) {
+                    body << Indent(indent + 1) << "sidebar.SetVariant(Robo::ParseSidebarVariant(\""
+                         << EscapeCpp(child.attributes.at("variant")) << "\"));\n";
+                }
+                for (const XmlNode& item : child.children) {
+                    if (!IsPaneItem(item.name)) {
+                        continue;
+                    }
+                    const std::string function = "BuildSidebarItem" + std::to_string(part) + "_" + std::to_string(itemIndex++);
+                    parts << "static Robo::SidebarItem " << function << "() {\n";
+                    EmitSidebarItem(parts, item, 1, "item");
+                    parts << "    return item;\n}\n\n";
+                    body << Indent(indent + 1) << "sidebar.AddItem(" << function << "());\n";
+                }
+                body << Indent(indent + 1) << "scene.AddSidebar(std::move(sidebar));\n";
+                parts << "static void BuildPagePart" << part << "(Robo::RoboScene& scene) {\n";
+                parts << body.str();
+                parts << "}\n\n";
+            } else {
+                parts << "static void BuildPagePart" << part << "(Robo::RoboScene& scene) {\n";
+                parts << ConvertNode(child, indent + 1);
+                parts << "}\n\n";
+            }
+            calls << Indent(indent + 1) << "BuildPagePart" << part << "(scene);\n";
+            ++part;
+        }
+        code << parts.str();
         code << Indent(indent) << "// Generated from Robo XML\n";
         code << Indent(indent) << "void BuildPage(Robo::RoboScene& scene) {\n";
         if (node.attributes.count("padding") != 0) {
@@ -423,11 +461,7 @@ std::string XmlToCpp::ConvertNode(const XmlNode& node, int indent) const {
                 code << ConvertNode(child, indent + 1);
             }
         }
-        for (const XmlNode& child : node.children) {
-            if (child.name != "Foundation" && child.name != "FoundationUse" && child.name != "Keyframes") {
-                code << ConvertNode(child, indent + 1);
-            }
-        }
+        code << calls.str();
         code << Indent(indent) << "}\n";
         return code.str();
     }
@@ -1025,6 +1059,10 @@ code << BindSides(indent, "style", "paddingY", attribute.second, node.name);
     EmitSelectable(code, indent, "style", node);
     code << Indent(indent) << containerVar << ".SetStyle(style);\n";
     code << Indent(indent) << containerVar << ".RefreshVariantDefaults();\n";
+    const auto when = node.attributes.find("when");
+    if (when != node.attributes.end()) {
+        code << Indent(indent) << containerVar << ".SetShownWhen(\"" << EscapeCpp(when->second) << "\");\n";
+    }
 
     std::string layout = "stack";
     const auto layoutIt = node.attributes.find("layout");
@@ -1924,6 +1962,8 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
         for (const auto& attribute : child.attributes) {
             if (attribute.first == "fontSize") {
                 code << BindFloat(indent + 1, "style", "fontSize", attribute.second, child.name);
+            } else if (attribute.first == "fontWeight") {
+                code << BindWeight(indent + 1, "style", attribute.second, child.name);
             } else if (attribute.first == "color") {
                 code << BindColor(indent + 1, "style", "color", attribute.second, child.name);
             }
@@ -1939,6 +1979,11 @@ void XmlToCpp::EmitPositionChild(std::ostringstream& code, const XmlNode& child,
     } else if (child.name == "Heading" || child.name == "heading" ||
                (child.name.size() == 2 && (child.name[0] == 'H' || child.name[0] == 'h') && child.name[1] >= '1' && child.name[1] <= '6')) {
         int level = (child.name.size() == 2) ? (child.name[1] - '0') : 1;
+        for (const auto& attribute : child.attributes) {
+            if (attribute.first == "level") {
+                level = std::atoi(attribute.second.c_str());
+            }
+        }
         code << Indent(indent + 1) << "Robo::Heading heading(" << level << ");\n";
         code << Indent(indent + 1) << "Robo::TextStyle style = heading.GetStyle();\n";
         EmitSelectable(code, indent + 1, "style", child);
@@ -2025,6 +2070,14 @@ void XmlToCpp::EmitSidebarItem(std::ostringstream& code,
         }
     }
     code << Indent(indent) << variable << ".SetLabel(\"" << EscapeCpp(label) << "\");\n";
+    const auto itemId = node.attributes.find("id");
+    if (itemId != node.attributes.end()) {
+        code << Indent(indent) << variable << ".SetId(\"" << EscapeCpp(itemId->second) << "\");\n";
+    }
+    const auto selected = node.attributes.find("selected");
+    if (selected != node.attributes.end() && (selected->second == "true" || selected->second == "1")) {
+        code << Indent(indent) << variable << ".SetSelected(true);\n";
+    }
     const auto section = node.attributes.find("section");
     const auto itemVariant = node.attributes.find("variant");
     const bool isSection = (section != node.attributes.end() &&
@@ -2061,8 +2114,10 @@ void XmlToCpp::EmitSidebarItem(std::ostringstream& code,
             continue;
         }
         const std::string childName = variable + "Child" + std::to_string(childIndex++);
-        EmitSidebarItem(code, child, indent, childName);
-        code << Indent(indent) << variable << ".AddChild(std::move(" << childName << "));\n";
+        code << Indent(indent) << "{\n";
+        EmitSidebarItem(code, child, indent + 1, childName);
+        code << Indent(indent + 1) << variable << ".AddChild(std::move(" << childName << "));\n";
+        code << Indent(indent) << "}\n";
     }
 }
 
@@ -2080,8 +2135,10 @@ void XmlToCpp::EmitSidebar(std::ostringstream& code,
             continue;
         }
         const std::string itemName = variable + "Item" + std::to_string(itemIndex++);
-        EmitSidebarItem(code, child, indent, itemName);
-        code << Indent(indent) << variable << ".AddItem(std::move(" << itemName << "));\n";
+        code << Indent(indent) << "{\n";
+        EmitSidebarItem(code, child, indent + 1, itemName);
+        code << Indent(indent + 1) << variable << ".AddItem(std::move(" << itemName << "));\n";
+        code << Indent(indent) << "}\n";
     }
 }
 
