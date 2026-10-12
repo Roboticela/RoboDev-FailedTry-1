@@ -202,6 +202,7 @@ private:
     bool CanPaintPartial(float paintScale, int width, int height) const;
     void ConfigurePageBars();
     void PullPageScroll();
+    void PullSidebarScroll(const Scrollbar* bar);
     bool PageBarDriving(const Scrollbar& bar) const;
     Scrollbar* PageScrollbarAt(float x, float y);
     const Scrollbar* PageScrollbarAt(float x, float y) const;

@@ -1,6 +1,8 @@
 #include "Robo/SidebarPainter.hpp"
 
 #include "Robo/Foundation.hpp"
+#include "Robo/ScrollbarPainter.hpp"
+#include "Robo/Svg.hpp"
 #include "Robo/SvgPainter.hpp"
 
 #include <algorithm>
@@ -95,6 +97,40 @@ void PaintRailArrowButton(FrameBuffer& buffer,
     PaintRailChevron(buffer, x + width * 0.5f, y + height * 0.5f, 10.0f * scale, up, ink);
 }
 
+void PaintFocusBorder(FrameBuffer& buffer, float x, float y, float width, float height, float radius, const Color& color, float thickness) {
+    Svg svg;
+    SvgStyle style;
+    style.viewWidth = width;
+    style.viewHeight = height;
+    style.width = width;
+    style.height = height;
+    style.color = color;
+    style.opacity = 1.0f;
+    svg.SetStyle(style);
+    const float inset = thickness * 0.5f;
+    const float right = width - inset;
+    const float bottom = height - inset;
+    const float rad = std::max(0.0f, radius - inset);
+    const float curve = rad * 0.55228475f;
+    SvgShape shape;
+    shape.hasFill = false;
+    shape.hasStroke = true;
+    shape.currentStroke = true;
+    shape.strokeWidth = thickness;
+    shape.commands.push_back(SvgCommand::Move(inset + rad, inset));
+    shape.commands.push_back(SvgCommand::Line(right - rad, inset));
+    shape.commands.push_back(SvgCommand::Cubic(right - rad + curve, inset, right, inset + rad - curve, right, inset + rad));
+    shape.commands.push_back(SvgCommand::Line(right, bottom - rad));
+    shape.commands.push_back(SvgCommand::Cubic(right, bottom - rad + curve, right - rad + curve, bottom, right - rad, bottom));
+    shape.commands.push_back(SvgCommand::Line(inset + rad, bottom));
+    shape.commands.push_back(SvgCommand::Cubic(inset + rad - curve, bottom, inset, bottom - rad + curve, inset, bottom - rad));
+    shape.commands.push_back(SvgCommand::Line(inset, inset + rad));
+    shape.commands.push_back(SvgCommand::Cubic(inset, inset + rad - curve, inset + rad - curve, inset, inset + rad, inset));
+    shape.commands.push_back(SvgCommand::Close());
+    svg.AddShape(shape);
+    SvgPainter::Paint(buffer, svg, x, y, width, 1.0f);
+}
+
 void PaintIcon(FrameBuffer& buffer, SidebarItem& item, float x, float y, float size, const Color& ink, float opacity, float scale) {
     if (!item.HasIcon()) {
         return;
@@ -138,9 +174,9 @@ void PaintRow(FrameBuffer& buffer,
     const float pillH = std::max(1.0f, height - 4.0f * scale);
     const float pillR = 8.0f * scale;
     if (item.IsFocusVisible() && enabled) {
-        const float ring = 3.0f * scale;
-        const Color focus = ResolveColor(Color::FromHex("#0E7AFF66"), "color.brand.primary.focus-ring");
-        buffer.FillRoundedRect(pillX - ring, pillY - ring, pillW + ring * 2.0f, pillH + ring * 2.0f, pillR + ring, focus, 1.0f);
+        const float ring = 2.0f * scale;
+        const Color focus = ResolveColor(Color::FromHex("#0E7AFF"), "color.brand.primary");
+        PaintFocusBorder(buffer, pillX - ring, pillY - ring, pillW + ring * 2.0f, pillH + ring * 2.0f, pillR + ring, focus, ring);
     }
     if (enabled) {
         const SidebarItemInteraction interaction = item.GetInteraction();
@@ -398,6 +434,22 @@ void SidebarPainter::Paint(FrameBuffer& buffer,
         firstRow = false;
     }
     buffer.PopClip();
+    Scrollbar& bar = sidebar.PanelScrollbar();
+    bar.SetContentSize(static_cast<double>(content));
+    bar.SetViewportSize(static_cast<double>(viewHeight));
+    if (content > viewHeight + 1.0f) {
+        const float thickness = static_cast<float>(bar.GetStyle().thickness) * scale;
+        ScrollbarPainter::Paint(buffer,
+                                bar,
+                                panelX + panelW - thickness,
+                                originY + header,
+                                thickness,
+                                scale,
+                                thickness,
+                                viewHeight);
+    } else {
+        bar.SetBounds({});
+    }
 }
 
 }  // namespace Robo

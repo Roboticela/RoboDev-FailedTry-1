@@ -238,6 +238,8 @@ void VisitSceneScrollbars(std::vector<SceneItem>& items, Visit& visit) {
             VisitScrollbars(item.grid, visit);
         } else if (item.kind == SceneItemKind::Position) {
             VisitScrollbars(item.position, visit);
+        } else if (item.kind == SceneItemKind::Sidebar) {
+            visit(item.sidebar.PanelScrollbar());
         }
     }
 }
@@ -1913,12 +1915,15 @@ void RoboScene::ConfigurePageBars() {
     auto makeStyle = [](ScrollbarOrientation orientation) {
         ScrollbarStyle style;
         style.orientation = orientation;
-        style.thickness = 14.0;
-        style.cornerRadius = 7.0;
+        style.thickness = 8.0;
+        style.cornerRadius = 4.0;
         style.minThumbLength = 28.0;
         style.showArrows = true;
-        style.arrowSize = 16.0;
-        style.autoHide = false;
+        style.arrowSize = 8.0;
+        style.arrowGap = 3.0;
+        style.autoHide = true;
+        style.autoHideDelay = 700.0;
+        style.fadeDuration = 180.0;
         style.visibility = ScrollbarVisibility::Auto;
         return style;
     };
@@ -1932,6 +1937,18 @@ void RoboScene::ConfigurePageBars() {
 void RoboScene::PullPageScroll() {
     scrollY_ = maxScrollY_ > 0.0f ? static_cast<float>(pageVertical_.GetValue()) * maxScrollY_ : 0.0f;
     scrollX_ = maxScrollX_ > 0.0f ? static_cast<float>(pageHorizontal_.GetValue()) * maxScrollX_ : 0.0f;
+}
+
+void RoboScene::PullSidebarScroll(const Scrollbar* bar) {
+    if (!bar) {
+        return;
+    }
+    for (SceneItem& item : items_) {
+        if (item.kind == SceneItemKind::Sidebar && &item.sidebar.PanelScrollbar() == bar) {
+            item.sidebar.PullPanelScroll();
+            return;
+        }
+    }
 }
 
 bool RoboScene::PageBarDriving(const Scrollbar& bar) const {
@@ -2031,7 +2048,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     }
     lastPaintScale_ = paintScale;
     const float pad = padding_ * paintScale;
-    const float barThickness = 14.0f * paintScale;
+    const float barThickness = static_cast<float>(pageVertical_.GetStyle().thickness) * paintScale;
     const float edge = 3.0f * paintScale;
 
     if (frame_.GetWidth() != width || frame_.GetHeight() != height) {
@@ -2057,7 +2074,9 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
 
     float verticalReserve = partial ? paintedVerticalReserve_ : 0.0f;
     float horizontalReserve = partial ? paintedHorizontalReserve_ : 0.0f;
+    float titleBarBottom = 0.0f;
     for (int pass = 0; pass < 3; ++pass) {
+        titleBarBottom = 0.0f;
         scrollX_ = std::max(0.0f, std::min(scrollX_, maxScrollX_));
         scrollY_ = std::max(0.0f, std::min(scrollY_, maxScrollY_));
 
@@ -2073,6 +2092,7 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
         float cursorY = pad - scrollY_;
         float flowEdge = cursorY;
         float contentRight = originX + scrollX_;
+        bool titleClip = false;
 
         for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
             SceneItem& item = items_[static_cast<std::size_t>(i)];
@@ -2152,12 +2172,21 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
             } else if (item.kind == SceneItemKind::TitleBar) {
                 item.titleBar.SetSidebarOpen(sidebarVisible_);
                 item.titleBar.SetSidebarAmount(sidebarAmount_);
+                const float barX = 0.0f;
+                const float barY = cursorY + scrollY_;
+                const float barWidth = static_cast<float>(width);
                 const TitleBarPaintResult painted =
-                    TitleBarPainter::Paint(frame, fonts, item.titleBar, originX, cursorY, contentWidth, paintScale);
+                    TitleBarPainter::Paint(frame, fonts, item.titleBar, barX, barY, barWidth, paintScale);
                 cursorY += painted.advanceY;
                 flowEdge = yBefore + painted.height;
                 edgeSet = true;
-                contentRight = std::max(contentRight, originX + contentWidth + scrollX_);
+                titleBarBottom = barY + painted.height;
+                contentRight = std::max(contentRight, pad + contentWidth);
+                if (!titleClip) {
+                    const float clipTop = barY + painted.height;
+                    frame.PushClipRect(0.0f, clipTop, static_cast<float>(width), std::max(0.0f, static_cast<float>(height) - clipTop));
+                    titleClip = true;
+                }
             } else if (item.kind == SceneItemKind::Sidebar) {
                 const float surfaceTop = flowEdge + scrollY_;
                 const float sidebarHeight = std::max(0.0f, static_cast<float>(height) - horizontalReserve - surfaceTop);
@@ -2213,6 +2242,9 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
                 flowEdge = cursorY;
             }
         }
+        if (titleClip) {
+            frame.PopClip();
+        }
 
         const float contentHeight = cursorY + scrollY_ + pad;
         const float viewportHeight = std::max(1.0f, static_cast<float>(height) - horizontalReserve);
@@ -2258,11 +2290,12 @@ void RoboScene::Render(IPlatform& platform, FontEngine& fonts, const Color& back
     };
 
     if (maxScrollY_ > 1.0f) {
+        const float barTop = titleBarBottom > 0.5f ? titleBarBottom : edge;
         paintPageBar(pageVertical_,
                      static_cast<float>(width) - barThickness,
-                     edge,
+                     barTop,
                      barThickness,
-                     std::max(0.0f, static_cast<float>(height) - edge * 2.0f - horizontalReserve));
+                     std::max(0.0f, static_cast<float>(height) - barTop - horizontalReserve));
     } else {
         pageVertical_.SetBounds({});
     }
@@ -2847,7 +2880,12 @@ Scrollbar* RoboScene::FindScrollbarAt(float x, float y) {
     }
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
         SceneItem& item = items_[static_cast<std::size_t>(i)];
-        if (item.kind == SceneItemKind::Scrollbar) {
+        if (item.kind == SceneItemKind::Sidebar) {
+            Scrollbar& bar = item.sidebar.PanelScrollbar();
+            if (bar.IsVisible() && bar.GetBounds().Contains(x, y)) {
+                return &bar;
+            }
+        } else if (item.kind == SceneItemKind::Scrollbar) {
             if (item.scrollbar.IsVisible() && item.scrollbar.GetBounds().Contains(x, y)) {
                 return &item.scrollbar;
             }
@@ -2950,7 +2988,12 @@ const Scrollbar* RoboScene::FindScrollbarAt(float x, float y) const {
     }
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
         const SceneItem& item = items_[static_cast<std::size_t>(i)];
-        if (item.kind == SceneItemKind::Scrollbar) {
+        if (item.kind == SceneItemKind::Sidebar) {
+            const Scrollbar& bar = item.sidebar.PanelScrollbar();
+            if (bar.IsVisible() && bar.GetBounds().Contains(x, y)) {
+                return &bar;
+            }
+        } else if (item.kind == SceneItemKind::Scrollbar) {
             if (item.scrollbar.IsVisible() && item.scrollbar.GetBounds().Contains(x, y)) {
                 return &item.scrollbar;
             }
@@ -3902,6 +3945,8 @@ bool RoboScene::PointerMove(float x, float y) {
         draggingScrollbar_->UpdateDrag(x, y);
         if (draggingScrollbar_ == &pageVertical_ || draggingScrollbar_ == &pageHorizontal_) {
             PullPageScroll();
+        } else {
+            PullSidebarScroll(draggingScrollbar_);
         }
         RerenderIfPossible();
         return true;
@@ -4092,6 +4137,8 @@ bool RoboScene::PointerDown(float x, float y, bool fromTouch, int clicks) {
         changed = SetHoveredScrollbar(scrollbar) || changed;
         if (scrollbar == &pageVertical_ || scrollbar == &pageHorizontal_) {
             PullPageScroll();
+        } else {
+            PullSidebarScroll(scrollbar);
         }
         MarkFullDirty();
         changed = true;
@@ -4287,6 +4334,7 @@ bool RoboScene::Tick(double deltaMs) {
             return;
         }
         changed = true;
+        PullSidebarScroll(&scrollbar);
         if (std::fabs(scrollbar.GetValue() - value) > 0.00001) {
             contentMoved = true;
         } else {

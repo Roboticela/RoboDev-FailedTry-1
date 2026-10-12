@@ -154,6 +154,9 @@ void Sidebar::Select(int index) {
     }
     if (selected_ != index) {
         scroll_ = 0.0f;
+        if (panelReady_) {
+            panelBar_.SetValue(0.0);
+        }
     }
     selected_ = index;
     for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
@@ -203,6 +206,9 @@ int Sidebar::HitIndex(float x, float y) const {
     if (HitRailArrow(x, y) != SidebarRailArrow::None) {
         return -1;
     }
+    if (panelBar_.IsVisible() && panelBar_.GetBounds().Contains(x, y)) {
+        return -1;
+    }
     for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
         const SidebarItem& item = items_[static_cast<std::size_t>(i)];
         if (!item.CanActivate()) {
@@ -218,6 +224,9 @@ int Sidebar::HitIndex(float x, float y) const {
 
 SidebarItem* Sidebar::HitItem(float x, float y) {
     if (HitRailArrow(x, y) != SidebarRailArrow::None) {
+        return nullptr;
+    }
+    if (panelBar_.IsVisible() && panelBar_.GetBounds().Contains(x, y)) {
         return nullptr;
     }
     for (int i = static_cast<int>(items_.size()) - 1; i >= 0; --i) {
@@ -245,8 +254,19 @@ void Sidebar::SetPanel(float paneX, float paneY, float paneWidth, float paneHeig
     viewY_ = viewY;
     viewH_ = std::max(0.0f, viewHeight);
     contentHeight_ = std::max(0.0f, contentHeight);
+    EnsurePanelBar();
+    panelBar_.SetContentSize(static_cast<double>(contentHeight_));
+    panelBar_.SetViewportSize(static_cast<double>(viewH_));
     const float maxScroll = std::max(0.0f, contentHeight_ - viewH_);
-    scroll_ = std::max(0.0f, std::min(scroll_, maxScroll));
+    if (PanelBarDriving()) {
+        scroll_ = maxScroll > 0.0f ? static_cast<float>(panelBar_.GetValue()) * maxScroll : 0.0f;
+    } else {
+        scroll_ = std::max(0.0f, std::min(scroll_, maxScroll));
+        panelBar_.SetValue(maxScroll > 0.0f ? static_cast<double>(scroll_ / maxScroll) : 0.0);
+    }
+    if (!PanelOverflows()) {
+        panelBar_.SetBounds({});
+    }
 }
 
 void Sidebar::SetRail(float railWidth, float contentHeight, float viewportHeight, float step) {
@@ -392,12 +412,16 @@ bool Sidebar::ScrollBy(float delta, float x) {
     if (onRail) {
         return MoveRailTarget(delta);
     }
-    const float maxScroll = std::max(0.0f, contentHeight_ - viewH_);
-    const float next = std::max(0.0f, std::min(maxScroll, scroll_ + delta));
-    if (std::fabs(next - scroll_) < 0.5f) {
+    if (!PanelOverflows()) {
         return false;
     }
-    scroll_ = next;
+    EnsurePanelBar();
+    panelBar_.SetContentSize(static_cast<double>(contentHeight_));
+    panelBar_.SetViewportSize(static_cast<double>(viewH_));
+    if (!panelBar_.ScrollByPixels(static_cast<double>(delta))) {
+        return false;
+    }
+    PullPanelScroll();
     return true;
 }
 
@@ -412,6 +436,11 @@ void Sidebar::Reveal(float itemY, float itemHeight) {
     }
     const float maxScroll = std::max(0.0f, contentHeight_ - viewH_);
     scroll_ = std::max(0.0f, std::min(scroll_, maxScroll));
+    EnsurePanelBar();
+    panelBar_.SetContentSize(static_cast<double>(contentHeight_));
+    panelBar_.SetViewportSize(static_cast<double>(viewH_));
+    panelBar_.SetValue(maxScroll > 0.0f ? static_cast<double>(scroll_ / maxScroll) : 0.0);
+    panelBar_.NotifyInteraction();
 }
 
 void Sidebar::RevealRail(float itemY, float itemHeight) {
@@ -433,6 +462,49 @@ float Sidebar::Scroll() const {
 
 float Sidebar::RailScroll() const {
     return railScroll_;
+}
+
+void Sidebar::EnsurePanelBar() {
+    if (panelReady_) {
+        return;
+    }
+    ScrollbarStyle style;
+    style.orientation = ScrollbarOrientation::Vertical;
+    style.thickness = 8.0;
+    style.cornerRadius = 4.0;
+    style.minThumbLength = 28.0;
+    style.showArrows = true;
+    style.arrowSize = 8.0;
+    style.arrowGap = 3.0;
+    style.autoHide = true;
+    style.autoHideDelay = 700.0;
+    style.fadeDuration = 180.0;
+    style.visibility = ScrollbarVisibility::Auto;
+    panelBar_.SetStyle(style);
+    panelBar_.ApplyVariantDefaults();
+    panelReady_ = true;
+}
+
+bool Sidebar::PanelBarDriving() const {
+    return panelBar_.IsDragging() || panelBar_.NeedsAnimation() || panelBar_.GetPressedArrow() != ScrollbarArrow::None;
+}
+
+Scrollbar& Sidebar::PanelScrollbar() {
+    EnsurePanelBar();
+    return panelBar_;
+}
+
+const Scrollbar& Sidebar::PanelScrollbar() const {
+    return panelBar_;
+}
+
+bool Sidebar::PanelOverflows() const {
+    return contentHeight_ > viewH_ + 1.0f;
+}
+
+void Sidebar::PullPanelScroll() {
+    const float maxScroll = std::max(0.0f, contentHeight_ - viewH_);
+    scroll_ = maxScroll > 0.0f ? static_cast<float>(panelBar_.GetValue()) * maxScroll : 0.0f;
 }
 
 float Sidebar::LayoutWidth(float openAmount) const {

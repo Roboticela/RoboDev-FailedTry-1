@@ -214,15 +214,16 @@ ButtonPaintResult ButtonPainter::Paint(FrameBuffer& buffer,
     const float buttonY = originY;
     const float radius = static_cast<float>(style.cornerRadius) * scale;
     if (button.IsFocusVisible() && button.CanActivate()) {
-        const float ring = 3.0f * scale;
-        FillRoundedRect(buffer,
-                        buttonX - ring,
-                        buttonY - ring,
-                        buttonWidth + ring * 2.0f,
-                        buttonHeight + ring * 2.0f,
-                        radius + ring,
-                        button.ResolveFocusColor(),
-                        1.0f);
+        const float ring = 2.0f * scale;
+        StrokeRoundedRect(buffer,
+                          buttonX - ring,
+                          buttonY - ring,
+                          buttonWidth + ring * 2.0f,
+                          buttonHeight + ring * 2.0f,
+                          radius + ring,
+                          button.ResolveFocusColor(),
+                          ring,
+                          1.0f);
     }
 
     if (backgroundColor.alpha > 0) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Scrollbar.hpp"
 #include "Svg.hpp"
 
 #include <string>
@@ -133,6 +134,12 @@ public:
     float Scroll() const;
     float RailScroll() const;
 
+    // The wide panel's scrollbar. It is visible only while that panel overflows.
+    Scrollbar& PanelScrollbar();
+    const Scrollbar& PanelScrollbar() const;
+    bool PanelOverflows() const;
+    void PullPanelScroll();
+
 private:
     SidebarVariant variant_ = SidebarVariant::Normal;
     std::vector<SidebarItem> items_;
@@ -160,6 +167,11 @@ private:
 
     float RailMaxScroll() const;
     bool MoveRailTarget(float delta);
+    void EnsurePanelBar();
+    bool PanelBarDriving() const;
+
+    Scrollbar panelBar_;
+    bool panelReady_ = false;
 };
 
 SidebarVariant ParseSidebarVariant(const std::string& value);

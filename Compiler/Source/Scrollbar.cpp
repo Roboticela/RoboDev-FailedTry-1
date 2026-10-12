@@ -213,18 +213,16 @@ float Scrollbar::GetPixelScale() const {
 
 void Scrollbar::ApplyVariantDefaults() {
     if (!style_.hasCustomThumbColor) {
-        style_.thumbColor = Color::FromRgba(60, 60, 67, 120);
+        style_.thumbColor = Color::FromHex("#C7C7CC");
     }
     if (!style_.hasCustomThumbHoverColor) {
-        style_.thumbHoverColor =
-            style_.hasCustomThumbColor ? style_.thumbColor : Color::FromRgba(60, 60, 67, 170);
+        style_.thumbHoverColor = style_.hasCustomThumbColor ? style_.thumbColor : Color::FromHex("#AEAEB2");
     }
     if (!style_.hasCustomThumbActiveColor) {
-        style_.thumbActiveColor =
-            style_.hasCustomThumbColor ? style_.thumbColor : Color::FromRgba(28, 28, 30, 200);
+        style_.thumbActiveColor = style_.hasCustomThumbColor ? style_.thumbColor : Color::FromHex("#8E8E93");
     }
     if (!style_.hasCustomArrowColor) {
-        style_.arrowColor = Color::FromHex("#636366");
+        style_.arrowColor = Color::FromHex("#8E8E93");
     }
     if (!style_.hasCustomArrowHoverColor) {
         style_.arrowHoverColor = Color::FromHex("#1C1C1E");
@@ -248,6 +246,11 @@ void Scrollbar::ApplyVariantDefaults() {
     }
     if (style_.fadeDuration < 1.0) {
         style_.fadeDuration = 1.0;
+    }
+    if (style_.autoHide) {
+        reveal_ = static_cast<float>(style_.hiddenOpacity);
+        revealTarget_ = reveal_;
+        idleMs_ = style_.autoHideDelay;
     }
 }
 
@@ -486,8 +489,10 @@ bool Scrollbar::Tick(double deltaMs) {
 
     float target = 1.0f;
     if (!IsVisible()) {
-        target = 0.0f;
-    } else    if (style_.autoHide) {
+        // A bar that is simply not needed stays ready. Only auto-hide rests at
+        // the hidden opacity, and it comes back the next time it is visible.
+        target = style_.autoHide ? 0.0f : 1.0f;
+    } else if (style_.autoHide) {
         const bool active =
             pointerInside_ || dragging_ || focused_ ||
             interaction_ == ScrollbarInteraction::Dragging ||

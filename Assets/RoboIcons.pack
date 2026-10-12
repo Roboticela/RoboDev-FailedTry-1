@@ -31,10 +31,9 @@ icon Heart 0 0 24 24
 
 icon Sidebar 0 0 32 24
 <svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <rect x="2.5" y="4.5" width="27" height="15" rx="2.5"/>
+  <rect x="2.5" y="4.5" width="22" height="15" rx="2.5"/>
   <path d="M5 4.5H10V19.5H5A2.5 2.5 0 0 1 2.5 17V7A2.5 2.5 0 0 1 5 4.5Z" fill="currentColor" stroke="none"/>
   <path d="M10 4.5V19.5"/>
-  <path d="m17 9-3 3 3 3"/>
 </svg>
 
 icon House 0 0 24 24
@@ -469,7 +468,6 @@ icon Toggle 0 0 24 24
 
 icon SidebarHidden 0 0 32 24
 <svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <rect x="2.5" y="4.5" width="27" height="15" rx="2.5"/>
+  <rect x="2.5" y="4.5" width="22" height="15" rx="2.5"/>
   <path d="M10 4.5V19.5"/>
-  <path d="m14 9 3 3-3 3"/>
 </svg>

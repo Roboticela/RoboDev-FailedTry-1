@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <utility>
 
 namespace Robo {
 
@@ -76,83 +75,6 @@ void FillRoundedRect(FrameBuffer& buffer,
     }
 }
 
-float EdgeFunction(float ax, float ay, float bx, float by, float px, float py) {
-    return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
-}
-
-// Filled triangle with 3x3 sub-sampling so the tiny arrowheads stay smooth.
-void FillTriangle(FrameBuffer& buffer,
-                  float ax,
-                  float ay,
-                  float bx,
-                  float by,
-                  float cx,
-                  float cy,
-                  const Color& color,
-                  float opacity) {
-    if (color.alpha == 0 || opacity <= 0.0f) {
-        return;
-    }
-
-    const float minX = std::min({ax, bx, cx});
-    const float maxX = std::max({ax, bx, cx});
-    const float minY = std::min({ay, by, cy});
-    const float maxY = std::max({ay, by, cy});
-
-    const int x0 = static_cast<int>(std::floor(minX));
-    const int y0 = static_cast<int>(std::floor(minY));
-    const int x1 = static_cast<int>(std::ceil(maxX));
-    const int y1 = static_cast<int>(std::ceil(maxY));
-
-    // Screen-space y grows downwards, so the winding is flipped for the
-    // inside test; both orientations are accepted through the sign check.
-    const float area = EdgeFunction(ax, ay, bx, by, cx, cy);
-    if (std::fabs(area) < 0.0001f) {
-        return;
-    }
-    const float orientation = area > 0.0f ? 1.0f : -1.0f;
-
-    const float offsets[3] = {0.1667f, 0.5f, 0.8333f};
-    constexpr float SAMPLE_COUNT = 9.0f;
-    for (int py = y0; py < y1; ++py) {
-        for (int px = x0; px < x1; ++px) {
-            int hits = 0;
-            for (float oy : offsets) {
-                for (float ox : offsets) {
-                    const float sampleX = static_cast<float>(px) + ox;
-                    const float sampleY = static_cast<float>(py) + oy;
-                    const float e0 = EdgeFunction(ax, ay, bx, by, sampleX, sampleY) * orientation;
-                    const float e1 = EdgeFunction(bx, by, cx, cy, sampleX, sampleY) * orientation;
-                    const float e2 = EdgeFunction(cx, cy, ax, ay, sampleX, sampleY) * orientation;
-                    if (e0 >= 0.0f && e1 >= 0.0f && e2 >= 0.0f) {
-                        ++hits;
-                    }
-                }
-            }
-            if (hits == 0) {
-                continue;
-            }
-            const float coverage = static_cast<float>(hits) / SAMPLE_COUNT;
-            buffer.BlendPixel(px, py, color, opacity * coverage);
-        }
-    }
-}
-
-// Pixel-grid step the tiny arrowheads snap to. The framebuffer is usually drawn
-// super-sampled, so an even integer scale gives crisp edges after downsampling.
-float ArrowSnapStep(float scale) {
-    const float rounded = std::round(scale);
-    if (std::fabs(scale - rounded) > 0.01f) {
-        return 1.0f;
-    }
-    const int whole = static_cast<int>(rounded);
-    return (whole >= 2 && whole % 2 == 0) ? 2.0f : 1.0f;
-}
-
-float SnapCoordinate(float value, float step) {
-    return std::round(value / step) * step;
-}
-
 float SignedDistanceToLine(float px, float py, float ax, float ay, float bx, float by) {
     const float vx = bx - ax;
     const float vy = by - ay;
@@ -163,42 +85,30 @@ float SignedDistanceToLine(float px, float py, float ax, float ay, float bx, flo
     return ((px - ax) * vy - (py - ay) * vx) / length;
 }
 
-// A solid triangle. Start points backward along the track; End points forward.
-void PaintArrowHead(FrameBuffer& buffer,
-                    const ScrollbarBounds& cap,
-                    ScrollbarOrientation orientation,
-                    ScrollbarArrow arrow,
-                    const Color& color,
-                    float opacity,
-                    float scale) {
-    (void)scale;
-    if (cap.width <= 0.0f || cap.height <= 0.0f) {
+// Filled triangle. `forward` points down or right.
+void PaintFilledArrow(FrameBuffer& buffer,
+                      const ScrollbarBounds& cap,
+                      bool vertical,
+                      bool forward,
+                      const Color& color,
+                      float opacity) {
+    if (cap.width < 4.0f || cap.height < 4.0f || opacity <= 0.0f || color.alpha == 0) {
         return;
     }
-
-    const bool vertical = orientation == ScrollbarOrientation::Vertical;
     const float along = vertical ? cap.height : cap.width;
     const float cross = vertical ? cap.width : cap.height;
-    if (along < 4.0f || cross < 4.0f) {
-        return;
-    }
-
     const float alongCenter = (vertical ? cap.y : cap.x) + along * 0.5f;
     const float crossCenter = (vertical ? cap.x : cap.y) + cross * 0.5f;
-    const float mark = std::min(along, cross) * 0.42f;
-    const float halfBase = mark * 0.72f;
-    const float halfHeight = mark * 0.58f;
-    const bool pointsForward = arrow == ScrollbarArrow::End;
-    const float tipAlong = pointsForward ? alongCenter + halfHeight : alongCenter - halfHeight;
-    const float baseAlong = pointsForward ? alongCenter - halfHeight : alongCenter + halfHeight;
-
+    const float halfBase = cross * 0.34f;
+    const float halfHeight = std::min(along, cross) * 0.28f;
+    const float tipAlong = forward ? alongCenter + halfHeight : alongCenter - halfHeight;
+    const float baseAlong = forward ? alongCenter - halfHeight : alongCenter + halfHeight;
     const auto toX = [vertical](float crossCoord, float alongCoord) {
         return vertical ? crossCoord : alongCoord;
     };
     const auto toY = [vertical](float crossCoord, float alongCoord) {
         return vertical ? alongCoord : crossCoord;
     };
-
     float ax = toX(crossCenter, tipAlong);
     float ay = toY(crossCenter, tipAlong);
     float bx = toX(crossCenter + halfBase, baseAlong);
@@ -206,16 +116,18 @@ void PaintArrowHead(FrameBuffer& buffer,
     float cx = toX(crossCenter - halfBase, baseAlong);
     float cy = toY(crossCenter - halfBase, baseAlong);
     const float winding = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-    if (winding < 0.0f) {
-        std::swap(bx, cx);
-        std::swap(by, cy);
+    if (winding > 0.0f) {
+        const float swapX = bx;
+        const float swapY = by;
+        bx = cx;
+        by = cy;
+        cx = swapX;
+        cy = swapY;
     }
-
     const int x0 = static_cast<int>(std::floor(std::min({ax, bx, cx}) - 1.0f));
     const int y0 = static_cast<int>(std::floor(std::min({ay, by, cy}) - 1.0f));
     const int x1 = static_cast<int>(std::ceil(std::max({ax, bx, cx}) + 1.0f));
     const int y1 = static_cast<int>(std::ceil(std::max({ay, by, cy}) + 1.0f));
-
     for (int py = y0; py < y1; ++py) {
         for (int px = x0; px < x1; ++px) {
             const float sampleX = static_cast<float>(px) + 0.5f;
@@ -316,35 +228,35 @@ ScrollbarPaintResult ScrollbarPainter::Paint(FrameBuffer& buffer,
     }
 
     const bool vertical = style.orientation == ScrollbarOrientation::Vertical;
-    const float laneCross = vertical ? bounds.width : bounds.height;
-    const bool engaged = scrollbar.GetInteraction() != ScrollbarInteraction::Normal;
-    const float visualCross = std::min(laneCross * (engaged ? 0.62f : 0.40f), (engaged ? 7.0f : 4.5f) * scale);
-    // Pin the drawn bar to the outer edge of its lane so it sits against the container side.
-    const float edgePad = 1.5f * scale;
-
-    const Color trackColor = scrollbar.ResolveTrackColor();
     if (bounds.width > 0.0f && bounds.height > 0.0f) {
-        const float travelStart = static_cast<float>(scrollbar.ResolveThumbTrackStart());
-        const float travelLength = static_cast<float>(scrollbar.ResolveThumbTrackLength());
-        const float trackCross = std::min(visualCross, std::max(2.0f * scale, laneCross * 0.28f));
-        float trackX = bounds.x;
-        float trackY = bounds.y;
-        float trackW = bounds.width;
-        float trackH = bounds.height;
-        if (vertical) {
-            trackX = bounds.x + bounds.width - trackCross - edgePad;
-            trackW = trackCross;
-            trackY += travelStart;
-            trackH = travelLength;
-        } else {
-            trackY = bounds.y + bounds.height - trackCross - edgePad;
-            trackH = trackCross;
-            trackX += travelStart;
-            trackW = travelLength;
+        const Color trackColor = scrollbar.ResolveTrackColor();
+        const Color laneColor = style.hasCustomTrackColor
+                                    ? trackColor
+                                    : ResolveColor(Color::FromHex("#F5F5F7"), "color.bg.secondary");
+        if (laneColor.alpha > 0) {
+            buffer.FillRect(static_cast<int>(std::floor(bounds.x)),
+                            static_cast<int>(std::floor(bounds.y)),
+                            std::max(1, static_cast<int>(std::ceil(bounds.width))),
+                            std::max(1, static_cast<int>(std::ceil(bounds.height))),
+                            laneColor,
+                            opacity);
         }
-        const Color laneColor = style.hasCustomTrackColor ? trackColor : Color::FromRgba(60, 60, 67, 28);
-        if (laneColor.alpha > 0 && trackW > 0.0f && trackH > 0.0f) {
-            FillRoundedRect(buffer, trackX, trackY, trackW, trackH, trackCross * 0.5f, laneColor, opacity);
+        const Color hairline = ResolveColor(Color::FromHex("#E5E5E7"), "color.border.subtle");
+        const int line = std::max(1, static_cast<int>(std::round(scale)));
+        if (vertical) {
+            buffer.FillRect(static_cast<int>(std::floor(bounds.x)),
+                            static_cast<int>(std::floor(bounds.y)),
+                            line,
+                            std::max(1, static_cast<int>(std::ceil(bounds.height))),
+                            hairline,
+                            opacity);
+        } else {
+            buffer.FillRect(static_cast<int>(std::floor(bounds.x)),
+                            static_cast<int>(std::floor(bounds.y)),
+                            std::max(1, static_cast<int>(std::ceil(bounds.width))),
+                            line,
+                            hairline,
+                            opacity);
         }
     }
 
@@ -353,46 +265,23 @@ ScrollbarPaintResult ScrollbarPainter::Paint(FrameBuffer& buffer,
         const ScrollbarArrow arrowEnds[2] = {ScrollbarArrow::Start, ScrollbarArrow::End};
         for (ScrollbarArrow arrow : arrowEnds) {
             const ScrollbarBounds cap = scrollbar.ResolveArrowBounds(arrow);
-            if (cap.width <= 0.0f || cap.height <= 0.0f) {
-                continue;
-            }
-
-            const bool pressed = arrow == scrollbar.GetPressedArrow();
-            const bool hot = arrow == scrollbar.GetHotArrow();
-            const float markCross = std::min(laneCross, std::max(visualCross * 2.4f, 11.0f * scale));
-            ScrollbarBounds mark = cap;
-            if (vertical) {
-                mark.width = markCross;
-                mark.x = cap.x + cap.width - markCross - edgePad;
-            } else {
-                mark.height = markCross;
-                mark.y = cap.y + cap.height - markCross - edgePad;
-            }
-            if (pressed || hot) {
-                const float disk = std::min(mark.width, mark.height) * 0.92f;
-                const float diskX = mark.x + (mark.width - disk) * 0.5f;
-                const float diskY = mark.y + (mark.height - disk) * 0.5f;
-                const Color wash = Color::FromRgba(0, 0, 0, pressed ? 40 : 22);
-                FillRoundedRect(buffer, diskX, diskY, disk, disk, disk * 0.5f, wash, opacity);
-            }
-
-            PaintArrowHead(buffer,
-                           mark,
-                           style.orientation,
-                           arrow,
-                           scrollbar.ResolveArrowColor(arrow),
-                           opacity,
-                           scale);
+            PaintFilledArrow(buffer,
+                             cap,
+                             vertical,
+                             arrow == ScrollbarArrow::End,
+                             scrollbar.ResolveArrowColor(arrow),
+                             opacity);
         }
     }
 
+    const float inset = 1.0f * scale;
     ScrollbarBounds thumb = scrollbar.ResolveThumbBounds();
     if (vertical) {
-        thumb.x = bounds.x + bounds.width - visualCross - edgePad;
-        thumb.width = visualCross;
+        thumb.x = bounds.x + inset;
+        thumb.width = std::max(1.0f, bounds.width - inset * 2.0f);
     } else {
-        thumb.y = bounds.y + bounds.height - visualCross - edgePad;
-        thumb.height = visualCross;
+        thumb.y = bounds.y + inset;
+        thumb.height = std::max(1.0f, bounds.height - inset * 2.0f);
     }
     const Color thumbColor = scrollbar.ResolveThumbColor();
     if (thumbColor.alpha > 0 && thumb.width > 0.0f && thumb.height > 0.0f) {

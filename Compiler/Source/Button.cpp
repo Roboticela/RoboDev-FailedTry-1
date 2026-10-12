@@ -273,9 +273,9 @@ Color Button::ResolveTextColor() const {
 
 Color Button::ResolveFocusColor() const {
     if (style_.variant == ButtonVariant::Destructive) {
-        return ResolveColor(Color::FromHex("#FF3B3040"), "color.danger.focus-ring");
+        return ResolveColor(Color::FromHex("#FF3B30"), "color.danger");
     }
-    return ResolveColor(Color::FromHex("#0E7AFF66"), "color.brand.primary.focus-ring");
+    return ResolveColor(Color::FromHex("#0E7AFF"), "color.brand.primary");
 }
 
 float Button::ResolveOpacity() const {
